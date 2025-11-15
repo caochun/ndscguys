@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人事管理系统</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>人事管理系统</h1>
+        </header>
+
+        <div class="filter-bar">
+            <label for="companyFilter">选择公司：</label>
+            <select id="companyFilter" class="company-select">
+                <option value="">全部公司</option>
+            </select>
+        </div>
+
+        <div class="toolbar">
+            <button id="addBtn" class="btn btn-primary">新增员工</button>
+            <button id="editBtn" class="btn btn-secondary">编辑员工</button>
+            <button id="deleteBtn" class="btn btn-danger">删除员工</button>
+            <button id="refreshBtn" class="btn btn-info">刷新</button>
+        </div>
+
+        <div class="table-container">
+            <table id="employeeTable">
+                <thead>
+                    <tr>
+                        <th>头像</th>
+                        <th>ID</th>
+                        <th>员工编号</th>
+                        <th>姓名</th>
+                        <th>性别</th>
+                        <th>手机</th>
+                        <th>邮箱</th>
+                        <th>公司</th>
+                        <th>部门</th>
+                        <th>职位</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="employeeTableBody">
+                    <tr>
+                        <td colspan="11" class="loading">加载中...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="statusBar" class="status-bar">就绪</div>
+    </div>
+
+    <!-- 任职历史抽屉 -->
+    <div id="historyDrawer" class="drawer">
+        <div class="drawer-overlay"></div>
+        <div class="drawer-content">
+            <div class="drawer-header">
+                <h2 id="historyDrawerTitle">任职历史</h2>
+                <button class="drawer-close" id="closeHistoryDrawer">&times;</button>
+            </div>
+            <div class="drawer-body">
+                <div id="historyContent" class="history-content">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 员工编辑对话框 -->
+    <div id="employeeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">新增员工</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="employeeForm">
+                    <input type="hidden" id="employeeId">
+                    
+                    <div class="form-group">
+                        <h3>个人信息（不变动）</h3>
+                        <div class="form-row">
+                            <label for="employeeNumber">员工编号 *</label>
+                            <input type="text" id="employeeNumber" required>
+                        </div>
+                        <div class="form-row">
+                            <label for="name">姓名 *</label>
+                            <input type="text" id="name" required>
+                        </div>
+                        <div class="form-row">
+                            <label for="birthDate">出生日期</label>
+                            <input type="date" id="birthDate">
+                        </div>
+                        <div class="form-row">
+                            <label for="gender">性别</label>
+                            <select id="gender">
+                                <option value="">请选择</option>
+                                <option value="男">男</option>
+                                <option value="女">女</option>
+                                <option value="其他">其他</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label for="phone">手机</label>
+                            <input type="tel" id="phone">
+                        </div>
+                        <div class="form-row">
+                            <label for="email">邮箱</label>
+                            <input type="email" id="email">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <h3>入职信息（会变动）</h3>
+                        <div class="form-row">
+                            <label for="department">部门 *</label>
+                            <input type="text" id="department" required>
+                        </div>
+                        <div class="form-row">
+                            <label for="position">职位 *</label>
+                            <input type="text" id="position" required>
+                        </div>
+                        <div class="form-row">
+                            <label for="supervisor">上级</label>
+                            <select id="supervisor">
+                                <option value="">（无）</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label for="hireDate">入职时间 *</label>
+                            <input type="date" id="hireDate" required>
+                        </div>
+                        <div class="form-row" id="changeReasonRow" style="display: none;">
+                            <label for="changeReason">变更原因</label>
+                            <input type="text" id="changeReason" placeholder="如果入职信息有变更，请填写变更原因">
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">保存</button>
+                        <button type="button" class="btn btn-secondary" id="cancelBtn">取消</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
+
