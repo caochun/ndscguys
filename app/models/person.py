@@ -12,6 +12,7 @@ class Person:
                  gender: Optional[str] = None,
                  phone: Optional[str] = None,
                  email: Optional[str] = None,
+                 address: Optional[str] = None,
                  id: Optional[int] = None,
                  created_at: Optional[str] = None,
                  updated_at: Optional[str] = None):
@@ -21,6 +22,7 @@ class Person:
         self.gender = gender
         self.phone = phone
         self.email = email
+        self.address = address
         self.created_at = created_at
         self.updated_at = updated_at
     
@@ -33,6 +35,7 @@ class Person:
             'gender': self.gender,
             'phone': self.phone,
             'email': self.email,
+            'address': self.address,
             'created_at': self.created_at,
             'updated_at': self.updated_at
         }
@@ -47,6 +50,7 @@ class Person:
             gender=row['gender'],
             phone=row['phone'],
             email=row['email'],
+            address=row['address'],
             created_at=row['created_at'],
             updated_at=row['updated_at']
         )

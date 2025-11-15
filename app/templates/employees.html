@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>员工管理 - 人事管理系统</title>
+    <!-- Materialize CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="blue darken-2">
+        <div class="nav-wrapper container">
+            <a href="{{ url_for('main.index') }}" class="brand-logo">人事管理系统</a>
+            <ul class="right hide-on-med-and-down">
+                <li><a href="{{ url_for('main.employees') }}" class="active"><i class="material-icons left">people</i>员工</a></li>
+                <li><a href="{{ url_for('main.persons') }}"><i class="material-icons left">person</i>人员</a></li>
+                <li><a href="{{ url_for('main.attendance') }}"><i class="material-icons left">access_time</i>考勤</a></li>
+            </ul>
+            <ul class="sidenav" id="mobile-nav">
+                <li><a href="{{ url_for('main.employees') }}" class="active"><i class="material-icons left">people</i>员工</a></li>
+                <li><a href="{{ url_for('main.persons') }}"><i class="material-icons left">person</i>人员</a></li>
+                <li><a href="{{ url_for('main.attendance') }}"><i class="material-icons left">access_time</i>考勤</a></li>
+            </ul>
+            <a href="#" data-target="mobile-nav" class="sidenav-trigger"><i class="material-icons">menu</i></a>
+        </div>
+    </nav>
+
+    <div class="container" style="margin-top: 20px;">
+        <div id="employeeCardsContainer" class="row">
+            <div class="col s12 center-align">
+                <div class="preloader-wrapper big active">
+                    <div class="spinner-layer spinner-blue-only">
+                        <div class="circle-clipper left">
+                            <div class="circle"></div>
+                        </div>
+                        <div class="gap-patch">
+                            <div class="circle"></div>
+                        </div>
+                        <div class="circle-clipper right">
+                            <div class="circle"></div>
+                        </div>
+                    </div>
+                </div>
+                <p>加载中...</p>
+            </div>
+        </div>
+
+        <!-- 状态栏 -->
+        <div id="statusBar" class="card-panel teal lighten-2 white-text" style="margin-top: 20px; padding: 10px 20px;">
+            <span id="statusText">就绪</span>
+        </div>
+    </div>
+
+    <!-- 员工详情模态框 -->
+    <div id="employeeDetailModal" class="modal" style="width: 90%; max-width: 900px;">
+        <div class="modal-content" style="padding: 0;">
+            <div class="card" style="margin: 0;">
+                <div class="card-content" style="padding: 16px 20px;">
+                    <h5 id="employeeDetailTitle" class="card-title" style="margin-bottom: 12px; font-size: 1.3rem;">员工详情</h5>
+                    
+                    <!-- 标签页导航 -->
+                    <ul class="tabs tabs-fixed-width" id="employeeDetailTabs">
+                        <li class="tab"><a href="#personalInfoTab" class="active">个人信息</a></li>
+                        <li class="tab"><a href="#employmentInfoTab">任职信息</a></li>
+                        <li class="tab"><a href="#salaryInfoTab">薪资信息</a></li>
+                        <li class="tab" id="historyTabItem" style="display: none;"><a href="#historyTab">任职历史</a></li>
+                    </ul>
+                    
+                    <!-- 标签页内容 -->
+                    <div id="personalInfoTab" class="col s12" style="padding: 10px 0;">
+                        <div id="personalInfoContent">
+                            <div class="center-align">
+                                <div class="preloader-wrapper active">
+                                    <div class="spinner-layer spinner-blue-only">
+                                        <div class="circle-clipper left">
+                                            <div class="circle"></div>
+                                        </div>
+                                        <div class="gap-patch">
+                                            <div class="circle"></div>
+                                        </div>
+                                        <div class="circle-clipper right">
+                                            <div class="circle"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p>加载中...</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="employmentInfoTab" class="col s12" style="padding: 10px 0;">
+                        <div id="employmentInfoContent">
+                            <div class="center-align">
+                                <div class="preloader-wrapper active">
+                                    <div class="spinner-layer spinner-blue-only">
+                                        <div class="circle-clipper left">
+                                            <div class="circle"></div>
+                                        </div>
+                                        <div class="gap-patch">
+                                            <div class="circle"></div>
+                                        </div>
+                                        <div class="circle-clipper right">
+                                            <div class="circle"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p>加载中...</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="salaryInfoTab" class="col s12" style="padding: 10px 0;">
+                        <div id="salaryInfoContent">
+                            <div class="center-align grey-text" style="padding: 30px 0;">
+                                <i class="material-icons large">account_balance_wallet</i>
+                                <p>薪资信息功能待开发</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="historyTab" class="col s12" style="padding: 10px 0;">
+                        <div id="historyContent" class="history-content">
+                            <div class="center-align">
+                                <div class="preloader-wrapper active">
+                                    <div class="spinner-layer spinner-blue-only">
+                                        <div class="circle-clipper left">
+                                            <div class="circle"></div>
+                                        </div>
+                                        <div class="gap-patch">
+                                            <div class="circle"></div>
+                                        </div>
+                                        <div class="circle-clipper right">
+                                            <div class="circle"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p>加载中...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-close waves-effect waves-green btn-flat">关闭</button>
+        </div>
+    </div>
+
+    <!-- Materialize JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script src="{{ url_for('static', filename='js/employees.js') }}"></script>
+</body>
+</html>
+

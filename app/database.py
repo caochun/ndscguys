@@ -42,10 +42,18 @@ class Database:
                 gender TEXT,
                 phone TEXT,
                 email TEXT,
+                address TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        
+        # 如果表已存在但没有 address 列，则添加该列
+        try:
+            cursor.execute("ALTER TABLE persons ADD COLUMN address TEXT")
+        except sqlite3.OperationalError:
+            # 列已存在，忽略错误
+            pass
         
         # 创建员工表（关联人员和公司）
         cursor.execute("""
@@ -54,6 +62,7 @@ class Database:
                 person_id INTEGER NOT NULL,
                 company_name TEXT NOT NULL,
                 employee_number TEXT NOT NULL,
+                status TEXT DEFAULT 'active',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (person_id) REFERENCES persons(id) ON DELETE CASCADE,
@@ -63,10 +72,9 @@ class Database:
         
         # 创建当前入职信息表
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS employment_info (
+            CREATE TABLE IF NOT EXISTS employment (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 employee_id INTEGER NOT NULL,
-                company_name TEXT NOT NULL,
                 department TEXT NOT NULL,
                 position TEXT NOT NULL,
                 supervisor_id INTEGER,
@@ -82,10 +90,9 @@ class Database:
         
         # 创建入职信息历史表
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS employment_info_history (
+            CREATE TABLE IF NOT EXISTS employment_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 employee_id INTEGER NOT NULL,
-                company_name TEXT NOT NULL,
                 department TEXT NOT NULL,
                 position TEXT NOT NULL,
                 supervisor_id INTEGER,
@@ -99,13 +106,66 @@ class Database:
             )
         """)
         
+        # 创建考勤记录表
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS attendance (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                person_id INTEGER NOT NULL,
+                employee_id INTEGER,
+                company_name TEXT NOT NULL,
+                attendance_date DATE NOT NULL,
+                check_in_time TIMESTAMP,
+                check_out_time TIMESTAMP,
+                status TEXT,
+                work_hours REAL,
+                standard_hours REAL DEFAULT 8.0,
+                overtime_hours REAL DEFAULT 0.0,
+                leave_hours REAL DEFAULT 0.0,
+                remark TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (person_id) REFERENCES persons(id) ON DELETE CASCADE,
+                FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE SET NULL,
+                UNIQUE(person_id, company_name, attendance_date)
+            )
+        """)
+        
+        # 创建请假记录表
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS leave_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                person_id INTEGER NOT NULL,
+                employee_id INTEGER,
+                company_name TEXT NOT NULL,
+                leave_date DATE NOT NULL,
+                leave_type TEXT NOT NULL,
+                start_time TIMESTAMP,
+                end_time TIMESTAMP,
+                leave_hours REAL NOT NULL,
+                reason TEXT,
+                status TEXT DEFAULT 'approved',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (person_id) REFERENCES persons(id) ON DELETE CASCADE,
+                FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE SET NULL
+            )
+        """)
+        
         # 创建索引以提高查询性能
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_person_name ON persons(name)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_employee_person_id ON employees(person_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_employee_company ON employees(company_name)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_employment_employee_id ON employment_info(employee_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_history_employee_id ON employment_info_history(employee_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_history_version ON employment_info_history(employee_id, version)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_employment_employee_id ON employment(employee_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_history_employee_id ON employment_history(employee_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_history_version ON employment_history(employee_id, version)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_attendance_person_id ON attendance(person_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_attendance_employee_id ON attendance(employee_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(attendance_date)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_attendance_company ON attendance(company_name)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_leave_person_id ON leave_records(person_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_leave_employee_id ON leave_records(employee_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_leave_date ON leave_records(leave_date)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_leave_company ON leave_records(company_name)")
         
         self.conn.commit()
     

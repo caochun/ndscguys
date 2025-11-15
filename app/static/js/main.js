@@ -1,47 +1,108 @@
 // 全局变量
 let employees = [];
+let persons = [];
 let selectedEmployeeId = null;
+let selectedPersonId = null;
 let isEditMode = false;
 let selectedCompany = '';  // 当前选择的公司
 let currentHistoryEmployeeId = null;  // 当前查看历史的员工ID
+let currentTab = 'employees';  // 当前标签页：'employees' 或 'persons'
+
+// Materialize 组件实例
+let employeeModalInstance = null;
+let personModalInstance = null;
+let historySidenavInstance = null;
 
 // DOM 加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
+    // 初始化 Materialize 组件
+    initMaterializeComponents();
     initEventListeners();
-    loadCompanies();
     loadEmployees();
-    loadSupervisors();
 });
+
+// 初始化 Materialize 组件
+function initMaterializeComponents() {
+    // 初始化模态框
+    const employeeModal = document.getElementById('employeeModal');
+    employeeModalInstance = M.Modal.init(employeeModal, {
+        onCloseEnd: function() {
+            document.getElementById('employeeForm').reset();
+            M.updateTextFields();
+        }
+    });
+    
+    const personModal = document.getElementById('personModal');
+    personModalInstance = M.Modal.init(personModal, {
+        onCloseEnd: function() {
+            document.getElementById('personForm').reset();
+            M.updateTextFields();
+        }
+    });
+    
+    // 初始化侧边栏（历史记录）
+    const historySidenav = document.getElementById('historyDrawer');
+    historySidenavInstance = M.Sidenav.init(historySidenav, {
+        edge: 'right',
+        draggable: false
+    });
+    
+    // 初始化移动端导航侧边栏
+    const mobileNav = document.getElementById('mobile-nav');
+    M.Sidenav.init(mobileNav);
+    
+    // 初始化选择框
+    M.FormSelect.init(document.querySelectorAll('select'));
+    
+    // 初始化日期选择器
+    M.Datepicker.init(document.querySelectorAll('.datepicker'), {
+        format: 'yyyy-mm-dd',
+        autoClose: true,
+        i18n: {
+            cancel: '取消',
+            clear: '清除',
+            done: '确定',
+            months: ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'],
+            monthsShort: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+            weekdays: ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'],
+            weekdaysShort: ['日', '一', '二', '三', '四', '五', '六'],
+            weekdaysAbbrev: ['日', '一', '二', '三', '四', '五', '六']
+        }
+    });
+}
 
 // 初始化事件监听器
 function initEventListeners() {
-    // 公司筛选
-    document.getElementById('companyFilter').addEventListener('change', function(e) {
-        selectedCompany = e.target.value;
-        loadEmployees();
+    // 导航链接切换
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const tab = this.dataset.tab;
+            switchTab(tab);
+        });
     });
 
-    // 工具栏按钮
-    document.getElementById('addBtn').addEventListener('click', showAddModal);
-    document.getElementById('editBtn').addEventListener('click', showEditModal);
-    document.getElementById('deleteBtn').addEventListener('click', deleteEmployee);
-    document.getElementById('refreshBtn').addEventListener('click', loadEmployees);
+    // 人员页面工具栏按钮
+    document.getElementById('addPersonBtn').addEventListener('click', showAddPersonModal);
+    document.getElementById('editPersonBtn').addEventListener('click', showEditPersonModal);
+    document.getElementById('refreshPersonsBtn').addEventListener('click', loadPersons);
 
-    // 模态框
-    const modal = document.getElementById('employeeModal');
-    const closeBtn = document.querySelector('.close');
-    const cancelBtn = document.getElementById('cancelBtn');
-
-    closeBtn.addEventListener('click', closeModal);
-    cancelBtn.addEventListener('click', closeModal);
-    window.addEventListener('click', function(event) {
-        if (event.target === modal) {
-            closeModal();
+    // 模态框关闭按钮（Materialize会自动处理，这里保留以防需要额外逻辑）
+    document.getElementById('cancelBtn').addEventListener('click', function() {
+        if (employeeModalInstance) {
+            employeeModalInstance.close();
+        }
+    });
+    
+    document.getElementById('cancelPersonBtn').addEventListener('click', function() {
+        if (personModalInstance) {
+            personModalInstance.close();
         }
     });
 
     // 表单提交
     document.getElementById('employeeForm').addEventListener('submit', saveEmployee);
+    document.getElementById('personForm').addEventListener('submit', savePerson);
 
     // 表格行点击选择和历史按钮点击（使用事件委托）
     document.getElementById('employeeTableBody').addEventListener('click', function(e) {
@@ -64,51 +125,238 @@ function initEventListeners() {
         }
     });
 
-    // 历史抽屉关闭按钮
+    // 历史侧边栏关闭按钮
     document.getElementById('closeHistoryDrawer').addEventListener('click', closeHistoryDrawer);
-    document.querySelector('.drawer-overlay').addEventListener('click', closeHistoryDrawer);
+
+    // 人员表格行点击选择（使用事件委托）
+    document.getElementById('personTableBody').addEventListener('click', function(e) {
+        const row = e.target.closest('tr');
+        if (row && row.dataset.personId) {
+            // 移除之前的选中状态
+            document.querySelectorAll('#personTableBody tr').forEach(r => r.classList.remove('selected'));
+            // 添加选中状态
+            row.classList.add('selected');
+            selectedPersonId = parseInt(row.dataset.personId);
+        }
+    });
 }
 
-// 加载公司列表
+// 切换标签页
+function switchTab(tab) {
+    currentTab = tab;
+    
+    // 更新导航链接状态（包括桌面端和移动端）
+    document.querySelectorAll('.nav-link').forEach(link => {
+        if (link.dataset.tab === tab) {
+            link.classList.add('active');
+        } else {
+            link.classList.remove('active');
+        }
+    });
+    
+    // 更新页面内容显示
+    document.querySelectorAll('.tab-content').forEach(content => {
+        if (content.id === tab + 'Page') {
+            content.classList.add('active');
+        } else {
+            content.classList.remove('active');
+        }
+    });
+    
+    // 关闭移动端侧边栏（如果打开）
+    const mobileNav = M.Sidenav.getInstance(document.getElementById('mobile-nav'));
+    if (mobileNav && mobileNav.isOpen) {
+        mobileNav.close();
+    }
+    
+    // 根据标签页加载数据
+    if (tab === 'employees') {
+        loadEmployees();
+    } else if (tab === 'persons') {
+        loadPersons();
+    }
+}
+
+// 加载人员列表
+async function loadPersons() {
+    try {
+        updateStatus('加载中...');
+        const response = await fetch('/api/persons');
+        const result = await response.json();
+
+        if (result.success) {
+            persons = result.data;
+            renderPersonTable(persons);
+            updateStatus(`已加载 ${persons.length} 名人员`);
+        } else {
+            showError('加载人员列表失败：' + result.error);
+            updateStatus('加载失败');
+        }
+    } catch (error) {
+        showError('加载人员列表失败：' + error.message);
+        updateStatus('加载失败');
+    }
+}
+
+// 渲染人员表格
+function renderPersonTable(persons) {
+    const tbody = document.getElementById('personTableBody');
+    
+    if (persons.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">暂无人员数据</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = persons.map(person => {
+        return `
+        <tr data-person-id="${person.id}">
+            <td>${person.id}</td>
+            <td>${person.name || '-'}</td>
+            <td>${person.birth_date || '-'}</td>
+            <td>${person.gender || '-'}</td>
+            <td>${person.phone || '-'}</td>
+            <td>${person.email || '-'}</td>
+            <td>${person.created_at || '-'}</td>
+            <td>${person.updated_at || '-'}</td>
+        </tr>
+        `;
+    }).join('');
+}
+
+// 显示新增人员模态框
+function showAddPersonModal() {
+    isEditMode = false;
+    selectedPersonId = null;
+    document.getElementById('personModalTitle').textContent = '新增人员';
+    document.getElementById('personForm').reset();
+    document.getElementById('personId').value = '';
+    document.getElementById('personModal').style.display = 'block';
+}
+
+// 显示编辑人员模态框
+function showEditPersonModal() {
+    if (!selectedPersonId) {
+        M.toast({html: '请先选择要编辑的人员', classes: 'orange'});
+        return;
+    }
+    
+    isEditMode = true;
+    const person = persons.find(p => p.id === selectedPersonId);
+    if (!person) {
+        M.toast({html: '人员不存在', classes: 'red'});
+        return;
+    }
+    
+    document.getElementById('personModalTitle').textContent = '编辑人员';
+    document.getElementById('personId').value = person.id;
+    document.getElementById('personName').value = person.name || '';
+    document.getElementById('personBirthDate').value = person.birth_date || '';
+    document.getElementById('personGender').value = person.gender || '';
+    document.getElementById('personPhone').value = person.phone || '';
+    document.getElementById('personEmail').value = person.email || '';
+    
+    M.updateTextFields();
+    M.FormSelect.init(document.getElementById('personGender'));
+    if (personModalInstance) {
+        personModalInstance.open();
+    }
+}
+
+// 关闭人员模态框
+function closePersonModal() {
+    if (personModalInstance) {
+        personModalInstance.close();
+    }
+    isEditMode = false;
+    selectedPersonId = null;
+}
+
+// 保存人员
+async function savePerson(e) {
+    e.preventDefault();
+    
+    const personId = document.getElementById('personId').value;
+    const name = document.getElementById('personName').value.trim();
+    
+    if (!name) {
+        alert('姓名不能为空');
+        return;
+    }
+    
+    const personData = {
+        name: name,
+        birth_date: document.getElementById('personBirthDate').value || null,
+        gender: document.getElementById('personGender').value || null,
+        phone: document.getElementById('personPhone').value || null,
+        email: document.getElementById('personEmail').value || null
+    };
+    
+    try {
+        updateStatus('保存中...');
+        let response;
+        
+        if (personId) {
+            // 更新
+            response = await fetch(`/api/persons/${personId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(personData)
+            });
+        } else {
+            // 创建
+            response = await fetch('/api/persons', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(personData)
+            });
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            updateStatus(result.message || '保存成功');
+            closePersonModal();
+            loadPersons();
+        } else {
+            showError('保存失败：' + result.error);
+            updateStatus('保存失败');
+        }
+    } catch (error) {
+        showError('保存失败：' + error.message);
+        updateStatus('保存失败');
+    }
+}
+
+// 加载公司列表（已废弃，保留以备将来使用）
 async function loadCompanies() {
     try {
         const response = await fetch('/api/companies');
         const result = await response.json();
-
         if (result.success) {
-            const companySelect = document.getElementById('companyFilter');
-            // 保留"全部公司"选项，添加其他公司
-            companySelect.innerHTML = '<option value="">全部公司</option>';
-            result.data.forEach(company => {
-                const option = document.createElement('option');
-                option.value = company;
-                option.textContent = company;
-                companySelect.appendChild(option);
-            });
+            // 公司下拉框已移除，此函数保留以备将来使用
+            return result.data;
         }
     } catch (error) {
         console.error('加载公司列表失败：', error);
     }
+    return [];
 }
 
 // 加载员工列表
 async function loadEmployees() {
     try {
         updateStatus('加载中...');
-        // 根据选择的公司构建URL
-        let url = '/api/employees';
-        if (selectedCompany) {
-            url += `?company_name=${encodeURIComponent(selectedCompany)}`;
-        }
-        
-        const response = await fetch(url);
+        const response = await fetch('/api/employees');
         const result = await response.json();
 
         if (result.success) {
             employees = result.data;
             renderEmployeeTable(employees);
-            const companyText = selectedCompany ? `（${selectedCompany}）` : '';
-            updateStatus(`已加载 ${employees.length} 名员工${companyText}`);
+            updateStatus(`已加载 ${employees.length} 名员工`);
         } else {
             showError('加载员工列表失败：' + result.error);
             updateStatus('加载失败');
@@ -213,21 +461,27 @@ function showAddModal() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('hireDate').value = today;
     
-    // 如果已选择公司，默认填充公司名称
+    // 如果已选择公司，默认填充公司名称（新增模式下）
     if (selectedCompany) {
         document.getElementById('companyName').value = selectedCompany;
+    } else {
+        document.getElementById('companyName').value = '';
     }
     
     // 重新加载上级列表（根据选择的公司）
     loadSupervisors();
     
-    document.getElementById('employeeModal').style.display = 'block';
+    M.updateTextFields();
+    M.FormSelect.init(document.querySelectorAll('select'));
+    if (employeeModalInstance) {
+        employeeModalInstance.open();
+    }
 }
 
 // 显示编辑模态框
 async function showEditModal() {
     if (!selectedEmployeeId) {
-        alert('请先选择要编辑的员工');
+        M.toast({html: '请先选择要编辑的员工', classes: 'orange'});
         return;
     }
 
@@ -261,7 +515,11 @@ async function showEditModal() {
             // 重新加载上级列表（根据员工的公司）
             loadSupervisors(emp.company_name);
             
-            document.getElementById('employeeModal').style.display = 'block';
+            M.updateTextFields();
+            M.FormSelect.init(document.querySelectorAll('select'));
+            if (employeeModalInstance) {
+                employeeModalInstance.open();
+            }
             updateStatus('就绪');
         } else {
             showError('加载员工信息失败：' + result.error);
@@ -273,8 +531,9 @@ async function showEditModal() {
 
 // 关闭模态框
 function closeModal() {
-    document.getElementById('employeeModal').style.display = 'none';
-    document.getElementById('employeeForm').reset();
+    if (employeeModalInstance) {
+        employeeModalInstance.close();
+    }
     selectedEmployeeId = null;
 }
 
@@ -343,7 +602,12 @@ async function saveEmployee(e) {
         if (result.success) {
             closeModal();
             loadEmployees();
-            updateStatus(isEditMode ? '员工信息更新成功' : '员工添加成功');
+            if (result.new_employee_id) {
+                // 换公司成功，提示用户
+                updateStatus('员工换公司成功，已创建新的员工记录');
+            } else {
+                updateStatus(isEditMode ? '员工信息更新成功' : '员工添加成功');
+            }
         } else {
             showError('保存失败：' + result.error);
             updateStatus('保存失败');
@@ -450,10 +714,18 @@ function renderHistoryList(history) {
         });
     };
     
+    // 检测换公司（通过比较相邻记录的公司名称）
+    let prevCompany = null;
+    
     return `
         <div class="history-list">
-            ${history.map((h) => `
-                <div class="history-item ${h.is_current ? 'current' : ''}">
+            ${history.map((h, index) => {
+                const isCompanyChange = prevCompany && prevCompany !== h.company_name;
+                prevCompany = h.company_name;
+                
+                return `
+                <div class="history-item ${h.is_current ? 'current' : ''} ${isCompanyChange ? 'company-change' : ''}">
+                    ${isCompanyChange ? '<div class="company-change-badge">换公司</div>' : ''}
                     <div class="history-header">
                         <span class="history-version">版本 ${h.version}</span>
                         ${h.is_current ? '<span class="history-badge">当前</span>' : ''}
@@ -462,8 +734,14 @@ function renderHistoryList(history) {
                     <div class="history-details">
                         <div class="history-row">
                             <span class="history-label">公司：</span>
-                            <span class="history-value">${h.company_name || '-'}</span>
+                            <span class="history-value ${isCompanyChange ? 'highlight' : ''}">${h.company_name || '-'}</span>
                         </div>
+                        ${h.employee_number ? `
+                        <div class="history-row">
+                            <span class="history-label">员工编号：</span>
+                            <span class="history-value">${h.employee_number}</span>
+                        </div>
+                        ` : ''}
                         <div class="history-row">
                             <span class="history-label">部门：</span>
                             <span class="history-value">${h.department || '-'}</span>
@@ -484,14 +762,16 @@ function renderHistoryList(history) {
                         ` : ''}
                     </div>
                 </div>
-            `).join('')}
+            `;
+            }).join('')}
         </div>
     `;
 }
 
 // 关闭历史抽屉
 function closeHistoryDrawer() {
-    const drawer = document.getElementById('historyDrawer');
-    drawer.classList.remove('active');
+    if (historySidenavInstance) {
+        historySidenavInstance.close();
+    }
     currentHistoryEmployeeId = null;
 }

@@ -1,45 +1,40 @@
 """
-入职信息历史模型
+入职信息模型
 """
 from typing import Optional
 
 
-class EmploymentInfoHistory:
-    """入职信息历史模型"""
+class Employment:
+    """入职信息模型"""
     
     def __init__(self, employee_id: int, department: str, position: str,
-                 hire_date: str, version: int, company_name: str,
+                 hire_date: str,
                  supervisor_id: Optional[int] = None,
-                 change_reason: Optional[str] = None,
-                 changed_at: Optional[str] = None,
-                 id: Optional[int] = None,
-                 created_at: Optional[str] = None):
+                 version: int = 1, id: Optional[int] = None,
+                 created_at: Optional[str] = None,
+                 updated_at: Optional[str] = None):
         self.id = id
         self.employee_id = employee_id
-        self.company_name = company_name
         self.department = department
         self.position = position
         self.supervisor_id = supervisor_id
         self.hire_date = hire_date
         self.version = version
-        self.change_reason = change_reason
-        self.changed_at = changed_at
         self.created_at = created_at
+        self.updated_at = updated_at
     
     def to_dict(self):
         """转换为字典"""
         return {
             'id': self.id,
             'employee_id': self.employee_id,
-            'company_name': self.company_name,
             'department': self.department,
             'position': self.position,
             'supervisor_id': self.supervisor_id,
             'hire_date': self.hire_date,
             'version': self.version,
-            'change_reason': self.change_reason,
-            'changed_at': self.changed_at,
-            'created_at': self.created_at
+            'created_at': self.created_at,
+            'updated_at': self.updated_at
         }
     
     @classmethod
@@ -48,14 +43,13 @@ class EmploymentInfoHistory:
         return cls(
             id=row['id'],
             employee_id=row['employee_id'],
-            company_name=row['company_name'],
             department=row['department'],
             position=row['position'],
             supervisor_id=row['supervisor_id'],
             hire_date=row['hire_date'],
             version=row['version'],
-            change_reason=row['change_reason'],
-            changed_at=row['changed_at'],
-            created_at=row['created_at']
+            created_at=row['created_at'],
+            updated_at=row['updated_at']
         )
+
 

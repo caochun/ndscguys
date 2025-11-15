@@ -1,18 +1,119 @@
 """
 员工信息管理服务
 """
-import sqlite3
 from typing import List, Optional, Dict
-from datetime import datetime
-from app.database import get_db
-from app.models import Person, Employee, EmploymentInfo, EmploymentInfoHistory
+from dataclasses import dataclass
+from app.models import Person, Employee, Employment, EmploymentHistory
+from app.daos import PersonDAO, EmployeeDAO, EmploymentDAO
+
+
+@dataclass
+class EmploymentHistoryItem:
+    """任职历史记录项（包含 Employment/EmploymentHistory 和 Employee 信息）"""
+    employment: Optional[Employment]  # 当前任职信息（如果是当前记录）
+    employment_history: Optional[EmploymentHistory]  # 历史记录（如果是历史记录）
+    employee: Employee  # 所属的员工记录（用于获取 company_name, employee_number）
+    is_current: bool  # 是否为当前查看的 employee
+    
+    def to_dict(self) -> Dict:
+        """转换为字典（用于 JSON 序列化）"""
+        if self.employment:
+            # 当前任职信息
+            return {
+                'id': self.employment.id,
+                'version': self.employment.version,
+                'department': self.employment.department,
+                'position': self.employment.position,
+                'hire_date': self.employment.hire_date,
+                'supervisor_id': self.employment.supervisor_id,
+                'changed_at': self.employment.updated_at or '',  # 使用updated_at作为时间戳
+                'change_reason': None,  # 当前任职没有变更原因
+                'company_name': self.employee.company_name,
+                'employee_number': self.employee.employee_number,
+                'is_current': self.is_current
+            }
+        else:
+            # 历史记录
+            return {
+                'id': self.employment_history.id,
+                'version': self.employment_history.version,
+                'department': self.employment_history.department,
+                'position': self.employment_history.position,
+                'hire_date': self.employment_history.hire_date,
+                'supervisor_id': self.employment_history.supervisor_id,
+                'changed_at': self.employment_history.changed_at or '',
+                'change_reason': self.employment_history.change_reason,
+                'company_name': self.employee.company_name,
+                'employee_number': self.employee.employee_number,
+                'is_current': False  # 历史记录总是 False
+            }
+
+
+@dataclass
+class EmployeeWithEmployment:
+    """员工完整信息（包含 Person、Employee 和 Employment）"""
+    person: Optional[Person]
+    employee: Employee
+    employment: Optional[Employment]
+    has_history: bool
+    
+    def to_dict(self) -> Dict:
+        """转换为字典（用于 JSON 序列化）"""
+        return {
+            'person': self.person,
+            'employee': self.employee,
+            'employment': self.employment,
+            'has_history': self.has_history
+        }
+
+
+@dataclass
+class SupervisorInfo:
+    """上级信息"""
+    id: int
+    name: str
+    employee_number: str
+    company_name: str
+    
+    def to_dict(self) -> Dict:
+        """转换为字典（用于 JSON 序列化）"""
+        return {
+            'id': self.id,
+            'name': self.name,
+            'employee_number': self.employee_number,
+            'company_name': self.company_name
+        }
+
+
+@dataclass
+class PersonWorkHistoryItem:
+    """人员工作历史项"""
+    employee_id: int
+    company_name: str
+    employee_number: str
+    department: Optional[str]
+    position: Optional[str]
+    hire_date: Optional[str]
+    
+    def to_dict(self) -> Dict:
+        """转换为字典（用于 JSON 序列化）"""
+        return {
+            'employee_id': self.employee_id,
+            'company_name': self.company_name,
+            'employee_number': self.employee_number,
+            'department': self.department,
+            'position': self.position,
+            'hire_date': self.hire_date
+        }
 
 
 class EmployeeService:
     """员工信息管理服务类"""
     
     def __init__(self):
-        self.db = get_db()
+        self.person_dao = PersonDAO()
+        self.employee_dao = EmployeeDAO()
+        self.employment_dao = EmploymentDAO()
     
     # ========== 人员基本信息管理 ==========
     
@@ -26,63 +127,60 @@ class EmployeeService:
         Returns:
             新创建人员的ID
         """
-        conn = self.db.get_connection()
-        cursor = conn.cursor()
-        
-        try:
-            cursor.execute("""
-                INSERT INTO persons (name, birth_date, gender, phone, email)
-                VALUES (?, ?, ?, ?, ?)
-            """, (
-                person.name,
-                person.birth_date,
-                person.gender,
-                person.phone,
-                person.email
-            ))
-            person_id = cursor.lastrowid
-            conn.commit()
-            return person_id
-        except Exception as e:
-            conn.rollback()
-            raise ValueError(f"创建人员失败：{str(e)}") from e
+        return self.person_dao.create(person)
     
     def get_person(self, person_id: int) -> Optional[Person]:
         """根据ID获取人员信息"""
-        conn = self.db.get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT * FROM persons WHERE id = ?", (person_id,))
-        row = cursor.fetchone()
-        
-        if row:
-            return Person.from_row(row)
-        return None
+        return self.person_dao.get_by_id(person_id)
+    
+    def get_all_persons(self) -> List[Person]:
+        """获取所有人员列表"""
+        return self.person_dao.get_all()
     
     def update_person(self, person: Person) -> bool:
         """更新人员信息"""
-        if person.id is None:
-            raise ValueError("人员ID不能为空")
+        return self.person_dao.update(person)
+    
+    def find_or_create_person(self, person: Person) -> int:
+        """
+        查找或创建人员（根据手机号或邮箱匹配）
         
-        conn = self.db.get_connection()
-        cursor = conn.cursor()
+        业务逻辑：
+        1. 如果提供了 phone，先根据 phone 查找
+        2. 如果找到，更新 person 信息，返回 person_id
+        3. 如果没找到且提供了 email，根据 email 查找
+        4. 如果找到，更新 person 信息，返回 person_id
+        5. 如果都没找到，创建新 person，返回 person_id
         
-        cursor.execute("""
-            UPDATE persons 
-            SET name = ?, birth_date = ?, gender = ?, phone = ?, email = ?,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        """, (
-            person.name,
-            person.birth_date,
-            person.gender,
-            person.phone,
-            person.email,
-            person.id
-        ))
+        Args:
+            person: Person 对象（包含人员信息）
         
-        conn.commit()
-        return cursor.rowcount > 0
+        Returns:
+            person_id: 人员ID（已存在或新创建的）
+        """
+        # 检查是否已存在相同的人员（根据手机、邮箱匹配）
+        person_id = None
+        if person.phone:
+            existing_person = self.person_dao.get_by_phone(person.phone)
+            if existing_person:
+                person_id = existing_person.id
+                # 更新人员信息
+                person.id = person_id
+                self.person_dao.update(person)
+        
+        if not person_id and person.email:
+            existing_person = self.person_dao.get_by_email(person.email)
+            if existing_person:
+                person_id = existing_person.id
+                # 更新人员信息
+                person.id = person_id
+                self.person_dao.update(person)
+        
+        # 如果没找到，创建新人员
+        if not person_id:
+            person_id = self.person_dao.create(person)
+        
+        return person_id
     
     # ========== 员工管理 ==========
     
@@ -98,259 +196,298 @@ class EmployeeService:
         Returns:
             新创建员工的ID
         """
-        conn = self.db.get_connection()
-        cursor = conn.cursor()
+        # 使用 find_or_create_person 方法
+        person_id = self.find_or_create_person(person)
         
-        try:
-            # 检查是否已存在相同的人员（根据姓名、手机、邮箱匹配）
-            person_id = None
-            if person.phone or person.email:
-                if person.phone:
-                    cursor.execute("SELECT id FROM persons WHERE phone = ?", (person.phone,))
-                    row = cursor.fetchone()
-                    if row:
-                        person_id = row['id']
-                        # 更新人员信息
-                        person.id = person_id
-                        self.update_person(person)
-                
-                if not person_id and person.email:
-                    cursor.execute("SELECT id FROM persons WHERE email = ?", (person.email,))
-                    row = cursor.fetchone()
-                    if row:
-                        person_id = row['id']
-                        # 更新人员信息
-                        person.id = person_id
-                        self.update_person(person)
-            
-            # 如果没找到，创建新人员
-            if not person_id:
-                person_id = self.create_person(person)
-            
-            # 创建员工记录
-            cursor.execute("""
-                INSERT INTO employees (person_id, company_name, employee_number)
-                VALUES (?, ?, ?)
-            """, (person_id, company_name, employee_number))
-            
-            employee_id = cursor.lastrowid
-            conn.commit()
-            return employee_id
-        except sqlite3.IntegrityError as e:
-            conn.rollback()
-            raise ValueError(f"员工编号 {employee_number} 在公司 {company_name} 中已存在") from e
+        # 创建员工记录
+        return self.employee_dao.create(person_id, company_name, employee_number, 'active')
+    
+    def create_employee_with_employment(
+        self,
+        person_id: int,
+        company_name: str,
+        employee_number: str,
+        department: str,
+        position: str,
+        hire_date: str,
+        supervisor_id: Optional[int] = None
+    ) -> int:
+        """
+        创建员工和入职信息（原子操作）
+        
+        Args:
+            person_id: 人员ID（必填，应该先通过其他接口创建 Person）
+            company_name: 公司名称（必填）
+            employee_number: 员工编号（必填）
+            department: 部门（必填）
+            position: 职位（必填）
+            hire_date: 入职时间（必填）
+            supervisor_id: 上级ID（可选）
+        
+        Returns:
+            employee_id: 新创建的员工ID
+        
+        Raises:
+            ValueError: person_id 不存在、参数验证失败、员工编号重复等
+        """
+        # 1. 验证 person_id 是否存在
+        person = self.person_dao.get_by_id(person_id)
+        if not person:
+            raise ValueError(f"人员ID {person_id} 不存在")
+        
+        # 2. 验证必填字段
+        if not company_name:
+            raise ValueError("公司名称不能为空")
+        if not employee_number:
+            raise ValueError("员工编号不能为空")
+        if not department:
+            raise ValueError("部门不能为空")
+        if not position:
+            raise ValueError("职位不能为空")
+        if not hire_date:
+            raise ValueError("入职时间不能为空")
+        
+        # 3. 创建员工记录
+        employee_id = self.employee_dao.create(person_id, company_name, employee_number, 'active')
+        
+        # 4. 创建入职信息
+        employment = Employment(
+            employee_id=employee_id,
+            department=department,
+            position=position,
+            hire_date=hire_date,
+            supervisor_id=supervisor_id,
+            version=1
+        )
+        self.employment_dao.create(employment)
+        
+        return employee_id
     
     def get_employee(self, employee_id: int) -> Optional[Employee]:
         """根据ID获取员工信息"""
-        conn = self.db.get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT * FROM employees WHERE id = ?", (employee_id,))
-        row = cursor.fetchone()
-        
-        if row:
-            return Employee.from_row(row)
-        return None
+        return self.employee_dao.get_by_id(employee_id)
     
     def get_employee_by_number(self, company_name: str, employee_number: str) -> Optional[Employee]:
         """根据公司名称和员工编号获取员工信息"""
-        conn = self.db.get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT * FROM employees 
-            WHERE company_name = ? AND employee_number = ?
-        """, (company_name, employee_number))
-        row = cursor.fetchone()
-        
-        if row:
-            return Employee.from_row(row)
-        return None
+        return self.employee_dao.get_by_number(company_name, employee_number)
     
-    def get_all_employees(self, company_name: Optional[str] = None) -> List[Employee]:
+    def get_employees(self, company_name: Optional[str] = None, status: Optional[str] = 'active') -> List[Employee]:
         """
-        获取所有员工列表
+        获取员工列表（仅返回Employee对象）
         
         Args:
             company_name: 如果提供，只返回该公司的员工
+            status: 员工状态筛选，默认只返回 'active' 员工。如果为 None，返回所有状态的员工
         """
-        conn = self.db.get_connection()
-        cursor = conn.cursor()
-        
-        if company_name:
-            cursor.execute("""
-                SELECT * FROM employees 
-                WHERE company_name = ?
-                ORDER BY employee_number
-            """, (company_name,))
-        else:
-            cursor.execute("SELECT * FROM employees ORDER BY company_name, employee_number")
-        
-        rows = cursor.fetchall()
-        return [Employee.from_row(row) for row in rows]
+        return self.employee_dao.get_all(company_name, status)
     
     def delete_employee(self, employee_id: int) -> bool:
         """删除员工（不会删除人员信息）"""
-        conn = self.db.get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("DELETE FROM employees WHERE id = ?", (employee_id,))
-        conn.commit()
-        
-        return cursor.rowcount > 0
+        return self.employee_dao.delete(employee_id)
     
     # ========== 入职信息管理 ==========
     
-    def create_employment_info(self, employment_info: EmploymentInfo) -> int:
+    def create_employment(self, employment: Employment) -> int:
         """
         创建入职信息（首次入职）
         
         Args:
-            employment_info: 入职信息对象
+            employment: 入职信息对象
             
         Returns:
             新创建的入职信息ID
         """
-        conn = self.db.get_connection()
-        cursor = conn.cursor()
-        
-        # 检查是否已存在入职信息
-        cursor.execute("SELECT id FROM employment_info WHERE employee_id = ?", 
-                      (employment_info.employee_id,))
-        if cursor.fetchone():
-            raise ValueError("该员工已存在入职信息，请使用更新方法")
-        
-        cursor.execute("""
-            INSERT INTO employment_info 
-            (employee_id, company_name, department, position, supervisor_id, hire_date, version)
-            VALUES (?, ?, ?, ?, ?, ?, 1)
-        """, (
-            employment_info.employee_id,
-            employment_info.company_name,
-            employment_info.department,
-            employment_info.position,
-            employment_info.supervisor_id,
-            employment_info.hire_date
-        ))
-        
-        employment_info_id = cursor.lastrowid
-        conn.commit()
-        return employment_info_id
+        return self.employment_dao.create(employment)
     
-    def get_employment_info(self, employee_id: int) -> Optional[EmploymentInfo]:
+    def get_employment(self, employee_id: int) -> Optional[Employment]:
         """获取员工的当前入职信息"""
-        conn = self.db.get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT * FROM employment_info WHERE employee_id = ?", (employee_id,))
-        row = cursor.fetchone()
-        
-        if row:
-            return EmploymentInfo.from_row(row)
-        return None
+        return self.employment_dao.get_by_employee_id(employee_id)
     
-    def update_employment_info(self, employee_id: int, 
-                              company_name: str,
+    def get_employees_by_person_id(self, person_id: int) -> List[Employee]:
+        """
+        获取指定 person 的所有 employee 记录
+        
+        Args:
+            person_id: 人员ID
+        
+        Returns:
+            该 person 的所有 employee 记录列表
+        """
+        return self.employee_dao.get_by_person_id(person_id)
+    
+    def get_employee_full_history(self, employee_id: int) -> List[EmploymentHistoryItem]:
+        """
+        获取员工在所有公司的完整历史记录（已排序）
+        
+        业务逻辑：
+        1. 获取当前 employee，找到 person_id
+        2. 获取该 person 的所有 employee 记录（包括换公司后的新记录）
+        3. 遍历所有 employee 记录，收集所有任职信息
+        4. 排序：先按 is_current（True在前），再按时间降序
+        
+        Args:
+            employee_id: 员工ID
+        
+        Returns:
+            已排序的历史记录项列表（EmploymentHistoryItem 对象）
+        
+        Raises:
+            ValueError: employee_id 不存在
+        """
+        # 1. 获取当前员工记录，找到 person_id
+        employee = self.employee_dao.get_by_id(employee_id)
+        if not employee:
+            raise ValueError(f"员工ID {employee_id} 不存在")
+        
+        person_id = employee.person_id
+        
+        # 2. 获取该 person 的所有 employee 记录（包括换公司后的新记录）
+        all_employees = self.employee_dao.get_by_person_id(person_id)
+        
+        # 3. 遍历所有 employee 记录，收集所有任职信息
+        result: List[EmploymentHistoryItem] = []
+        for emp in all_employees:
+            # 获取当前任职信息
+            current_employment = self.employment_dao.get_by_employee_id(emp.id)
+            if current_employment:
+                # 判断是否是当前查看的 employee（用于标记 is_current）
+                is_current_employee = (emp.id == employee_id)
+                result.append(EmploymentHistoryItem(
+                    employment=current_employment,
+                    employment_history=None,
+                    employee=emp,
+                    is_current=is_current_employee
+                ))
+            
+            # 获取历史记录
+            history = self.employment_dao.get_history(emp.id)
+            for h in history:
+                result.append(EmploymentHistoryItem(
+                    employment=None,
+                    employment_history=h,
+                    employee=emp,
+                    is_current=False
+                ))
+        
+        # 4. 按时间排序（changed_at降序，最新的在前）
+        # 当前任职优先显示（即使时间相同）
+        # 排序：先按 is_current（True在前），再按时间降序
+        def get_sort_key(item: EmploymentHistoryItem) -> tuple:
+            is_current = item.is_current
+            if item.employment:
+                changed_at = item.employment.updated_at or ''
+            else:
+                changed_at = item.employment_history.changed_at or ''
+            return (is_current, changed_at)
+        
+        result.sort(key=get_sort_key, reverse=True)
+        
+        return result
+    
+    def update_employment(self, employee_id: int, 
                               department: str, position: str,
                               hire_date: str, supervisor_id: Optional[int] = None,
                               change_reason: Optional[str] = None) -> bool:
         """
         更新入职信息（会记录历史版本）
         
-        换公司和换部门没有本质区别，都是更新 employment_info 的字段
+        只处理公司内的岗位变更（部门、职位、上级等），不处理公司变更
+        公司变更应使用 transfer_employee_to_company 方法
         
         Args:
             employee_id: 员工ID
-            company_name: 公司名称（如果变化，会同时更新 employees 表）
             department: 新部门
             position: 新职位
-            hire_date: 入职时间
+            hire_date: 入职时间（通常不变，但允许修改）
             supervisor_id: 上级ID
             change_reason: 变更原因
             
         Returns:
             是否更新成功（如果字段没有变化，返回 False）
         """
-        conn = self.db.get_connection()
-        cursor = conn.cursor()
+        return self.employment_dao.update(
+            employee_id, department, position, hire_date, supervisor_id, change_reason
+        )
+    
+    def update_employment_info(
+        self,
+        employee_id: int,
+        department: str,
+        position: str,
+        hire_date: str,
+        supervisor_id: Optional[int] = None,
+        change_reason: Optional[str] = None
+    ) -> bool:
+        """
+        更新或创建员工的入职信息
         
-        try:
-            # 1. 获取当前入职信息和员工信息
-            cursor.execute("SELECT * FROM employment_info WHERE employee_id = ?", (employee_id,))
-            current_info = cursor.fetchone()
-            
-            if not current_info:
-                raise ValueError("该员工不存在入职信息")
-            
-            # 检查公司是否匹配
-            cursor.execute("SELECT company_name FROM employees WHERE id = ?", (employee_id,))
-            employee = cursor.fetchone()
-            if not employee:
-                raise ValueError("员工不存在")
-            
-            # 允许更新公司名称（换公司和换部门没有本质区别）
-            # 如果公司名称变化，需要同时更新 employees 表
-            if employee['company_name'] != company_name:
-                cursor.execute("""
-                    UPDATE employees 
-                    SET company_name = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                """, (company_name, employee_id))
-            
-            # 2. 检查字段是否有变化
-            fields_changed = (
-                current_info['company_name'] != company_name or
-                current_info['department'] != department or
-                current_info['position'] != position or
-                current_info['hire_date'] != hire_date or
-                (current_info['supervisor_id'] or 0) != (supervisor_id or 0)
+        业务逻辑：
+        1. 如果已有 employment，判断字段是否变化
+        2. 如果有变化，更新 employment（会记录历史版本）
+        3. 如果没有 employment，创建新的 employment
+        4. 如果没有变化，返回 False
+        
+        Args:
+            employee_id: 员工ID
+            department: 部门（必填）
+            position: 职位（必填）
+            hire_date: 入职时间（必填）
+            supervisor_id: 上级ID（可选）
+            change_reason: 变更原因（可选，如果没有提供且字段有变化，使用默认值）
+        
+        Returns:
+            bool: 是否执行了更新或创建操作（如果字段没有变化，返回 False）
+        
+        Raises:
+            ValueError: employee_id 不存在、参数验证失败等
+        """
+        # 1. 验证 employee 是否存在
+        employee = self.employee_dao.get_by_id(employee_id)
+        if not employee:
+            raise ValueError(f"员工ID {employee_id} 不存在")
+        
+        # 2. 验证必填字段
+        if not department:
+            raise ValueError("部门不能为空")
+        if not position:
+            raise ValueError("职位不能为空")
+        if not hire_date:
+            raise ValueError("入职时间不能为空")
+        
+        # 3. 获取当前 employment
+        current_employment = self.employment_dao.get_by_employee_id(employee_id)
+        
+        if current_employment:
+            # 4. 判断字段是否变化
+            has_changed = (
+                department != current_employment.department or
+                position != current_employment.position or
+                hire_date != current_employment.hire_date or
+                (supervisor_id or 0) != (current_employment.supervisor_id or 0)
             )
             
-            if not fields_changed:
-                # 字段没有变化，不更新
+            if has_changed:
+                # 5. 如果有变化，更新 employment（如果没有提供 change_reason，使用默认值）
+                if change_reason is None:
+                    change_reason = '未填写变更原因'
+                return self.employment_dao.update(
+                    employee_id, department, position, hire_date, supervisor_id, change_reason
+                )
+            else:
+                # 6. 如果没有变化，返回 False
                 return False
-            
-            current_version = current_info['version']
-            
-            # 3. 将当前任职信息保存到历史表（设置变更时间、变更原因等字段）
-            cursor.execute("""
-                INSERT INTO employment_info_history 
-                (employee_id, company_name, department, position, supervisor_id, hire_date, version, change_reason, changed_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            """, (
-                employee_id,
-                current_info['company_name'],
-                current_info['department'],
-                current_info['position'],
-                current_info['supervisor_id'],
-                current_info['hire_date'],
-                current_version,
-                change_reason
-            ))
-            
-            # 4. 将新的任职信息存到 employment_info 中
-            new_version = current_version + 1
-            cursor.execute("""
-                UPDATE employment_info 
-                SET company_name = ?, department = ?, position = ?, supervisor_id = ?, 
-                    hire_date = ?, version = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE employee_id = ?
-            """, (
-                company_name,
-                department,
-                position,
-                supervisor_id,
-                hire_date,
-                new_version,
-                employee_id
-            ))
-            
-            conn.commit()
+        else:
+            # 7. 如果没有 employment，创建新的
+            employment = Employment(
+                employee_id=employee_id,
+                department=department,
+                position=position,
+                hire_date=hire_date,
+                supervisor_id=supervisor_id,
+                version=1
+            )
+            self.employment_dao.create(employment)
             return True
-            
-        except Exception as e:
-            conn.rollback()
-            raise
     
     def transfer_employee_to_company(self, employee_id: int,
                                      new_company_name: str,
@@ -359,14 +496,15 @@ class EmployeeService:
                                      hire_date: str, supervisor_id: Optional[int] = None,
                                      change_reason: Optional[str] = None) -> int:
         """
-        将员工转移到新公司（更新 employment_info，包括 company_name）
+        将员工转移到新公司（创建新的employee记录）
         
-        换公司和换部门没有本质区别，都是更新 employment_info 的字段
+        换公司时，创建新的employee记录，而不是更新现有记录
+        旧employee记录保留（用于历史查询），新employee创建新的employment
         
         Args:
-            employee_id: 员工ID
+            employee_id: 原员工ID
             new_company_name: 新公司名称
-            new_employee_number: 新公司中的员工编号（如果与当前不同，需要更新 employees 表）
+            new_employee_number: 新公司中的员工编号
             department: 新部门
             position: 新职位
             hire_date: 新公司的入职时间
@@ -374,199 +512,125 @@ class EmployeeService:
             change_reason: 变更原因
             
         Returns:
-            员工ID（保持不变）
+            新创建的员工ID
         """
-        conn = self.db.get_connection()
-        cursor = conn.cursor()
+        # 1. 获取原员工信息
+        old_employee = self.employee_dao.get_by_id(employee_id)
+        if not old_employee:
+            raise ValueError("员工不存在")
         
-        try:
-            # 1. 获取原员工信息
-            cursor.execute("SELECT * FROM employees WHERE id = ?", (employee_id,))
-            old_employee = cursor.fetchone()
-            if not old_employee:
-                raise ValueError("员工不存在")
-            
-            # 2. 获取原入职信息并保存到历史表
-            cursor.execute("SELECT * FROM employment_info WHERE employee_id = ?", (employee_id,))
-            old_info = cursor.fetchone()
-            
-            if not old_info:
-                raise ValueError("该员工不存在入职信息")
-            
-            # 3. 将当前任职信息保存到历史表（设置变更时间、变更原因等字段）
-            cursor.execute("""
-                INSERT INTO employment_info_history 
-                (employee_id, company_name, department, position, supervisor_id, hire_date, version, change_reason, changed_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            """, (
-                employee_id,
-                old_info['company_name'],
-                old_info['department'],
-                old_info['position'],
-                old_info['supervisor_id'],
-                old_info['hire_date'],
-                old_info['version'],
-                change_reason or f"从 {old_info['company_name']} 转到 {new_company_name}"
-            ))
-            
-            # 4. 更新 employees 表的 company_name 和 employee_number（如果需要）
-            if (old_employee['company_name'] != new_company_name or 
-                old_employee['employee_number'] != new_employee_number):
-                cursor.execute("""
-                    UPDATE employees 
-                    SET company_name = ?, employee_number = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                """, (new_company_name, new_employee_number, employee_id))
-            
-            # 5. 更新 employment_info（包括 company_name，就像更新部门一样）
-            new_version = old_info['version'] + 1
-            cursor.execute("""
-                UPDATE employment_info 
-                SET company_name = ?, department = ?, position = ?, supervisor_id = ?, 
-                    hire_date = ?, version = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE employee_id = ?
-            """, (
-                new_company_name,
-                department,
-                position,
-                supervisor_id,
-                hire_date,
-                new_version,
-                employee_id
-            ))
-            
-            conn.commit()
-            return employee_id
-            
-        except sqlite3.IntegrityError as e:
-            conn.rollback()
-            raise ValueError(f"员工编号 {new_employee_number} 在公司 {new_company_name} 中已存在") from e
-        except Exception as e:
-            conn.rollback()
-            raise
+        person_id = old_employee.person_id
+        
+        # 2. 标记旧employee为inactive
+        self.employee_dao.update_status(employee_id, 'inactive')
+        
+        # 3. 创建新employee记录（新公司）
+        new_employee_id = self.employee_dao.create(person_id, new_company_name, new_employee_number, 'active')
+        
+        # 4. 创建新employment（新公司的职位信息）
+        new_employment = Employment(
+            employee_id=new_employee_id,
+            department=department,
+            position=position,
+            supervisor_id=supervisor_id,
+            hire_date=hire_date,
+            version=1
+        )
+        self.employment_dao.create(new_employment)
+        
+        return new_employee_id
     
-    def get_employment_info_history(self, employee_id: int) -> List[EmploymentInfoHistory]:
+    def get_employment_history(self, employee_id: int) -> List[EmploymentHistory]:
         """获取员工的入职信息历史记录"""
-        conn = self.db.get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT * FROM employment_info_history 
-            WHERE employee_id = ? 
-            ORDER BY version DESC
-        """, (employee_id,))
-        
-        rows = cursor.fetchall()
-        return [EmploymentInfoHistory.from_row(row) for row in rows]
+        return self.employment_dao.get_history(employee_id)
     
-    def get_employee_with_employment_info(self, employee_id: int) -> Optional[Dict]:
+    def update_employee_status(self, employee_id: int, status: str) -> bool:
+        """更新员工状态（active/inactive/terminated）"""
+        return self.employee_dao.update_status(employee_id, status)
+    
+    def get_employee_with_employment(self, employee_id: int) -> Optional[EmployeeWithEmployment]:
         """
         获取员工完整信息（包括人员信息、员工信息和当前入职信息）
         
         Returns:
-            包含person、employee和employment_info的字典
+            EmployeeWithEmployment 对象，如果员工不存在则返回 None
         """
-        employee = self.get_employee(employee_id)
+        employee = self.employee_dao.get_by_id(employee_id)
         if not employee:
             return None
         
-        person = self.get_person(employee.person_id)
-        employment_info = self.get_employment_info(employee_id)
+        person = self.person_dao.get_by_id(employee.person_id)
+        employment = self.employment_dao.get_by_employee_id(employee_id)
         
-        return {
-            'person': person,
-            'employee': employee,
-            'employment_info': employment_info
-        }
+        # 检查是否有历史记录
+        has_history = False
+        if person:
+            employees = self.employee_dao.get_by_person_id(person.id)
+            if len(employees) > 1:
+                has_history = True
+            else:
+                history = self.employment_dao.get_history(employee_id)
+                if len(history) > 0:
+                    has_history = True
+        
+        return EmployeeWithEmployment(
+            person=person,
+            employee=employee,
+            employment=employment,
+            has_history=has_history
+        )
     
-    def get_all_employees_with_info(self, company_name: Optional[str] = None) -> List[Dict]:
+    def get_all_employees_with_employment(self, company_name: Optional[str] = None) -> List[EmployeeWithEmployment]:
         """
         获取所有员工的完整信息（使用JOIN优化查询）
         
         Args:
             company_name: 如果提供，只返回该公司的员工
+        
+        Returns:
+            EmployeeWithEmployment 对象列表
         """
-        conn = self.db.get_connection()
-        cursor = conn.cursor()
+        rows = self.employment_dao.get_all_with_join(company_name)
+        result: List[EmployeeWithEmployment] = []
         
-        # 使用JOIN一次性查询所有数据
-        if company_name:
-            cursor.execute("""
-                SELECT 
-                    e.id as employee_id,
-                    e.person_id,
-                    e.company_name,
-                    e.employee_number,
-                    e.created_at as employee_created_at,
-                    e.updated_at as employee_updated_at,
-                    p.name,
-                    p.birth_date,
-                    p.gender,
-                    p.phone,
-                    p.email,
-                    p.created_at as person_created_at,
-                    p.updated_at as person_updated_at,
-                    ei.id as employment_info_id,
-                    ei.department,
-                    ei.position,
-                    ei.hire_date,
-                    ei.supervisor_id,
-                    ei.version,
-                    ei.created_at as employment_created_at,
-                    ei.updated_at as employment_updated_at,
-                    CASE WHEN eih.id IS NOT NULL THEN 1 ELSE 0 END as has_history
-                FROM employees e
-                LEFT JOIN persons p ON e.person_id = p.id
-                LEFT JOIN employment_info ei ON e.id = ei.employee_id
-                LEFT JOIN (
-                    SELECT DISTINCT employee_id, 1 as id
-                    FROM employment_info_history
-                ) eih ON e.id = eih.employee_id
-                WHERE e.company_name = ?
-                ORDER BY e.employee_number
-            """, (company_name,))
-        else:
-            cursor.execute("""
-                SELECT 
-                    e.id as employee_id,
-                    e.person_id,
-                    e.company_name,
-                    e.employee_number,
-                    e.created_at as employee_created_at,
-                    e.updated_at as employee_updated_at,
-                    p.name,
-                    p.birth_date,
-                    p.gender,
-                    p.phone,
-                    p.email,
-                    p.created_at as person_created_at,
-                    p.updated_at as person_updated_at,
-                    ei.id as employment_info_id,
-                    ei.department,
-                    ei.position,
-                    ei.hire_date,
-                    ei.supervisor_id,
-                    ei.version,
-                    ei.created_at as employment_created_at,
-                    ei.updated_at as employment_updated_at,
-                    CASE WHEN eih.id IS NOT NULL THEN 1 ELSE 0 END as has_history
-                FROM employees e
-                LEFT JOIN persons p ON e.person_id = p.id
-                LEFT JOIN employment_info ei ON e.id = ei.employee_id
-                LEFT JOIN (
-                    SELECT DISTINCT employee_id, 1 as id
-                    FROM employment_info_history
-                ) eih ON e.id = eih.employee_id
-                ORDER BY e.company_name, e.employee_number
-            """)
+        # 预先收集所有 person_id，用于批量查询历史记录
+        person_ids = set()
+        for row in rows:
+            if row['person_id']:
+                person_ids.add(row['person_id'])
         
-        rows = cursor.fetchall()
-        result = []
+        # 批量查询每个 person 的所有 employee 是否有历史记录
+        # 如果有多个 employee 记录（说明换过公司），也应该显示历史按钮
+        person_has_history = {}
+        for person_id in person_ids:
+            # 获取该 person 的所有 employee
+            employees = self.employee_dao.get_by_person_id(person_id)
+            has_any_history = False
+            
+            # 如果有多个 employee 记录，说明换过公司，应该显示历史
+            if len(employees) > 1:
+                has_any_history = True
+            else:
+                # 检查是否有 employment_history 记录
+                for emp in employees:
+                    history = self.employment_dao.get_history(emp.id)
+                    if len(history) > 0:
+                        has_any_history = True
+                        break
+            
+            person_has_history[person_id] = has_any_history
         
         for row in rows:
             # 构建Person对象
             person = None
             if row['person_id']:
+                # 处理 address 字段（可能不存在于旧数据中）
+                address = None
+                try:
+                    address = row['address']
+                except (KeyError, IndexError):
+                    pass
+                
                 person = Person(
                     id=row['person_id'],
                     name=row['name'],
@@ -574,27 +638,28 @@ class EmployeeService:
                     gender=row['gender'],
                     phone=row['phone'],
                     email=row['email'],
+                    address=address,
                     created_at=row['person_created_at'],
                     updated_at=row['person_updated_at']
                 )
             
-            # 构建Employee对象
+            # 构建Employee对象（包含status字段）
             employee = Employee(
                 id=row['employee_id'],
                 person_id=row['person_id'],
                 company_name=row['company_name'],
                 employee_number=row['employee_number'],
+                status=row['status'],
                 created_at=row['employee_created_at'],
                 updated_at=row['employee_updated_at']
             )
             
-            # 构建EmploymentInfo对象
-            employment_info = None
-            if row['employment_info_id']:
-                employment_info = EmploymentInfo(
-                    id=row['employment_info_id'],
+            # 构建Employment对象
+            employment = None
+            if row['employment_id']:
+                employment = Employment(
+                    id=row['employment_id'],
                     employee_id=row['employee_id'],
-                    company_name=row['company_name'],
                     department=row['department'],
                     position=row['position'],
                     hire_date=row['hire_date'],
@@ -604,46 +669,141 @@ class EmployeeService:
                     updated_at=row['employment_updated_at']
                 )
 
-            result.append({
-                'person': person,
-                'employee': employee,
-                'employment_info': employment_info,
-                'has_history': bool(row['has_history'])
-            })
+            # 检查该 person 的所有 employee 是否有历史记录（包括换公司的情况）
+            person_id = row['person_id'] if row['person_id'] else None
+            has_history = person_has_history.get(person_id, False) or bool(row['has_history'])
+
+            result.append(EmployeeWithEmployment(
+                person=person,
+                employee=employee,
+                employment=employment,
+                has_history=has_history
+            ))
         
         return result
     
-    def get_persons_by_company(self, company_name: str) -> List[Dict]:
-        """
-        获取指定公司的所有人员信息（包括员工和入职信息）
-        """
-        return self.get_all_employees_with_info(company_name)
     
-    def get_person_work_history(self, person_id: int) -> List[Dict]:
+    def get_person_work_history(self, person_id: int) -> List[PersonWorkHistoryItem]:
         """
         获取一个人在所有公司的工作历史
+        
+        Returns:
+            PersonWorkHistoryItem 对象列表（已按入职时间降序排序）
         """
-        conn = self.db.get_connection()
-        cursor = conn.cursor()
+        employees = self.employee_dao.get_by_person_id(person_id)
+        result: List[PersonWorkHistoryItem] = []
         
-        cursor.execute("""
-            SELECT e.*, ei.department, ei.position, ei.hire_date
-            FROM employees e
-            LEFT JOIN employment_info ei ON e.id = ei.employee_id
-            WHERE e.person_id = ?
-            ORDER BY ei.hire_date DESC
-        """, (person_id,))
+        for employee in employees:
+            employment = self.employment_dao.get_by_employee_id(employee.id)
+            result.append(PersonWorkHistoryItem(
+                employee_id=employee.id,
+                company_name=employee.company_name,
+                employee_number=employee.employee_number,
+                department=employment.department if employment else None,
+                position=employment.position if employment else None,
+                hire_date=employment.hire_date if employment else None
+            ))
         
-        rows = cursor.fetchall()
-        result = []
-        for row in rows:
-            result.append({
-                'employee_id': row['id'],
-                'company_name': row['company_name'],
-                'employee_number': row['employee_number'],
-                'department': row['department'],
-                'position': row['position'],
-                'hire_date': row['hire_date']
-            })
+        # 按入职时间降序排序
+        result.sort(key=lambda x: x.hire_date or '', reverse=True)
         
         return result
+    
+    def get_supervisors(self, company_name: Optional[str] = None) -> List[SupervisorInfo]:
+        """
+        获取所有员工列表（用于选择上级，只返回active员工）
+        
+        Args:
+            company_name: 如果提供，只返回该公司的员工
+        
+        Returns:
+            SupervisorInfo 对象列表
+        """
+        employees = self.employee_dao.get_all(company_name, 'active')
+        result: List[SupervisorInfo] = []
+        
+        for employee in employees:
+            person = self.person_dao.get_by_id(employee.person_id)
+            result.append(SupervisorInfo(
+                id=employee.id,
+                name=person.name if person else '未知',
+                employee_number=employee.employee_number,
+                company_name=employee.company_name
+            ))
+        
+        return result
+    
+    def get_companies(self) -> List[str]:
+        """
+        获取所有公司列表（只返回有active员工的）
+        """
+        employees = self.employee_dao.get_all(None, 'active')
+        companies = set()
+        for employee in employees:
+            companies.add(employee.company_name)
+        return sorted(list(companies))
+    
+    def get_max_employee_number(self, company_name: str) -> Optional[str]:
+        """
+        获取指定公司的最大员工编号
+        
+        支持多种编号格式：
+        - EMP001, EMP002, ...
+        - emp001, emp002, ...
+        - 001, 002, ...
+        - 其他纯数字格式
+        
+        Args:
+            company_name: 公司名称
+            
+        Returns:
+            最大员工编号，如果公司没有员工则返回 None
+        """
+        import re
+        
+        employees = self.employee_dao.get_all(company_name, None)
+        if not employees:
+            return None
+        
+        max_number = None
+        max_num = -1
+        
+        for employee in employees:
+            # 使用正则表达式提取编号中的数字部分
+            match = re.search(r'\d+', employee.employee_number)
+            if match:
+                try:
+                    num = int(match.group())
+                    if num > max_num:
+                        max_num = num
+                        max_number = employee.employee_number
+                except ValueError:
+                    continue
+        
+        return max_number
+    
+    def get_statistics(self) -> Dict:
+        """
+        获取数据库统计信息
+        
+        Returns:
+            包含各表记录数的字典
+        """
+        return {
+            'person_count': self.person_dao.count(),
+            'employee_count': self.employee_dao.count(),
+            'employment_count': self.employment_dao.count_employment(),
+            'history_count': self.employment_dao.count_history()
+        }
+    
+    def clear_all_data(self):
+        """
+        清空所有数据（谨慎使用，仅用于测试）
+        
+        注意：按照外键依赖关系，先清空子表，再清空父表
+        """
+        # 先清空子表（employment_history, employment, employees）
+        self.employment_dao.clear_all()
+        self.employee_dao.clear_all()
+        # 最后清空父表（persons）
+        self.person_dao.clear_all()

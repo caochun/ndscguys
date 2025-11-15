@@ -4,7 +4,8 @@
 import random
 from datetime import datetime, timedelta
 from app.services.employee_service import EmployeeService
-from app.models import Person, Employee, EmploymentInfo
+from app.services.attendance_service import AttendanceService
+from app.models import Person, Employment, Attendance, LeaveRecord
 
 
 # 中文姓氏
@@ -42,6 +43,32 @@ POSITIONS = {
 # 性别
 GENDERS = ['男', '女']
 
+# 江苏省城市列表
+JIANGSU_CITIES = ['南京市', '苏州市', '无锡市', '常州市', '镇江市', '扬州市', '泰州市', 
+                  '南通市', '盐城市', '淮安市', '宿迁市', '徐州市', '连云港市']
+
+# 江苏省区县列表（部分）
+JIANGSU_DISTRICTS = {
+    '南京市': ['玄武区', '秦淮区', '建邺区', '鼓楼区', '浦口区', '栖霞区', '雨花台区', '江宁区', '六合区', '溧水区', '高淳区'],
+    '苏州市': ['虎丘区', '吴中区', '相城区', '姑苏区', '吴江区', '常熟市', '张家港市', '昆山市', '太仓市'],
+    '无锡市': ['锡山区', '惠山区', '滨湖区', '梁溪区', '新吴区', '江阴市', '宜兴市'],
+    '常州市': ['天宁区', '钟楼区', '新北区', '武进区', '金坛区', '溧阳市'],
+    '镇江市': ['京口区', '润州区', '丹徒区', '丹阳市', '扬中市', '句容市'],
+    '扬州市': ['广陵区', '邗江区', '江都区', '宝应县', '仪征市', '高邮市'],
+    '泰州市': ['海陵区', '高港区', '姜堰区', '兴化市', '靖江市', '泰兴市'],
+    '南通市': ['崇川区', '港闸区', '通州区', '如东县', '启东市', '如皋市', '海门市', '海安市'],
+    '盐城市': ['亭湖区', '盐都区', '大丰区', '响水县', '滨海县', '阜宁县', '射阳县', '建湖县', '东台市'],
+    '淮安市': ['淮安区', '淮阴区', '清江浦区', '洪泽区', '涟水县', '盱眙县', '金湖县'],
+    '宿迁市': ['宿城区', '宿豫区', '沭阳县', '泗阳县', '泗洪县'],
+    '徐州市': ['鼓楼区', '云龙区', '贾汪区', '泉山区', '铜山区', '丰县', '沛县', '睢宁县', '新沂市', '邳州市'],
+    '连云港市': ['连云区', '海州区', '赣榆区', '东海县', '灌云县', '灌南县']
+}
+
+# 街道/路名（部分）
+STREETS = ['中山路', '解放路', '人民路', '建设路', '和平路', '胜利路', '光明路', '文化路', 
+          '新华路', '青年路', '友谊路', '团结路', '民主路', '自由路', '幸福路', '和谐路',
+          '科技路', '创新路', '发展路', '前进路', '希望路', '阳光路', '春风路', '秋月路']
+
 
 def generate_phone():
     """生成手机号"""
@@ -54,6 +81,15 @@ def generate_phone():
 def generate_email(employee_number):
     """生成邮箱（使用员工编号）"""
     return f"{employee_number.lower()}@company.com"
+
+
+def generate_address():
+    """生成江苏省的地址"""
+    city = random.choice(JIANGSU_CITIES)
+    district = random.choice(JIANGSU_DISTRICTS.get(city, ['市辖区']))
+    street = random.choice(STREETS)
+    number = random.randint(1, 999)
+    return f"江苏省{city}{district}{street}{number}号"
 
 
 def generate_birth_date():
@@ -74,6 +110,31 @@ def generate_hire_date():
     return hire_date.strftime('%Y-%m-%d')
 
 
+def get_next_employee_number(service, company_name, base_number=0):
+    """
+    获取下一个员工编号
+    
+    Args:
+        service: EmployeeService 实例
+        company_name: 公司名称
+        base_number: 基础编号（用于计算）
+        
+    Returns:
+        下一个员工编号
+    """
+    max_number = service.get_max_employee_number(company_name)
+    if max_number:
+        try:
+            num_str = max_number.replace('EMP', '').replace('emp', '')
+            last_num = int(num_str)
+            return f"EMP{last_num + 1:05d}"
+        except (ValueError, AttributeError):
+            pass
+    
+    # 如果没有找到或解析失败，使用基础编号
+    return f"EMP{base_number:05d}"
+
+
 def init_database():
     """初始化数据库，生成测试数据"""
     service = EmployeeService()
@@ -83,13 +144,7 @@ def init_database():
     
     # 清空现有数据（可选，谨慎使用）
     print("清空现有数据...")
-    conn = service.db.get_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM employment_info_history")
-    cursor.execute("DELETE FROM employment_info")
-    cursor.execute("DELETE FROM employees")
-    cursor.execute("DELETE FROM persons")
-    conn.commit()
+    service.clear_all_data()
     print("数据已清空")
     
     # 定义两家公司
@@ -139,27 +194,19 @@ def init_database():
             email = generate_email(employee_number_alt)
         used_emails.add(email)
         
-        # 创建人员
+        # 创建人员对象
         person = Person(
             name=name,
             birth_date=birth_date,
             gender=gender,
             phone=phone,
-            email=email
+            email=email,
+            address=generate_address()
         )
         
         try:
-            # 直接创建新人员，不进行匹配
-            person_id = service.create_person(person)
-            # 创建员工记录
-            conn = service.db.get_connection()
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO employees (person_id, company_name, employee_number)
-                VALUES (?, ?, ?)
-            """, (person_id, company1, employee_number))
-            employee_id = cursor.lastrowid
-            conn.commit()
+            # 使用 Service 层创建员工（会自动处理人员匹配或创建）
+            employee_id = service.create_employee(person, company1, employee_number)
             
             # 随机选择部门
             department = random.choice(DEPARTMENTS)
@@ -183,16 +230,15 @@ def init_database():
                     supervisor_id = random.choice(supervisors_company1[department])
             
             # 创建入职信息
-            employment_info = EmploymentInfo(
+            employment = Employment(
                 employee_id=employee_id,
-                company_name=company1,
                 department=department,
                 position=position,
                 hire_date=hire_date,
                 supervisor_id=supervisor_id
             )
             
-            service.create_employment_info(employment_info)
+            service.create_employment(employment)
             
             # 如果是高级职位，加入上级候选列表
             if '经理' in position or '总监' in position or '专家' in position:
@@ -237,27 +283,19 @@ def init_database():
             email = generate_email(employee_number_alt)
         used_emails.add(email)
         
-        # 创建人员
+        # 创建人员对象
         person = Person(
             name=name,
             birth_date=birth_date,
             gender=gender,
             phone=phone,
-            email=email
+            email=email,
+            address=generate_address()
         )
         
         try:
-            # 直接创建新人员，不进行匹配
-            person_id = service.create_person(person)
-            # 创建员工记录
-            conn = service.db.get_connection()
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO employees (person_id, company_name, employee_number)
-                VALUES (?, ?, ?)
-            """, (person_id, company2, employee_number))
-            employee_id = cursor.lastrowid
-            conn.commit()
+            # 使用 Service 层创建员工
+            employee_id = service.create_employee(person, company2, employee_number)
             
             # 随机选择部门
             department = random.choice(DEPARTMENTS)
@@ -279,16 +317,15 @@ def init_database():
                     supervisor_id = random.choice(supervisors_company2[department])
             
             # 创建入职信息
-            employment_info = EmploymentInfo(
+            employment = Employment(
                 employee_id=employee_id,
-                company_name=company2,
                 department=department,
                 position=position,
                 hire_date=hire_date,
                 supervisor_id=supervisor_id
             )
             
-            service.create_employment_info(employment_info)
+            service.create_employment(employment)
             
             # 如果是高级职位，加入上级候选列表
             if '经理' in position or '总监' in position or '专家' in position:
@@ -308,23 +345,34 @@ def init_database():
     transfer_count = 0  # 换公司数量
     employees_with_changes = random.sample(company1_employees, min(3, len(company1_employees)))
     
-    for employee_id, name, current_department, current_position, base_hire_date in employees_with_changes:
+    # 确保至少有一个换公司的案例（如果员工数量足够）
+    ensure_transfer = len(employees_with_changes) > 0 and len(company2_employees) > 0
+    
+    for idx, (employee_id, name, current_department, current_position, base_hire_date) in enumerate(employees_with_changes):
         # 获取当前入职信息
-        current_info = service.get_employment_info(employee_id)
-        if not current_info:
+        current_employment = service.get_employment(employee_id)
+        if not current_employment:
             continue
         
+        # 从当前employment获取部门和职位
+        current_department = current_employment.department
+        current_position = current_employment.position
+        
         # 决定变更类型：升职、降职、换部门、换公司
-        # 40% 升职，20% 降职，25% 换部门，15% 换公司
-        rand = random.random()
-        if rand < 0.15:
+        # 如果还没有换公司的案例，且这是第一个员工，强制换公司
+        if ensure_transfer and transfer_count == 0 and idx == 0:
             change_type = 'transfer_company'  # 换公司
-        elif rand < 0.40:
-            change_type = 'promotion'  # 升职
-        elif rand < 0.60:
-            change_type = 'demotion'  # 降职
         else:
-            change_type = 'department'  # 换部门
+            # 40% 升职，20% 降职，25% 换部门，15% 换公司
+            rand = random.random()
+            if rand < 0.15:
+                change_type = 'transfer_company'  # 换公司
+            elif rand < 0.40:
+                change_type = 'promotion'  # 升职
+            elif rand < 0.60:
+                change_type = 'demotion'  # 降职
+            else:
+                change_type = 'department'  # 换部门
         
         new_department = current_department
         new_position = current_position
@@ -408,27 +456,21 @@ def init_database():
         # 执行变更
         try:
             if change_type == 'transfer_company':
-                # 换公司：更新 employment_info（包括 company_name），就像更新部门一样
-                # 生成新公司的员工编号（查找最大的编号）
-                conn = service.db.get_connection()
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT employee_number FROM employees 
-                    WHERE company_name = ? 
-                    ORDER BY employee_number DESC 
-                    LIMIT 1
-                """, (new_company,))
-                result = cursor.fetchone()
-                if result:
-                    # 提取编号中的数字部分
-                    last_num = int(result[0].replace('EMP', ''))
-                    new_emp_count = last_num + 1
+                # 换公司：使用 Service 层获取下一个员工编号
+                max_number = service.get_max_employee_number(new_company)
+                if max_number:
+                    try:
+                        num_str = max_number.replace('EMP', '').replace('emp', '')
+                        last_num = int(num_str)
+                        new_emp_count = last_num + 1
+                    except (ValueError, AttributeError):
+                        new_emp_count = 1
                 else:
                     new_emp_count = 1
                 new_employee_number = f"EMP{new_emp_count:05d}"
                 
-                # 换公司就是更新 employment_info，包括 company_name
-                service.transfer_employee_to_company(
+                # 换公司：创建新employee记录
+                new_employee_id = service.transfer_employee_to_company(
                     employee_id,
                     new_company,
                     new_employee_number,
@@ -443,9 +485,8 @@ def init_database():
                 print(f"  {name}: {company1} {current_department} {current_position} → {new_company} {new_department} {new_position} (原因: {change_reason})")
             else:
                 # 同一公司内的变更
-                updated = service.update_employment_info(
+                updated = service.update_employment(
                     employee_id,
-                    company1,
                     new_department,
                     new_position,
                     base_hire_date,  # 入职日期不变
@@ -467,23 +508,34 @@ def init_database():
     transfer_count2 = 0  # 换公司数量
     employees_with_changes2 = random.sample(company2_employees, min(6, len(company2_employees)))
     
-    for employee_id, name, current_department, current_position, base_hire_date in employees_with_changes2:
+    # 确保至少有一个换公司的案例（如果员工数量足够）
+    ensure_transfer2 = len(employees_with_changes2) > 0 and len(company1_employees) > 0
+    
+    for idx, (employee_id, name, current_department, current_position, base_hire_date) in enumerate(employees_with_changes2):
         # 获取当前入职信息
-        current_info = service.get_employment_info(employee_id)
-        if not current_info:
+        current_employment = service.get_employment(employee_id)
+        if not current_employment:
             continue
         
+        # 从当前employment获取部门和职位
+        current_department = current_employment.department
+        current_position = current_employment.position
+        
         # 决定变更类型：升职、降职、换部门、换公司
-        # 40% 升职，20% 降职，25% 换部门，15% 换公司
-        rand = random.random()
-        if rand < 0.15:
+        # 如果还没有换公司的案例，且这是第一个员工，强制换公司
+        if ensure_transfer2 and transfer_count2 == 0 and idx == 0:
             change_type = 'transfer_company'  # 换公司
-        elif rand < 0.40:
-            change_type = 'promotion'  # 升职
-        elif rand < 0.60:
-            change_type = 'demotion'  # 降职
         else:
-            change_type = 'department'  # 换部门
+            # 40% 升职，20% 降职，25% 换部门，15% 换公司
+            rand = random.random()
+            if rand < 0.15:
+                change_type = 'transfer_company'  # 换公司
+            elif rand < 0.40:
+                change_type = 'promotion'  # 升职
+            elif rand < 0.60:
+                change_type = 'demotion'  # 降职
+            else:
+                change_type = 'department'  # 换部门
         
         new_department = current_department
         new_position = current_position
@@ -567,27 +619,21 @@ def init_database():
         # 执行变更
         try:
             if change_type == 'transfer_company':
-                # 换公司：更新 employment_info（包括 company_name），就像更新部门一样
-                # 生成新公司的员工编号（查找最大的编号）
-                conn = service.db.get_connection()
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT employee_number FROM employees 
-                    WHERE company_name = ? 
-                    ORDER BY employee_number DESC 
-                    LIMIT 1
-                """, (new_company,))
-                result = cursor.fetchone()
-                if result:
-                    # 提取编号中的数字部分
-                    last_num = int(result[0].replace('EMP', ''))
-                    new_emp_count = last_num + 1
+                # 换公司：使用 Service 层获取下一个员工编号
+                max_number = service.get_max_employee_number(new_company)
+                if max_number:
+                    try:
+                        num_str = max_number.replace('EMP', '').replace('emp', '')
+                        last_num = int(num_str)
+                        new_emp_count = last_num + 1
+                    except (ValueError, AttributeError):
+                        new_emp_count = 1
                 else:
                     new_emp_count = 1
                 new_employee_number = f"EMP{new_emp_count:05d}"
                 
-                # 换公司就是更新 employment_info，包括 company_name
-                service.transfer_employee_to_company(
+                # 换公司：创建新employee记录
+                new_employee_id = service.transfer_employee_to_company(
                     employee_id,
                     new_company,
                     new_employee_number,
@@ -602,9 +648,8 @@ def init_database():
                 print(f"  {name}: {company2} {current_department} {current_position} → {new_company} {new_department} {new_position} (原因: {change_reason})")
             else:
                 # 同一公司内的变更
-                updated = service.update_employment_info(
+                updated = service.update_employment(
                     employee_id,
-                    company2,
                     new_department,
                     new_position,
                     base_hire_date,  # 入职日期不变
@@ -625,26 +670,147 @@ def init_database():
     print("数据库初始化完成！")
     print("=" * 50)
     
-    cursor.execute("SELECT COUNT(*) FROM persons")
-    person_count = cursor.fetchone()[0]
+    stats = service.get_statistics()
     
-    cursor.execute("SELECT COUNT(*) FROM employees")
-    employee_count = cursor.fetchone()[0]
-    
-    cursor.execute("SELECT COUNT(*) FROM employment_info")
-    employment_count = cursor.fetchone()[0]
-    
-    cursor.execute("SELECT COUNT(*) FROM employment_info_history")
-    history_count = cursor.fetchone()[0]
-    
-    print(f"人员总数: {person_count}")
-    print(f"员工总数: {employee_count}")
+    print(f"人员总数: {stats['person_count']}")
+    print(f"员工总数: {stats['employee_count']}")
     print(f"  - {company1}: {len(company1_employees)} 人")
     print(f"  - {company2}: {len(company2_employees)} 人")
-    print(f"入职信息记录: {employment_count}")
-    print(f"任职变动历史记录: {history_count}")
+    print(f"入职信息记录: {stats['employment_count']}")
+    print(f"任职变动历史记录: {stats['history_count']}")
     print(f"  - {company1}: {change_count} 条变动记录（其中 {transfer_count} 人换公司）")
     print(f"  - {company2}: {change_count2} 条变动记录（其中 {transfer_count2} 人换公司）")
+    print("=" * 50)
+    
+    # ========== 生成考勤和请假数据 ==========
+    print("\n生成考勤和请假数据...")
+    print("=" * 50)
+    
+    attendance_service = AttendanceService()
+    
+    # 获取所有活跃员工
+    all_employees = service.get_employees(status='active')
+    
+    # 生成最近30天的考勤数据
+    end_date = datetime.now().date()
+    start_date = end_date - timedelta(days=30)
+    
+    attendance_count = 0
+    leave_count = 0
+    
+    # 请假类型
+    LEAVE_TYPES = ['病假', '事假', '年假', '调休', '产假', '婚假']
+    
+    for employee in all_employees:
+        person_id = employee.person_id
+        company_name = employee.company_name
+        employee_id = employee.id
+        
+        # 获取该员工在公司的工作日期（从入职日期开始）
+        employment = service.get_employment(employee_id)
+        if not employment:
+            continue
+        
+        hire_date = datetime.strptime(employment.hire_date, '%Y-%m-%d').date()
+        work_start_date = max(hire_date, start_date)
+        
+        # 为每个工作日生成考勤记录
+        current_date = work_start_date
+        while current_date <= end_date:
+            # 跳过周末（简化处理，实际应该考虑节假日）
+            if current_date.weekday() >= 5:  # 周六、周日
+                current_date += timedelta(days=1)
+                continue
+            
+            # 30% 概率请假
+            if random.random() < 0.3:
+                # 生成请假记录
+                leave_type = random.choice(LEAVE_TYPES)
+                # 请假时长：50% 全天（8小时），30% 半天（4小时），20% 其他时长
+                rand = random.random()
+                if rand < 0.5:
+                    leave_hours = 8.0
+                elif rand < 0.8:
+                    leave_hours = 4.0
+                else:
+                    leave_hours = random.choice([2.0, 3.0, 6.0])
+                
+                leave_record = LeaveRecord(
+                    person_id=person_id,
+                    employee_id=employee_id,
+                    company_name=company_name,
+                    leave_date=current_date.strftime('%Y-%m-%d'),
+                    leave_type=leave_type,
+                    leave_hours=leave_hours,
+                    reason=f"{leave_type}原因",
+                    status='approved'
+                )
+                
+                try:
+                    attendance_service.create_leave_record(leave_record)
+                    leave_count += 1
+                except Exception as e:
+                    print(f"  创建请假记录失败: {str(e)}")
+            
+            # 生成考勤记录（如果请假时长 < 8小时，仍然有考勤记录）
+            # 标准上班时间 9:00，下班时间 18:00
+            standard_start = datetime.combine(current_date, datetime.strptime('09:00', '%H:%M').time())
+            standard_end = datetime.combine(current_date, datetime.strptime('18:00', '%H:%M').time())
+            
+            # 签到时间：90% 正常（9:00-9:30），10% 迟到（9:30-10:00）
+            if random.random() < 0.9:
+                # 正常签到
+                check_in_delta = timedelta(minutes=random.randint(0, 30))
+            else:
+                # 迟到
+                check_in_delta = timedelta(minutes=random.randint(30, 90))
+            
+            check_in_time = standard_start + check_in_delta
+            
+            # 签退时间：90% 正常（17:30-18:30），10% 早退（17:00-17:30）
+            if random.random() < 0.9:
+                # 正常签退
+                check_out_delta = timedelta(minutes=random.randint(-30, 30))
+            else:
+                # 早退
+                check_out_delta = timedelta(minutes=random.randint(-60, -30))
+            
+            check_out_time = standard_end + check_out_delta
+            
+            # 创建考勤记录
+            attendance = Attendance(
+                person_id=person_id,
+                employee_id=employee_id,
+                company_name=company_name,
+                attendance_date=current_date.strftime('%Y-%m-%d'),
+                check_in_time=check_in_time.strftime('%Y-%m-%d %H:%M:%S'),
+                check_out_time=check_out_time.strftime('%Y-%m-%d %H:%M:%S'),
+                standard_hours=8.0
+            )
+            
+            try:
+                attendance_service.create_attendance(attendance)
+                attendance_count += 1
+            except Exception as e:
+                # 如果记录已存在（可能是唯一约束），尝试更新
+                try:
+                    existing = attendance_service.get_attendance_by_person_and_company(
+                        person_id, company_name, 
+                        current_date.strftime('%Y-%m-%d'),
+                        current_date.strftime('%Y-%m-%d')
+                    )
+                    if existing:
+                        existing[0].check_in_time = check_in_time.strftime('%Y-%m-%d %H:%M:%S')
+                        existing[0].check_out_time = check_out_time.strftime('%Y-%m-%d %H:%M:%S')
+                        attendance_service.update_attendance(existing[0])
+                        attendance_count += 1
+                except:
+                    pass
+            
+            current_date += timedelta(days=1)
+    
+    print(f"生成考勤记录: {attendance_count} 条")
+    print(f"生成请假记录: {leave_count} 条")
     print("=" * 50)
 
 

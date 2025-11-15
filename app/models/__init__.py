@@ -3,7 +3,9 @@
 """
 from .person import Person
 from .employee import Employee
-from .employment_info import EmploymentInfo
-from .employment_info_history import EmploymentInfoHistory
+from .employment import Employment
+from .employment_history import EmploymentHistory
+from .attendance import Attendance
+from .leave_record import LeaveRecord
 
-__all__ = ['Person', 'Employee', 'EmploymentInfo', 'EmploymentInfoHistory']
+__all__ = ['Person', 'Employee', 'Employment', 'EmploymentHistory', 'Attendance', 'LeaveRecord']

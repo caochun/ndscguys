@@ -1,155 +1,93 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+/* Material Design 自定义样式 */
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    font-family: 'Roboto', 'Microsoft YaHei', sans-serif;
     background-color: #f5f5f5;
-    color: #333;
-    line-height: 1.6;
 }
 
-.container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 20px;
+/* 标签页内容显示控制 */
+.tab-content {
+    display: none;
 }
 
-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 30px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+.tab-content.active {
+    display: block;
 }
 
-header h1 {
-    font-size: 28px;
+/* 导航栏激活状态 */
+.nav-link.active {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 表格样式增强 */
+table.striped tbody tr:nth-child(odd) {
+    background-color: #f9f9f9;
+}
+
+table.highlight tbody tr:hover {
+    background-color: #e3f2fd;
+    cursor: pointer;
+}
+
+/* 员工卡片样式 */
+.employee-card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.employee-card .card-content {
+    flex: 1;
+}
+
+.employee-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #2196F3;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.employee-name {
+    font-size: 1.3rem;
     font-weight: 600;
+    margin: 0;
+    color: #1976D2;
 }
 
-.filter-bar {
+.employee-number {
+    font-size: 0.9rem;
+    margin: 5px 0 0 0;
+}
+
+.employee-info {
+    font-size: 0.95rem;
+}
+
+.employee-info p {
+    margin: 8px 0;
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 15px;
+}
+
+.employee-info i.material-icons {
+    margin-right: 8px;
+    color: #757575;
+}
+
+.employee-card .card-action {
+    border-top: 1px solid rgba(160,160,160,0.2);
     padding: 15px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
-.filter-bar label {
-    font-weight: 500;
-    color: #555;
-    white-space: nowrap;
-}
-
-.company-select {
-    padding: 8px 15px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 14px;
-    min-width: 200px;
-    background: white;
-    cursor: pointer;
-    transition: border-color 0.3s;
-}
-
-.company-select:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.toolbar {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-}
-
-.btn {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.3s ease;
-}
-
-.btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.btn-primary {
-    background-color: #667eea;
-    color: white;
-}
-
-.btn-primary:hover {
-    background-color: #5568d3;
-}
-
-.btn-secondary {
-    background-color: #6c757d;
-    color: white;
-}
-
-.btn-secondary:hover {
-    background-color: #5a6268;
-}
-
-.btn-danger {
-    background-color: #dc3545;
-    color: white;
-}
-
-.btn-danger:hover {
-    background-color: #c82333;
-}
-
-.btn-info {
-    background-color: #17a2b8;
-    color: white;
-}
-
-.btn-info:hover {
-    background-color: #138496;
-}
-
-.table-container {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-    margin-bottom: 20px;
-}
-
-table {
+.employee-card .card-action .btn {
     width: 100%;
-    border-collapse: collapse;
 }
 
-thead {
-    background-color: #667eea;
-    color: white;
-}
-
-th, td {
-    padding: 12px 15px;
-    text-align: left;
-    border-bottom: 1px solid #e0e0e0;
-}
-
+/* 头像样式（保留用于其他地方） */
 .avatar-cell {
     width: 60px;
-    padding: 8px !important;
     text-align: center;
 }
 
@@ -159,408 +97,300 @@ th, td {
     border-radius: 50%;
     object-fit: cover;
     border: 2px solid #e0e0e0;
-    transition: transform 0.2s;
 }
 
-.avatar-img:hover {
-    transform: scale(1.1);
-    border-color: #667eea;
-}
-
-th {
-    font-weight: 600;
-    font-size: 14px;
-}
-
-tbody tr {
-    transition: background-color 0.2s;
-}
-
-tbody tr:hover {
-    background-color: #f8f9fa;
-}
-
-tbody tr.selected {
-    background-color: #e3f2fd;
-}
-
-.loading {
-    text-align: center;
-    padding: 40px;
-    color: #999;
-}
-
-.status-bar {
-    background-color: white;
-    padding: 10px 20px;
-    border-radius: 5px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    color: #666;
-    font-size: 14px;
-}
-
-/* 模态框样式 */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    overflow: auto;
-}
-
-.modal-content {
-    background-color: white;
-    margin: 50px auto;
-    padding: 0;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 600px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    animation: modalSlideIn 0.3s ease;
-}
-
-@keyframes modalSlideIn {
-    from {
-        transform: translateY(-50px);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
-}
-
-.modal-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 20px 30px;
-    border-radius: 8px 8px 0 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.modal-header h2 {
-    margin: 0;
-    font-size: 20px;
-}
-
-.close {
-    color: white;
-    font-size: 28px;
-    font-weight: bold;
-    cursor: pointer;
-    line-height: 1;
-}
-
-.close:hover {
-    opacity: 0.7;
-}
-
-.modal-body {
-    padding: 30px;
-}
-
-.form-group {
-    margin-bottom: 30px;
-}
-
-.form-group h3 {
-    margin-bottom: 15px;
-    color: #667eea;
-    font-size: 16px;
-    border-bottom: 2px solid #667eea;
-    padding-bottom: 8px;
-}
-
-.form-row {
-    margin-bottom: 15px;
-}
-
-.form-row label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: 500;
-    color: #555;
-}
-
-.form-row input,
-.form-row select {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 14px;
-    transition: border-color 0.3s;
-}
-
-.form-row input:focus,
-.form-row select:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.form-actions {
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px solid #e0e0e0;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-    .container {
-        padding: 10px;
-    }
-
-    .toolbar {
-        flex-direction: column;
-    }
-
-    .btn {
-        width: 100%;
-    }
-
-    .table-container {
-        overflow-x: auto;
-    }
-
-    table {
-        min-width: 800px;
-    }
-
-    .modal-content {
-        width: 95%;
-        margin: 20px auto;
-    }
-}
-
-/* 操作列样式 */
-.action-cell {
-    text-align: center;
-    white-space: nowrap;
-}
-
-.history-btn {
-    padding: 6px 12px;
-    background-color: #667eea;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-    transition: all 0.2s;
-}
-
-.history-btn:hover {
-    background-color: #5568d3;
-    transform: translateY(-1px);
-}
-
-.no-history {
-    color: #999;
-    font-size: 12px;
-}
-
-/* 抽屉样式 */
-.drawer {
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 2000;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-}
-
-.drawer.active {
-    pointer-events: auto;
-}
-
-.drawer-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.drawer.active .drawer-overlay {
-    opacity: 1;
-}
-
-.drawer-content {
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 500px;
-    max-width: 90%;
-    height: 100%;
-    background: white;
-    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
-    transform: translateX(100%);
-    transition: transform 0.3s ease;
-    display: flex;
-    flex-direction: column;
-}
-
-.drawer.active .drawer-content {
-    transform: translateX(0);
-}
-
-.drawer-header {
-    padding: 20px 25px;
-    border-bottom: 1px solid #e0e0e0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-}
-
-.drawer-header h2 {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 600;
-}
-
-.drawer-close {
-    background: none;
-    border: none;
-    color: white;
-    font-size: 28px;
-    cursor: pointer;
-    line-height: 1;
-    padding: 0;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    transition: background-color 0.2s;
-}
-
-.drawer-close:hover {
-    background-color: rgba(255, 255, 255, 0.2);
-}
-
-.drawer-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px 25px;
-}
-
+/* 历史记录样式 */
 .history-content {
-    min-height: 100px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 10px 0;
 }
 
-.history-list {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+/* 员工详情模态框样式 */
+#employeeDetailModal {
+    max-height: 90vh;
 }
 
-.history-item {
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 15px;
-    background: #f9f9f9;
-    transition: all 0.2s;
+#employeeDetailModal .modal-content {
+    padding: 0 !important;
+    max-height: none;
+    overflow-y: visible;
 }
 
-.history-item:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    border-color: #667eea;
+#employeeDetailModal .card-content {
+    max-height: calc(90vh - 100px); /* 减去标题、标签页和底部按钮的高度 */
+    overflow-y: auto;
 }
 
-.history-item.current {
-    background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
-    border-color: #667eea;
-    border-width: 2px;
+#employeeDetailModal .tabs {
+    margin-bottom: 10px;
 }
 
-.history-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #e0e0e0;
-}
-
-.history-version {
-    font-weight: 600;
-    color: #667eea;
+#employeeDetailModal .tabs .tab a {
+    color: rgba(33, 150, 243, 0.7);
+    padding: 0 12px;
     font-size: 14px;
 }
 
-.history-badge {
-    background-color: #4caf50;
-    color: white;
+#employeeDetailModal .tabs .tab a:hover,
+#employeeDetailModal .tabs .tab a.active {
+    color: #2196F3;
+}
+
+#employeeDetailModal .tabs .indicator {
+    background-color: #2196F3;
+}
+
+/* 紧凑信息网格布局 */
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 8px 16px;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 0;
+    min-height: 32px;
+}
+
+.info-label-compact {
+    color: #757575;
+    font-weight: 500;
+    min-width: 90px;
+    font-size: 14px;
+    text-align: right;
+    padding-right: 8px;
+}
+
+.info-value {
+    color: #212121;
+    font-size: 14px;
+    flex: 1;
+}
+
+/* 紧凑头像样式（模态框内） */
+.employee-avatar-compact {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #2196F3;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    margin: 10px 0;
+}
+
+/* 模态框内表格样式（保留用于历史记录） */
+#employeeDetailModal table {
+    margin-bottom: 0;
+}
+
+#employeeDetailModal .info-label {
+    width: 120px;
+    color: #757575;
+}
+
+#employeeDetailModal table tbody tr {
+    border-bottom: 1px solid #e0e0e0;
+}
+
+#employeeDetailModal table tbody tr:last-child {
+    border-bottom: none;
+}
+
+/* 历史记录表格样式 */
+.table-responsive {
+    overflow-x: auto;
+}
+
+.company-change-row {
+    background-color: #ffebee !important;
+}
+
+.company-change-row td {
+    border-left: 3px solid #f44336;
+}
+
+.company-change-cell {
+    color: #f44336;
+    font-weight: 600;
+}
+
+.current-row {
+    background-color: #e3f2fd !important;
+}
+
+.current-row td {
+    font-weight: 500;
+}
+
+#employeeDetailModal .badge {
     padding: 2px 8px;
     border-radius: 12px;
     font-size: 11px;
     font-weight: 500;
 }
 
-.history-date {
-    color: #666;
+/* 考勤状态徽章样式 */
+.attendance-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 16px;
     font-size: 12px;
-}
-
-.history-details {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.history-row {
-    display: flex;
-    align-items: flex-start;
-}
-
-.history-label {
     font-weight: 500;
-    color: #555;
-    min-width: 80px;
-    font-size: 13px;
+    white-space: nowrap;
+    line-height: 1.2;
 }
 
-.history-value {
-    color: #333;
-    flex: 1;
-    font-size: 13px;
+.attendance-status-badge .material-icons.tiny {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    line-height: 14px;
 }
 
-.no-history-msg {
+.attendance-status-badge.status-normal {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+
+.attendance-status-badge.status-late {
+    background-color: #fff3e0;
+    color: #e65100;
+}
+
+.attendance-status-badge.status-early-leave {
+    background-color: #fff3e0;
+    color: #e65100;
+}
+
+.attendance-status-badge.status-absent {
+    background-color: #ffebee;
+    color: #c62828;
+}
+
+.attendance-status-badge.status-leave {
+    background-color: #e3f2fd;
+    color: #1565c0;
+}
+
+.attendance-status-badge.status-partial-leave {
+    background-color: #e1f5fe;
+    color: #0277bd;
+}
+
+.attendance-status-badge.status-incomplete {
+    background-color: #f5f5f5;
+    color: #616161;
+}
+
+.attendance-status-badge.status-overtime {
+    background-color: #f3e5f5;
+    color: #6a1b9a;
+}
+
+.attendance-status-badge.status-unknown {
+    background-color: #eceff1;
+    color: #546e7a;
+}
+
+.history-item {
+    padding: 15px;
+    margin-bottom: 10px;
+    border-left: 4px solid #2196F3;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+}
+
+.history-item.company-change {
+    border-left-color: #f44336;
+    background-color: #ffebee;
+}
+
+.history-item.company-change .company-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background-color: #f44336;
+    color: white;
+    border-radius: 12px;
+    font-size: 12px;
+    margin-left: 10px;
+}
+
+.history-item h6 {
+    margin: 0 0 10px 0;
+    color: #424242;
+    font-weight: 600;
+}
+
+.history-item .history-detail {
+    color: #757575;
+    font-size: 14px;
+    margin: 5px 0;
+}
+
+.history-item .history-detail strong {
+    color: #424242;
+}
+
+/* 状态栏 */
+#statusBar {
+    margin-top: 20px;
+}
+
+/* 模态框输入框样式 */
+.input-field label {
+    color: #9e9e9e;
+}
+
+.input-field input:focus + label,
+.input-field textarea:focus + label {
+    color: #2196F3 !important;
+}
+
+.input-field input:focus,
+.input-field textarea:focus {
+    border-bottom: 1px solid #2196F3 !important;
+    box-shadow: 0 1px 0 0 #2196F3 !important;
+}
+
+/* 操作按钮 */
+.action-btn {
+    margin: 0 5px;
+}
+
+/* 加载状态 */
+.loading {
     text-align: center;
-    padding: 40px;
-    color: #999;
+    padding: 20px;
+    color: #9e9e9e;
 }
 
-.error-msg {
-    text-align: center;
-    padding: 40px;
-    color: #dc3545;
+/* 错误提示 */
+.error-message {
+    background-color: #ffebee;
+    color: #c62828;
+    padding: 10px;
+    border-radius: 4px;
+    margin: 10px 0;
 }
 
-/* 响应式设计 - 抽屉 */
-@media (max-width: 768px) {
-    .drawer-content {
-        width: 100%;
-        max-width: 100%;
+/* 响应式调整 */
+@media only screen and (max-width: 992px) {
+    .container {
+        width: 95%;
     }
 }
 
+/* 表格操作列 */
+.action-cell {
+    white-space: nowrap;
+}
+
+/* 选中行样式 */
+table tbody tr.selected {
+    background-color: #e3f2fd !important;
+}

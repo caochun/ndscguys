@@ -9,12 +9,14 @@ class Employee:
     
     def __init__(self, person_id: int, company_name: str, employee_number: str,
                  id: Optional[int] = None,
+                 status: str = 'active',
                  created_at: Optional[str] = None,
                  updated_at: Optional[str] = None):
         self.id = id
         self.person_id = person_id
         self.company_name = company_name
         self.employee_number = employee_number
+        self.status = status  # 'active' | 'inactive' | 'terminated'
         self.created_at = created_at
         self.updated_at = updated_at
     
@@ -25,6 +27,7 @@ class Employee:
             'person_id': self.person_id,
             'company_name': self.company_name,
             'employee_number': self.employee_number,
+            'status': self.status,
             'created_at': self.created_at,
             'updated_at': self.updated_at
         }
@@ -37,6 +40,7 @@ class Employee:
             person_id=row['person_id'],
             company_name=row['company_name'],
             employee_number=row['employee_number'],
+            status=row['status'],
             created_at=row['created_at'],
             updated_at=row['updated_at']
         )
