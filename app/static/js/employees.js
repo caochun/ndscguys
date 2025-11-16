@@ -5,6 +5,10 @@ let employees = [];
 let selectedEmployeeId = null;
 let currentHistoryEmployeeId = null;
 let currentDetailEmployeeId = null;
+let companies = [];
+let departments = [];
+let companyFilterInstance = null;
+let departmentFilterInstance = null;
 
 // Materialize 组件实例
 let historySidenavInstance = null;
@@ -15,6 +19,8 @@ let employeeDetailTabsInstance = null;
 document.addEventListener('DOMContentLoaded', function() {
     initMaterializeComponents();
     initEventListeners();
+    loadCompanies();
+    loadDepartments();
     loadEmployees();
 });
 
@@ -62,6 +68,25 @@ function initMaterializeComponents() {
     if (mobileNav) {
         M.Sidenav.init(mobileNav);
     }
+    
+    // 初始化过滤器下拉框
+    const companyFilter = document.getElementById('companyFilter');
+    if (companyFilter) {
+        companyFilterInstance = M.FormSelect.init(companyFilter, {
+            dropdownOptions: {
+                constrainWidth: false
+            }
+        });
+    }
+    
+    const departmentFilter = document.getElementById('departmentFilter');
+    if (departmentFilter) {
+        departmentFilterInstance = M.FormSelect.init(departmentFilter, {
+            dropdownOptions: {
+                constrainWidth: false
+            }
+        });
+    }
 }
 
 // 初始化事件监听器
@@ -86,6 +111,111 @@ function initEventListeners() {
     if (closeBtn) {
         closeBtn.addEventListener('click', closeHistoryDrawer);
     }
+    
+    // 过滤器变化事件
+    const companyFilter = document.getElementById('companyFilter');
+    if (companyFilter) {
+        companyFilter.addEventListener('change', function() {
+            const selectedCompany = this.value;
+            // 当公司改变时，重新加载部门列表
+            loadDepartments(selectedCompany);
+            // 应用过滤
+            applyFilters();
+        });
+    }
+    
+    const departmentFilter = document.getElementById('departmentFilter');
+    if (departmentFilter) {
+        departmentFilter.addEventListener('change', function() {
+            applyFilters();
+        });
+    }
+    
+    // 清除筛选按钮
+    const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+    if (clearFiltersBtn) {
+        clearFiltersBtn.addEventListener('click', function() {
+            if (companyFilterInstance) {
+                companyFilterInstance.setValue('');
+                companyFilterInstance.input.value = '';
+            }
+            if (departmentFilterInstance) {
+                departmentFilterInstance.setValue('');
+                departmentFilterInstance.input.value = '';
+            }
+            loadDepartments(); // 重新加载所有部门
+            applyFilters();
+        });
+    }
+}
+
+// 加载公司列表
+async function loadCompanies() {
+    try {
+        const response = await fetch('/api/companies');
+        const result = await response.json();
+
+        if (result.success) {
+            companies = result.data;
+            const companyFilter = document.getElementById('companyFilter');
+            if (companyFilter) {
+                // 保留"全部公司"选项，添加公司列表
+                companyFilter.innerHTML = '<option value="">全部公司</option>';
+                companies.forEach(company => {
+                    const option = document.createElement('option');
+                    option.value = company;
+                    option.textContent = company;
+                    companyFilter.appendChild(option);
+                });
+                // 重新初始化下拉框
+                if (companyFilterInstance) {
+                    companyFilterInstance.destroy();
+                }
+                companyFilterInstance = M.FormSelect.init(companyFilter);
+            }
+        } else {
+            console.error('加载公司列表失败：' + result.error);
+        }
+    } catch (error) {
+        console.error('加载公司列表失败：' + error.message);
+    }
+}
+
+// 加载部门列表
+async function loadDepartments(companyName = null) {
+    try {
+        let url = '/api/departments';
+        if (companyName) {
+            url += `?company_name=${encodeURIComponent(companyName)}`;
+        }
+        
+        const response = await fetch(url);
+        const result = await response.json();
+
+        if (result.success) {
+            departments = result.data;
+            const departmentFilter = document.getElementById('departmentFilter');
+            if (departmentFilter) {
+                // 保留"全部部门"选项，添加部门列表
+                departmentFilter.innerHTML = '<option value="">全部部门</option>';
+                departments.forEach(department => {
+                    const option = document.createElement('option');
+                    option.value = department;
+                    option.textContent = department;
+                    departmentFilter.appendChild(option);
+                });
+                // 重新初始化下拉框
+                if (departmentFilterInstance) {
+                    departmentFilterInstance.destroy();
+                }
+                departmentFilterInstance = M.FormSelect.init(departmentFilter);
+            }
+        } else {
+            console.error('加载部门列表失败：' + result.error);
+        }
+    } catch (error) {
+        console.error('加载部门列表失败：' + error.message);
+    }
 }
 
 // 加载员工列表
@@ -106,6 +236,52 @@ async function loadEmployees() {
     } catch (error) {
         showError('加载员工列表失败：' + error.message);
         updateStatus('加载失败');
+    }
+}
+
+// 应用过滤器
+async function applyFilters() {
+    try {
+        updateStatus('筛选中...');
+        
+        const companyFilter = document.getElementById('companyFilter');
+        const departmentFilter = document.getElementById('departmentFilter');
+        const selectedCompany = companyFilter ? companyFilter.value : '';
+        const selectedDepartment = departmentFilter ? departmentFilter.value : '';
+        
+        // 构建查询参数
+        const params = new URLSearchParams();
+        if (selectedCompany) {
+            params.append('company_name', selectedCompany);
+        }
+        if (selectedDepartment) {
+            params.append('department', selectedDepartment);
+        }
+        
+        const url = `/api/employees${params.toString() ? '?' + params.toString() : ''}`;
+        const response = await fetch(url);
+        const result = await response.json();
+
+        if (result.success) {
+            employees = result.data;
+            renderEmployeeCards(employees);
+            
+            // 更新状态信息
+            let statusMsg = `已显示 ${employees.length} 名员工`;
+            if (selectedCompany || selectedDepartment) {
+                const filters = [];
+                if (selectedCompany) filters.push(`公司: ${selectedCompany}`);
+                if (selectedDepartment) filters.push(`部门: ${selectedDepartment}`);
+                statusMsg += ` (${filters.join(', ')})`;
+            }
+            updateStatus(statusMsg);
+        } else {
+            showError('筛选员工列表失败：' + result.error);
+            updateStatus('筛选失败');
+        }
+    } catch (error) {
+        showError('筛选员工列表失败：' + error.message);
+        updateStatus('筛选失败');
     }
 }
 

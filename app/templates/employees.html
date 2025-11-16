@@ -31,6 +31,34 @@
     </nav>
 
     <div class="container" style="margin-top: 20px;">
+        <!-- 过滤器 -->
+        <div class="card" style="margin-bottom: 20px;">
+            <div class="card-content">
+                <h5 style="margin-top: 0;"><i class="material-icons left">filter_list</i>筛选条件</h5>
+                <div class="row" style="margin-bottom: 0;">
+                    <div class="input-field col s12 m6">
+                        <select id="companyFilter">
+                            <option value="">全部公司</option>
+                        </select>
+                        <label>按公司筛选</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <select id="departmentFilter">
+                            <option value="">全部部门</option>
+                        </select>
+                        <label>按部门筛选</label>
+                    </div>
+                </div>
+                <div class="row" style="margin-bottom: 0;">
+                    <div class="col s12">
+                        <button id="clearFiltersBtn" class="btn waves-effect waves-light grey">
+                            <i class="material-icons left">clear</i>清除筛选
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="employeeCardsContainer" class="row">
             <div class="col s12 center-align">
                 <div class="preloader-wrapper big active">

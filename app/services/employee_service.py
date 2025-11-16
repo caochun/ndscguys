@@ -137,6 +137,14 @@ class EmployeeService:
         """获取所有人员列表"""
         return self.person_dao.get_all()
     
+    def get_unemployed_persons(self) -> List[Person]:
+        """获取未任职人员列表（未在任何公司有active员工记录的人员）"""
+        return self.person_dao.get_unemployed_persons()
+    
+    def get_employed_persons(self) -> List[Person]:
+        """获取已任职人员列表（至少在一个公司有active员工记录的人员）"""
+        return self.person_dao.get_employed_persons()
+    
     def update_person(self, person: Person) -> bool:
         """更新人员信息"""
         return self.person_dao.update(person)
@@ -580,17 +588,18 @@ class EmployeeService:
             has_history=has_history
         )
     
-    def get_all_employees_with_employment(self, company_name: Optional[str] = None) -> List[EmployeeWithEmployment]:
+    def get_all_employees_with_employment(self, company_name: Optional[str] = None, department: Optional[str] = None) -> List[EmployeeWithEmployment]:
         """
         获取所有员工的完整信息（使用JOIN优化查询）
         
         Args:
             company_name: 如果提供，只返回该公司的员工
+            department: 如果提供，只返回该部门的员工
         
         Returns:
             EmployeeWithEmployment 对象列表
         """
-        rows = self.employment_dao.get_all_with_join(company_name)
+        rows = self.employment_dao.get_all_with_join(company_name, department)
         result: List[EmployeeWithEmployment] = []
         
         # 预先收集所有 person_id，用于批量查询历史记录
@@ -742,6 +751,23 @@ class EmployeeService:
         for employee in employees:
             companies.add(employee.company_name)
         return sorted(list(companies))
+    
+    def get_departments(self, company_name: Optional[str] = None) -> List[str]:
+        """
+        获取所有部门列表
+        
+        Args:
+            company_name: 如果提供，只返回该公司的部门；否则返回所有公司的部门
+        
+        Returns:
+            部门名称列表（已去重并排序）
+        """
+        rows = self.employment_dao.get_all_with_join(company_name)
+        departments = set()
+        for row in rows:
+            if row['department']:
+                departments.add(row['department'])
+        return sorted(list(departments))
     
     def get_max_employee_number(self, company_name: str) -> Optional[str]:
         """

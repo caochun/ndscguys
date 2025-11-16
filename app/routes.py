@@ -44,7 +44,8 @@ def get_employees():
     """获取所有员工列表"""
     try:
         company_name = request.args.get('company_name')  # 可选的公司筛选
-        employees_data = employee_service.get_all_employees_with_employment(company_name)
+        department = request.args.get('department')  # 可选的部门筛选
+        employees_data = employee_service.get_all_employees_with_employment(company_name, department)
         result = []
         for item in employees_data:
             person = item.person
@@ -106,9 +107,17 @@ def get_employee(employee_id):
 
 @api_bp.route('/persons', methods=['GET'])
 def get_persons():
-    """获取所有人员列表"""
+    """获取所有人员列表（兼容旧接口，返回所有人员）"""
     try:
-        persons = employee_service.get_all_persons()
+        employment_status = request.args.get('employment_status')  # 'employed', 'unemployed', 或 None（全部）
+        
+        if employment_status == 'employed':
+            persons = employee_service.get_employed_persons()
+        elif employment_status == 'unemployed':
+            persons = employee_service.get_unemployed_persons()
+        else:
+            persons = employee_service.get_all_persons()
+        
         result = []
         for person in persons:
             result.append({
@@ -293,6 +302,17 @@ def get_companies():
     try:
         companies = employee_service.get_companies()
         return jsonify({'success': True, 'data': companies})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/departments', methods=['GET'])
+def get_departments():
+    """获取部门列表"""
+    try:
+        company_name = request.args.get('company_name')  # 可选的公司筛选
+        departments = employee_service.get_departments(company_name)
+        return jsonify({'success': True, 'data': departments})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

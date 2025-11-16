@@ -40,26 +40,60 @@
                         <button id="refreshPersonsBtn" class="btn waves-effect waves-light grey"><i class="material-icons left">refresh</i>刷新</button>
                     </div>
                 </div>
-                <table id="personTable" class="striped highlight responsive-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>姓名</th>
-                            <th>出生日期</th>
-                            <th>性别</th>
-                            <th>手机</th>
-                            <th>邮箱</th>
-                            <th>家庭住址</th>
-                            <th>创建时间</th>
-                            <th>更新时间</th>
-                        </tr>
-                    </thead>
-                    <tbody id="personTableBody">
-                        <tr>
-                            <td colspan="9" class="center-align">加载中...</td>
-                        </tr>
-                    </tbody>
-                </table>
+                
+                <!-- Tab导航 -->
+                <ul class="tabs tabs-fixed-width" id="personTabs">
+                    <li class="tab col s6"><a href="#unemployedTab" class="active">未任职</a></li>
+                    <li class="tab col s6"><a href="#employedTab">已任职</a></li>
+                </ul>
+                
+                <!-- 未任职Tab内容 -->
+                <div id="unemployedTab" class="col s12" style="padding-top: 20px;">
+                    <table id="unemployedPersonTable" class="striped highlight responsive-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>姓名</th>
+                                <th>出生日期</th>
+                                <th>性别</th>
+                                <th>手机</th>
+                                <th>邮箱</th>
+                                <th>家庭住址</th>
+                                <th>创建时间</th>
+                                <th>更新时间</th>
+                            </tr>
+                        </thead>
+                        <tbody id="unemployedPersonTableBody">
+                            <tr>
+                                <td colspan="9" class="center-align">加载中...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 已任职Tab内容 -->
+                <div id="employedTab" class="col s12" style="padding-top: 20px;">
+                    <table id="employedPersonTable" class="striped highlight responsive-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>姓名</th>
+                                <th>出生日期</th>
+                                <th>性别</th>
+                                <th>手机</th>
+                                <th>邮箱</th>
+                                <th>家庭住址</th>
+                                <th>创建时间</th>
+                                <th>更新时间</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employedPersonTableBody">
+                            <tr>
+                                <td colspan="9" class="center-align">加载中...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 

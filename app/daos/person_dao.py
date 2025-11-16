@@ -120,6 +120,48 @@ class PersonDAO(BaseDAO):
         cursor.execute("SELECT COUNT(*) FROM persons")
         return cursor.fetchone()[0]
     
+    def get_unemployed_persons(self) -> List[Person]:
+        """
+        获取未任职人员列表（未在任何公司有active员工记录的人员）
+        
+        Returns:
+            未任职人员列表
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT DISTINCT p.*
+            FROM persons p
+            LEFT JOIN employees e ON p.id = e.person_id AND e.status = 'active'
+            WHERE e.id IS NULL
+            ORDER BY p.name
+        """)
+        
+        rows = cursor.fetchall()
+        return [Person.from_row(row) for row in rows]
+    
+    def get_employed_persons(self) -> List[Person]:
+        """
+        获取已任职人员列表（至少在一个公司有active员工记录的人员）
+        
+        Returns:
+            已任职人员列表
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT DISTINCT p.*
+            FROM persons p
+            INNER JOIN employees e ON p.id = e.person_id
+            WHERE e.status = 'active'
+            ORDER BY p.name
+        """)
+        
+        rows = cursor.fetchall()
+        return [Person.from_row(row) for row in rows]
+    
     def clear_all(self):
         """清空所有人员数据（谨慎使用，仅用于测试）"""
         conn = self.get_connection()

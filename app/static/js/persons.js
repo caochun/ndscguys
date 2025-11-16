@@ -1,18 +1,25 @@
 // 人员页面 JavaScript
 
 // 全局变量
-let persons = [];
+let unemployedPersons = [];
+let employedPersons = [];
 let selectedPersonId = null;
 let isEditMode = false;
+let currentTab = 'unemployed';  // 'unemployed' 或 'employed'
 
 // Materialize 组件实例
 let personModalInstance = null;
+let personTabsInstance = null;
 
 // DOM 加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
     initMaterializeComponents();
     initEventListeners();
-    loadPersons();
+    // 延迟加载数据，确保Tab组件已初始化
+    setTimeout(() => {
+        loadUnemployedPersons();
+        loadEmployedPersons();
+    }, 100);
 });
 
 // 初始化 Materialize 组件
@@ -26,6 +33,36 @@ function initMaterializeComponents() {
                 M.updateTextFields();
             }
         });
+    }
+    
+    // 初始化Tab组件
+    const personTabs = document.getElementById('personTabs');
+    if (personTabs) {
+        personTabsInstance = M.Tabs.init(personTabs, {
+            onShow: function(newTab) {
+                // Tab切换时更新当前tab状态
+                const tabId = newTab.getAttribute('href');
+                if (tabId) {
+                    const targetId = tabId.substring(1); // 去掉#号
+                    if (targetId === 'unemployedTab') {
+                        currentTab = 'unemployed';
+                    } else if (targetId === 'employedTab') {
+                        currentTab = 'employed';
+                    }
+                }
+                // 清除选中状态
+                selectedPersonId = null;
+                document.querySelectorAll('tbody tr').forEach(r => r.classList.remove('selected'));
+            }
+        });
+        // 确保默认显示第一个tab
+        const firstTab = personTabs.querySelector('a.active');
+        if (firstTab) {
+            const targetId = firstTab.getAttribute('href').substring(1);
+            if (targetId === 'unemployedTab') {
+                currentTab = 'unemployed';
+            }
+        }
     }
     
     // 初始化移动端导航侧边栏
@@ -50,7 +87,10 @@ function initEventListeners() {
     
     const refreshBtn = document.getElementById('refreshPersonsBtn');
     if (refreshBtn) {
-        refreshBtn.addEventListener('click', loadPersons);
+        refreshBtn.addEventListener('click', function() {
+            loadUnemployedPersons();
+            loadEmployedPersons();
+        });
     }
     
     // 模态框关闭按钮
@@ -70,13 +110,27 @@ function initEventListeners() {
     }
 
     // 人员表格行点击选择（使用事件委托）
-    const personTableBody = document.getElementById('personTableBody');
-    if (personTableBody) {
-        personTableBody.addEventListener('click', function(e) {
+    const unemployedTableBody = document.getElementById('unemployedPersonTableBody');
+    if (unemployedTableBody) {
+        unemployedTableBody.addEventListener('click', function(e) {
             const row = e.target.closest('tr');
             if (row && row.dataset.personId) {
-                // 移除之前的选中状态
-                document.querySelectorAll('#personTableBody tr').forEach(r => r.classList.remove('selected'));
+                // 移除所有表格的选中状态
+                document.querySelectorAll('tbody tr').forEach(r => r.classList.remove('selected'));
+                // 添加选中状态
+                row.classList.add('selected');
+                selectedPersonId = parseInt(row.dataset.personId);
+            }
+        });
+    }
+    
+    const employedTableBody = document.getElementById('employedPersonTableBody');
+    if (employedTableBody) {
+        employedTableBody.addEventListener('click', function(e) {
+            const row = e.target.closest('tr');
+            if (row && row.dataset.personId) {
+                // 移除所有表格的选中状态
+                document.querySelectorAll('tbody tr').forEach(r => r.classList.remove('selected'));
                 // 添加选中状态
                 row.classList.add('selected');
                 selectedPersonId = parseInt(row.dataset.personId);
@@ -85,30 +139,64 @@ function initEventListeners() {
     }
 }
 
-// 加载人员列表
-async function loadPersons() {
+// 加载未任职人员列表
+async function loadUnemployedPersons() {
     try {
-        updateStatus('加载中...');
-        const response = await fetch('/api/persons');
+        updateStatus('加载未任职人员中...');
+        const response = await fetch('/api/persons?employment_status=unemployed');
         const result = await response.json();
 
         if (result.success) {
-            persons = result.data;
-            renderPersonTable(persons);
-            updateStatus(`已加载 ${persons.length} 名人员`);
+            unemployedPersons = result.data;
+            renderPersonTable('unemployed', unemployedPersons);
+            if (currentTab === 'unemployed') {
+                updateStatus(`已加载 ${unemployedPersons.length} 名未任职人员`);
+            }
         } else {
-            showError('加载人员列表失败：' + result.error);
-            updateStatus('加载失败');
+            showError('加载未任职人员列表失败：' + result.error);
+            if (currentTab === 'unemployed') {
+                updateStatus('加载失败');
+            }
         }
     } catch (error) {
-        showError('加载人员列表失败：' + error.message);
-        updateStatus('加载失败');
+        showError('加载未任职人员列表失败：' + error.message);
+        if (currentTab === 'unemployed') {
+            updateStatus('加载失败');
+        }
+    }
+}
+
+// 加载已任职人员列表
+async function loadEmployedPersons() {
+    try {
+        updateStatus('加载已任职人员中...');
+        const response = await fetch('/api/persons?employment_status=employed');
+        const result = await response.json();
+
+        if (result.success) {
+            employedPersons = result.data;
+            renderPersonTable('employed', employedPersons);
+            if (currentTab === 'employed') {
+                updateStatus(`已加载 ${employedPersons.length} 名已任职人员`);
+            }
+        } else {
+            showError('加载已任职人员列表失败：' + result.error);
+            if (currentTab === 'employed') {
+                updateStatus('加载失败');
+            }
+        }
+    } catch (error) {
+        showError('加载已任职人员列表失败：' + error.message);
+        if (currentTab === 'employed') {
+            updateStatus('加载失败');
+        }
     }
 }
 
 // 渲染人员表格
-function renderPersonTable(persons) {
-    const tbody = document.getElementById('personTableBody');
+function renderPersonTable(type, persons) {
+    const tbodyId = type === 'unemployed' ? 'unemployedPersonTableBody' : 'employedPersonTableBody';
+    const tbody = document.getElementById(tbodyId);
     if (!tbody) return;
     
     if (persons.length === 0) {
@@ -154,7 +242,9 @@ function showEditPersonModal() {
     }
     
     isEditMode = true;
-    const person = persons.find(p => p.id === selectedPersonId);
+    // 从当前tab的数据中查找人员
+    const currentPersons = currentTab === 'unemployed' ? unemployedPersons : employedPersons;
+    const person = currentPersons.find(p => p.id === selectedPersonId);
     if (!person) {
         M.toast({html: '人员不存在', classes: 'red'});
         return;
@@ -236,7 +326,8 @@ async function savePerson(e) {
             M.toast({html: result.message || '保存成功', classes: 'green'});
             updateStatus(result.message || '保存成功');
             closePersonModal();
-            loadPersons();
+            loadUnemployedPersons();
+            loadEmployedPersons();
         } else {
             M.toast({html: '保存失败：' + result.error, classes: 'red'});
             updateStatus('保存失败');

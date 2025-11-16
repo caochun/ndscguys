@@ -665,6 +665,58 @@ def init_database():
         except Exception as e:
             print(f"  更新失败: {name} - {str(e)}")
     
+    # ========== 生成未任职人员（10-15个）==========
+    print("\n生成未任职人员数据...")
+    print("=" * 50)
+    
+    unemployed_count = random.randint(10, 15)
+    unemployed_persons = []
+    
+    for i in range(unemployed_count):
+        # 生成姓名
+        surname = random.choice(SURNAMES)
+        given_name = random.choice(GIVEN_NAMES)
+        name = surname + given_name
+        
+        # 生成其他信息（确保手机和邮箱不重复）
+        gender = random.choice(GENDERS)
+        birth_date = generate_birth_date()
+        
+        # 生成唯一的手机号
+        while True:
+            phone = generate_phone()
+            if phone not in used_phones:
+                used_phones.add(phone)
+                break
+        
+        # 生成唯一的邮箱（使用临时编号）
+        temp_number = f"TEMP{str(i + 1).zfill(5)}"
+        email = generate_email(temp_number)
+        while email in used_emails:
+            temp_number = f"TEMP{str(i + 1).zfill(5)}A"
+            email = generate_email(temp_number)
+        used_emails.add(email)
+        
+        # 创建人员对象（不创建employee记录）
+        person = Person(
+            name=name,
+            birth_date=birth_date,
+            gender=gender,
+            phone=phone,
+            email=email,
+            address=generate_address()
+        )
+        
+        try:
+            person_id = service.create_person(person)
+            unemployed_persons.append(person_id)
+            print(f"  [{i+1}/{unemployed_count}] {name} - 未任职")
+        except Exception as e:
+            print(f"  创建未任职人员失败: {name} - {str(e)}")
+    
+    print(f"已生成 {len(unemployed_persons)} 名未任职人员")
+    print("=" * 50)
+    
     # 统计信息
     print("\n" + "=" * 50)
     print("数据库初始化完成！")
@@ -672,7 +724,13 @@ def init_database():
     
     stats = service.get_statistics()
     
+    # 统计未任职人员数量
+    unemployed_persons_list = service.get_unemployed_persons()
+    unemployed_count_final = len(unemployed_persons_list)
+    
     print(f"人员总数: {stats['person_count']}")
+    print(f"  - 已任职: {stats['person_count'] - unemployed_count_final} 人")
+    print(f"  - 未任职: {unemployed_count_final} 人")
     print(f"员工总数: {stats['employee_count']}")
     print(f"  - {company1}: {len(company1_employees)} 人")
     print(f"  - {company2}: {len(company2_employees)} 人")
