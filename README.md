@@ -382,6 +382,65 @@ erDiagram
 
 **审批状态**：`approved`（已批准）、`pending`（待审批）、`rejected`（已拒绝）
 
+#### 7. payroll_records & payroll_items（薪资发放）
+
+为记录每期薪资发放批次，新增以下结构：
+
+**payroll_records**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | INTEGER | 主键 |
+| period | TEXT | 发薪期（如 `2025-11`） |
+| issue_date | DATE | 发薪日期 |
+| total_gross_amount | REAL | 批次应发总额 |
+| total_net_amount | REAL | 批次实发总额（初版与应发相同，预留扣款后结果） |
+| status | TEXT | 批次状态，默认 `draft` |
+| note | TEXT | 备注 |
+| created_by | TEXT | 创建人 |
+| created_at / updated_at | TIMESTAMP | 审计字段 |
+
+**payroll_items**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | INTEGER | 主键 |
+| payroll_id | INTEGER | 所属批次 |
+| employee_id | INTEGER | 员工 ID |
+| basic_salary | REAL | 基本工资 |
+| performance_base | REAL | 绩效薪资基数 |
+| performance_grade | TEXT | 绩效等级（A/B/C/D/E/NONE） |
+| performance_pay | REAL | 绩效薪资 |
+| adjustment | REAL | 补扣金额 |
+| gross_pay | REAL | 应发工资（基本 + 绩效 + 补扣） |
+| social_security_employee / employer | REAL | 社保个人/单位（占位，默认 0） |
+| housing_fund_employee / employer | REAL | 公积金个人/单位（占位） |
+| taxable_income | REAL | 综合所得计税基数（初版=应发） |
+| income_tax | REAL | 个税（占位） |
+| net_pay | REAL | 实发工资（占位，暂=应发） |
+| metadata | TEXT | JSON 扩展字段 |
+| created_at / updated_at | TIMESTAMP | 审计字段 |
+
+### 发薪规则（当前实现）
+
+1. **数据来源**：`/api/salary/current` 返回在职员工当前薪资（基本工资 + 绩效基数）。
+2. **绩效等级系数**：
+
+| 等级 | 系数 |
+|------|------|
+| A | 1.5 |
+| B | 1.2 |
+| C（默认） | 1.0 |
+| D | 0.8 |
+| E | 0.6 |
+| 无等级 | 0 |
+
+3. **绩效薪资** = `performance_base × 系数`。
+4. **应发工资** = 基本工资 + 绩效薪资 + 补扣（补扣目前占位，默认为 0）。
+5. **社保、公积金、综合所得税**：前端已给出表格占位，具体算法尚未实现，`PayrollItem` 中的相关字段先以 0 占位，便于后续扩展。
+6. **发薪期**：默认使用当前月份（`yyyy-MM`），写入 `period` 字段以便查询批次。
+7. **保存批次**：点击“生成薪资批次”并保存时，前端会把当前表格数据提交到 `POST /api/payroll`，写入 `payroll_records` / `payroll_items`，为后续审批、导出、扣税等功能打基础。
+
 ## 设计说明
 
 ### 考勤和请假记录关联到 Person 的设计考虑
