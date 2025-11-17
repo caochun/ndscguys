@@ -196,40 +196,40 @@ class EmploymentDAO(BaseDAO):
         
         # 使用JOIN一次性查询所有数据
         cursor.execute(f"""
-            SELECT 
-                e.id as employee_id,
-                e.person_id,
-                e.company_name,
-                e.employee_number,
-                e.status,
-                e.created_at as employee_created_at,
-                e.updated_at as employee_updated_at,
-                p.name,
-                p.birth_date,
-                p.gender,
-                p.phone,
-                p.email,
-                p.address,
-                p.created_at as person_created_at,
-                p.updated_at as person_updated_at,
-                ei.id as employment_id,
-                ei.department,
-                ei.position,
-                ei.hire_date,
-                ei.supervisor_id,
-                ei.version,
-                ei.created_at as employment_created_at,
-                ei.updated_at as employment_updated_at,
-                CASE WHEN eih.id IS NOT NULL THEN 1 ELSE 0 END as has_history
-            FROM employees e
-            LEFT JOIN persons p ON e.person_id = p.id
-            LEFT JOIN employment ei ON e.id = ei.employee_id
-            LEFT JOIN (
-                SELECT DISTINCT employee_id, 1 as id
-                FROM employment_history
-            ) eih ON e.id = eih.employee_id
+                SELECT 
+                    e.id as employee_id,
+                    e.person_id,
+                    e.company_name,
+                    e.employee_number,
+                    e.status,
+                    e.created_at as employee_created_at,
+                    e.updated_at as employee_updated_at,
+                    p.name,
+                    p.birth_date,
+                    p.gender,
+                    p.phone,
+                    p.email,
+                    p.address,
+                    p.created_at as person_created_at,
+                    p.updated_at as person_updated_at,
+                    ei.id as employment_id,
+                    ei.department,
+                    ei.position,
+                    ei.hire_date,
+                    ei.supervisor_id,
+                    ei.version,
+                    ei.created_at as employment_created_at,
+                    ei.updated_at as employment_updated_at,
+                    CASE WHEN eih.id IS NOT NULL THEN 1 ELSE 0 END as has_history
+                FROM employees e
+                LEFT JOIN persons p ON e.person_id = p.id
+                LEFT JOIN employment ei ON e.id = ei.employee_id
+                LEFT JOIN (
+                    SELECT DISTINCT employee_id, 1 as id
+                    FROM employment_history
+                ) eih ON e.id = eih.employee_id
             WHERE {where_clause}
-            ORDER BY e.company_name, e.employee_number
+                ORDER BY e.company_name, e.employee_number
         """, tuple(params))
         
         return cursor.fetchall()

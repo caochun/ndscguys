@@ -319,7 +319,7 @@ erDiagram
 | work_hours | REAL | 实际工作时长（小时） | - |
 | standard_hours | REAL | 标准工作时长（小时） | DEFAULT 8.0 |
 | overtime_hours | REAL | 加班时长（小时） | DEFAULT 0.0 |
-| leave_hours | REAL | 请假时长（小时，汇总） | DEFAULT 0.0 |
+| leave_hours | REAL | 未带薪请假时长（小时，自动=请假时长-带薪时长） | DEFAULT 0.0 |
 | remark | TEXT | 备注 | - |
 | created_at | TIMESTAMP | 创建时间 | DEFAULT CURRENT_TIMESTAMP |
 | updated_at | TIMESTAMP | 更新时间 | DEFAULT CURRENT_TIMESTAMP |
@@ -359,6 +359,9 @@ erDiagram
 | start_time | TIMESTAMP | 请假开始时间 | - |
 | end_time | TIMESTAMP | 请假结束时间 | - |
 | leave_hours | REAL | 请假时长（小时） | NOT NULL |
+| paid_hours | REAL | 带薪时长（小时，≤请假时长） | DEFAULT 0.0 |
+
+> **说明**：考勤中的 `leave_hours` 表示“未带薪请假时长”，系统会自动按 `max(leave_hours - paid_hours, 0)` 汇总到对应日期的考勤记录，用于判断缺勤/部分请假状态。
 | reason | TEXT | 请假原因 | - |
 | status | TEXT | 审批状态 | DEFAULT 'approved' |
 | created_at | TIMESTAMP | 创建时间 | DEFAULT CURRENT_TIMESTAMP |

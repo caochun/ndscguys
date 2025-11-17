@@ -198,7 +198,6 @@ function renderAttendanceTable(attendanceList) {
                     <tr data-attendance-id="${attendance.id}">
                         <td>${attendance.attendance_date}</td>
                         <td>${personMap[attendance.person_id] || '-'}</td>
-                        <td>${attendance.company_name || '-'}</td>
                         <td>${checkInTime}</td>
                         <td>${checkOutTime}</td>
                         <td>${workHours}</td>

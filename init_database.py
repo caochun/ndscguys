@@ -110,6 +110,46 @@ def generate_hire_date():
     return hire_date.strftime('%Y-%m-%d')
 
 
+def generate_base_salary(position: str) -> float:
+    """根据职位级别生成月薪基数"""
+    base_min = 8000
+    base_max = 15000
+    if any(keyword in position for keyword in ['经理', '总监']):
+        base_min = 18000
+        base_max = 32000
+    elif any(keyword in position for keyword in ['专家', '高级']):
+        base_min = 15000
+        base_max = 26000
+    elif any(keyword in position for keyword in ['助理', '专员']):
+        base_min = 6000
+        base_max = 12000
+    return random.randint(base_min, base_max)
+
+
+def apply_salary_adjustment(service: EmployeeService, employee_id: int, position: str,
+                            reason: str, multiplier_range=(0.95, 1.05),
+                            effective_date: str = None):
+    """根据变动创建新的薪资记录"""
+    current_salary = service.get_current_salary(employee_id)
+    if current_salary:
+        base_amount = current_salary.base_amount * random.uniform(*multiplier_range)
+    else:
+        base_amount = generate_base_salary(position)
+    
+    base_amount = round(max(base_amount, 3000), 2)
+    effective = effective_date or datetime.now().strftime('%Y-%m-%d')
+    
+    try:
+        service.create_salary_record(
+            employee_id=employee_id,
+            base_amount=base_amount,
+            effective_date=effective,
+            change_reason=reason
+        )
+    except Exception as err:
+        print(f"    [薪资] {reason} 失败: {err}")
+
+
 def get_next_employee_number(service, company_name, base_number=0):
     """
     获取下一个员工编号
@@ -239,6 +279,14 @@ def init_database():
             )
             
             service.create_employment(employment)
+            apply_salary_adjustment(
+                service,
+                employee_id,
+                position,
+                '初始薪资',
+                multiplier_range=(1.0, 1.0),
+                effective_date=hire_date
+            )
             
             # 如果是高级职位，加入上级候选列表
             if '经理' in position or '总监' in position or '专家' in position:
@@ -457,6 +505,7 @@ def init_database():
         try:
             if change_type == 'transfer_company':
                 # 换公司：使用 Service 层获取下一个员工编号
+                current_salary = service.get_current_salary(employee_id)
                 max_number = service.get_max_employee_number(new_company)
                 if max_number:
                     try:
@@ -480,6 +529,23 @@ def init_database():
                     None,  # 上级暂时设为None
                     change_reason
                 )
+                new_base_amount = None
+                if current_salary:
+                    new_base_amount = round(
+                        max(current_salary.base_amount * random.uniform(1.0, 1.15), 3000),
+                        2
+                    )
+                if new_base_amount is None:
+                    new_base_amount = generate_base_salary(new_position)
+                try:
+                    service.create_salary_record(
+                        new_employee_id,
+                        new_base_amount,
+                        new_hire_date,
+                        f"{change_reason} - 薪资调整"
+                    )
+                except Exception as err:
+                    print(f"    [薪资] 创建失败: {err}")
                 
                 transfer_count += 1
                 print(f"  {name}: {company1} {current_department} {current_position} → {new_company} {new_department} {new_position} (原因: {change_reason})")
@@ -497,6 +563,18 @@ def init_database():
                 if updated:
                     change_count += 1
                     print(f"  {name}: {current_department} {current_position} → {new_department} {new_position} (原因: {change_reason})")
+                    multiplier_map = {
+                        'promotion': (1.08, 1.2),
+                        'demotion': (0.85, 0.95),
+                        'department': (0.95, 1.05)
+                    }
+                    apply_salary_adjustment(
+                        service,
+                        employee_id,
+                        new_position,
+                        f"{change_reason} - 薪资调整",
+                        multiplier_map.get(change_type, (0.95, 1.05))
+                    )
                 else:
                     print(f"  {name}: 字段未变化，跳过更新")
         except Exception as e:
@@ -620,6 +698,7 @@ def init_database():
         try:
             if change_type == 'transfer_company':
                 # 换公司：使用 Service 层获取下一个员工编号
+                current_salary = service.get_current_salary(employee_id)
                 max_number = service.get_max_employee_number(new_company)
                 if max_number:
                     try:
@@ -643,6 +722,23 @@ def init_database():
                     None,  # 上级暂时设为None
                     change_reason
                 )
+                new_base_amount = None
+                if current_salary:
+                    new_base_amount = round(
+                        max(current_salary.base_amount * random.uniform(1.0, 1.15), 3000),
+                        2
+                    )
+                if new_base_amount is None:
+                    new_base_amount = generate_base_salary(new_position)
+                try:
+                    service.create_salary_record(
+                        new_employee_id,
+                        new_base_amount,
+                        new_hire_date,
+                        f"{change_reason} - 薪资调整"
+                    )
+                except Exception as err:
+                    print(f"    [薪资] 创建失败: {err}")
                 
                 transfer_count2 += 1
                 print(f"  {name}: {company2} {current_department} {current_position} → {new_company} {new_department} {new_position} (原因: {change_reason})")
@@ -660,6 +756,18 @@ def init_database():
                 if updated:
                     change_count2 += 1
                     print(f"  {name}: {current_department} {current_position} → {new_department} {new_position} (原因: {change_reason})")
+                    multiplier_map = {
+                        'promotion': (1.08, 1.2),
+                        'demotion': (0.85, 0.95),
+                        'department': (0.95, 1.05)
+                    }
+                    apply_salary_adjustment(
+                        service,
+                        employee_id,
+                        new_position,
+                        f"{change_reason} - 薪资调整",
+                        multiplier_map.get(change_type, (0.95, 1.05))
+                    )
                 else:
                     print(f"  {name}: 字段未变化，跳过更新")
         except Exception as e:
@@ -793,6 +901,9 @@ def init_database():
                 else:
                     leave_hours = random.choice([2.0, 3.0, 6.0])
                 
+                paid_ratio = random.choice([0.0, 0.25, 0.5, 0.75, 1.0])
+                paid_hours = round(min(leave_hours, leave_hours * paid_ratio), 2)
+                
                 leave_record = LeaveRecord(
                     person_id=person_id,
                     employee_id=employee_id,
@@ -800,6 +911,7 @@ def init_database():
                     leave_date=current_date.strftime('%Y-%m-%d'),
                     leave_type=leave_type,
                     leave_hours=leave_hours,
+                    paid_hours=paid_hours,
                     reason=f"{leave_type}原因",
                     status='approved'
                 )

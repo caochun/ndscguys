@@ -2,6 +2,7 @@
 路由蓝图
 """
 from flask import Blueprint, render_template, request, jsonify
+from datetime import datetime
 from app.services.employee_service import EmployeeService
 from app.services.attendance_service import AttendanceService
 from app.models import Person, Employee, Employment, Attendance, LeaveRecord
@@ -37,6 +38,12 @@ def persons():
 def attendance():
     """考勤管理页面"""
     return render_template('attendance.html')
+
+
+@main_bp.route('/salary')
+def salary():
+    """薪资管理页面"""
+    return render_template('salary.html')
 
 
 @api_bp.route('/employees', methods=['GET'])
@@ -84,6 +91,9 @@ def get_employee(employee_id):
         employee = data.employee
         employment = data.employment
         
+        salary = employee_service.get_current_salary(employee_id)
+        salary_data = salary.to_dict() if salary else None
+        
         result = {
             'id': employee.id,
             'person_id': employee.person_id,
@@ -99,6 +109,7 @@ def get_employee(employee_id):
             'position': employment.position if employment else None,
             'hire_date': employment.hire_date if employment else None,
             'supervisor_id': employment.supervisor_id if employment else None,
+            'salary': salary_data
         }
         return jsonify({'success': True, 'data': result})
     except Exception as e:
@@ -317,6 +328,117 @@ def get_departments():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@api_bp.route('/employees/<int:employee_id>/salary', methods=['GET'])
+def get_employee_salary(employee_id):
+    """获取员工当前薪资信息"""
+    try:
+        employee = employee_service.get_employee(employee_id)
+        if not employee:
+            return jsonify({'success': False, 'error': '员工不存在'}), 404
+        
+        salary = employee_service.get_current_salary(employee_id)
+        data = salary.to_dict() if salary else None
+        return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/employees/<int:employee_id>/salary', methods=['POST'])
+def create_employee_salary(employee_id):
+    """创建或调整员工薪资信息"""
+    try:
+        data = request.get_json() or {}
+        base_amount = data.get('base_amount')
+        effective_date = data.get('effective_date')
+        change_reason = data.get('change_reason')
+        
+        salary_id = employee_service.create_salary_record(
+            employee_id,
+            base_amount,
+            effective_date,
+            change_reason
+        )
+        return jsonify({'success': True, 'message': '薪资信息已更新', 'id': salary_id})
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/employees/<int:employee_id>/salary/history', methods=['GET'])
+def get_employee_salary_history(employee_id):
+    """获取员工薪资历史"""
+    try:
+        employee = employee_service.get_employee(employee_id)
+        if not employee:
+            return jsonify({'success': False, 'error': '员工不存在'}), 404
+        
+        history = employee_service.get_salary_history(employee_id)
+        result = [record.to_dict() for record in history]
+        return jsonify({'success': True, 'data': result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/salary/current', methods=['GET'])
+def get_current_salary_list():
+    """获取所有在职员工的当前薪资信息"""
+    try:
+        company_name = request.args.get('company_name')
+        data = employee_service.get_active_employees_with_salary(company_name)
+        return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/payroll', methods=['POST'])
+def create_payroll():
+    """创建薪资发放批次"""
+    try:
+        data = request.get_json() or {}
+        period = data.get('period')
+        if not period:
+            return jsonify({'success': False, 'error': '发薪期不能为空'}), 400
+        
+        items = data.get('items', [])
+        if not items:
+            return jsonify({'success': False, 'error': '薪资明细不能为空'}), 400
+        
+        issue_date = data.get('issue_date')
+        note = data.get('note')
+        created_by = request.headers.get('X-User', 'system')
+        
+        # 规范化数据
+        normalized_items = []
+        for item in items:
+            try:
+                normalized_items.append({
+                    'employee_id': int(item['employee_id']),
+                    'basic_salary': float(item.get('basic_salary', 0.0)),
+                    'performance_base': float(item.get('performance_base', 0.0)),
+                    'grade': item.get('grade', 'C'),
+                    'performance_pay': float(item.get('performance_pay', 0.0)),
+                    'adjustment': float(item.get('adjustment', 0.0)),
+                    'total_pay': float(item.get('total_pay', 0.0))
+                })
+            except (KeyError, ValueError, TypeError):
+                return jsonify({'success': False, 'error': '薪资明细字段格式不正确'}), 400
+        
+        payroll_id = employee_service.create_payroll_record(
+            period=period,
+            data=normalized_items,
+            issue_date=issue_date,
+            note=note,
+            created_by=created_by
+        )
+        
+        return jsonify({'success': True, 'id': payroll_id})
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @api_bp.route('/employees/<int:employee_id>/history', methods=['GET'])
 def get_employee_history(employee_id):
     """获取员工的任职历史记录（包含当前任职）
@@ -333,6 +455,28 @@ def get_employee_history(employee_id):
         return jsonify({'success': True, 'data': result})
     except ValueError as e:
         return jsonify({'success': False, 'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/employees/<int:employee_id>/attendance/monthly', methods=['GET'])
+def get_employee_attendance_monthly(employee_id):
+    """获取员工指定月份的考勤记录和汇总"""
+    try:
+        year = request.args.get('year', type=int)
+        month = request.args.get('month', type=int)
+        if not year or not month:
+            now = datetime.now()
+            year = now.year if not year else year
+            month = now.month if not month else month
+        
+        # 验证月份范围
+        if month < 1 or month > 12:
+            return jsonify({'success': False, 'error': '月份必须在1到12之间'}), 400
+        
+        records, summary = attendance_service.get_attendance_summary_for_month(employee_id, year, month)
+        data = [record.to_dict() for record in records]
+        return jsonify({'success': True, 'data': data, 'summary': summary})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -502,6 +646,16 @@ def create_leave_record():
         if data.get('leave_hours') is None:
             return jsonify({'success': False, 'error': '请假时长不能为空'}), 400
         
+        paid_hours = data.get('paid_hours', 0.0) or 0.0
+        try:
+            paid_hours = float(paid_hours)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': '带薪时长必须为数字'}), 400
+        if paid_hours < 0:
+            return jsonify({'success': False, 'error': '带薪时长不能小于0'}), 400
+        if paid_hours > float(data['leave_hours']):
+            return jsonify({'success': False, 'error': '带薪时长不能超过请假时长'}), 400
+        
         # 创建请假记录对象
         leave_record = LeaveRecord(
             person_id=data['person_id'],
@@ -512,6 +666,7 @@ def create_leave_record():
             start_time=data.get('start_time'),
             end_time=data.get('end_time'),
             leave_hours=data['leave_hours'],
+            paid_hours=paid_hours,
             reason=data.get('reason'),
             status=data.get('status', 'approved')
         )
@@ -591,10 +746,27 @@ def update_leave_record(leave_id):
             leave_record.end_time = data['end_time']
         if 'leave_hours' in data:
             leave_record.leave_hours = data['leave_hours']
+        if 'paid_hours' in data:
+            leave_record.paid_hours = data['paid_hours']
         if 'reason' in data:
             leave_record.reason = data['reason']
         if 'status' in data:
             leave_record.status = data['status']
+        
+        paid_hours_value = leave_record.paid_hours if leave_record.paid_hours is not None else 0.0
+        try:
+            paid_hours_value = float(paid_hours_value)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': '带薪时长必须为数字'}), 400
+        try:
+            leave_hours_value = float(leave_record.leave_hours)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': '请假时长必须为数字'}), 400
+        if paid_hours_value < 0:
+            return jsonify({'success': False, 'error': '带薪时长不能小于0'}), 400
+        if paid_hours_value > leave_hours_value:
+            return jsonify({'success': False, 'error': '带薪时长不能超过请假时长'}), 400
+        leave_record.paid_hours = paid_hours_value
         
         attendance_service.update_leave_record(leave_record)
         

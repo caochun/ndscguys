@@ -141,6 +141,20 @@ table.highlight tbody tr:hover {
     background-color: #2196F3;
 }
 
+.payroll-modal {
+    width: 90%;
+    max-height: 80vh;
+}
+
+.payroll-modal .modal-content {
+    max-height: calc(80vh - 100px);
+    overflow-y: auto;
+}
+
+.payroll-modal.modal-fixed-footer {
+    height: 80vh;
+}
+
 /* 紧凑信息网格布局 */
 .info-grid {
     display: grid;
@@ -334,6 +348,83 @@ table.highlight tbody tr:hover {
 
 .history-item .history-detail strong {
     color: #424242;
+}
+
+.attendance-summary-card {
+    padding: 16px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    background-color: #fff;
+    height: 100%;
+}
+
+.attendance-summary-value {
+    font-size: 1.6rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.attendance-summary-label {
+    margin: 4px 0 0 0;
+    color: #757575;
+    font-size: 0.9rem;
+}
+
+.attendance-summary-period {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #1976D2;
+}
+
+.payroll-tabs {
+    margin-bottom: 20px;
+}
+
+.payroll-tabs .tab a {
+    color: rgba(33, 150, 243, 0.7);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    justify-content: center;
+}
+
+.payroll-tabs .tab a:hover,
+.payroll-tabs .tab a.active {
+    color: #2196F3;
+}
+
+.payroll-tabs .indicator {
+    background-color: #2196F3;
+}
+
+.tab-content-panel {
+    margin-top: 15px;
+}
+
+.readonly-field {
+    width: 100%;
+    border: none;
+    background: transparent;
+    text-align: right;
+    font-weight: 600;
+}
+
+.readonly-field:focus {
+    border: none;
+    box-shadow: none;
+}
+
+.readonly-field {
+    width: 100%;
+    border: none;
+    background: transparent;
+    text-align: right;
+    font-weight: 600;
+}
+
+.readonly-field:focus {
+    border: none;
+    box-shadow: none;
 }
 
 /* 状态栏 */

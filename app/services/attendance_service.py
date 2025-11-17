@@ -1,8 +1,9 @@
 """
 考勤管理服务层
 """
-from typing import List, Optional
-from datetime import datetime, timedelta
+from typing import List, Optional, Tuple, Dict
+from datetime import datetime, timedelta, date
+import calendar
 from app.daos.attendance_dao import AttendanceDAO
 from app.daos.leave_record_dao import LeaveRecordDAO
 from app.daos.employee_dao import EmployeeDAO
@@ -199,6 +200,13 @@ class AttendanceService:
             if employee.person_id != leave_record.person_id:
                 raise ValueError("员工ID与人员ID不匹配")
         
+        if leave_record.paid_hours is None:
+            leave_record.paid_hours = 0.0
+        if leave_record.paid_hours < 0:
+            raise ValueError("带薪时长不能小于0")
+        if leave_record.paid_hours > leave_record.leave_hours:
+            raise ValueError("带薪时长不能超过请假时长")
+        
         leave_id = self.leave_record_dao.create(leave_record)
         
         # 如果请假已批准，更新对应日期的考勤记录的请假时长
@@ -270,10 +278,19 @@ class AttendanceService:
         old_record = self.leave_record_dao.get_by_id(leave_record.id)
         old_status = old_record.status if old_record else None
         
+        if leave_record.paid_hours is None and old_record:
+            leave_record.paid_hours = old_record.paid_hours
+        if leave_record.paid_hours is None:
+            leave_record.paid_hours = 0.0
+        if leave_record.paid_hours < 0:
+            raise ValueError("带薪时长不能小于0")
+        if leave_record.paid_hours > leave_record.leave_hours:
+            raise ValueError("带薪时长不能超过请假时长")
+        
         result = self.leave_record_dao.update(leave_record)
         
-        # 如果状态改变，更新考勤记录
-        if old_status != leave_record.status and leave_record.status == 'approved':
+        # 状态或带薪时长变动后，重新同步考勤记录
+        if leave_record.status == 'approved' or old_status == 'approved':
             self._update_attendance_leave_hours(
                 leave_record.person_id,
                 leave_record.company_name,
@@ -304,6 +321,50 @@ class AttendanceService:
         return result
     
     # ========== 辅助方法 ==========
+
+    def get_attendance_summary_for_month(self, employee_id: int, year: int, month: int) -> Tuple[List[Attendance], Dict[str, float]]:
+        """
+        获取员工指定月份的考勤记录和汇总
+        """
+        if not year or not month:
+            today = date.today()
+            year = today.year
+            month = today.month
+        
+        _, last_day = calendar.monthrange(year, month)
+        start_date = date(year, month, 1).strftime('%Y-%m-%d')
+        end_date = date(year, month, last_day).strftime('%Y-%m-%d')
+        
+        records = self.get_attendance_by_employee(employee_id, start_date, end_date)
+        
+        total_work = 0.0
+        total_overtime = 0.0
+        total_unpaid_leave = 0.0
+        days_attended = 0
+        
+        for record in records:
+            work_hours = record.work_hours or 0.0
+            overtime_hours = record.overtime_hours or 0.0
+            leave_hours = record.leave_hours or 0.0
+            
+            total_work += work_hours
+            total_overtime += overtime_hours
+            total_unpaid_leave += leave_hours
+            if work_hours > 0 or leave_hours > 0 or record.status in ('leave', 'partial_leave'):
+                days_attended += 1
+        
+        summary = {
+            'work_hours': round(total_work, 2),
+            'overtime_hours': round(total_overtime, 2),
+            'unpaid_leave_hours': round(total_unpaid_leave, 2),
+            'effective_hours': round(total_work + total_overtime - total_unpaid_leave, 2),
+            'days_attended': days_attended,
+            'record_count': len(records),
+            'year': year,
+            'month': month
+        }
+        
+        return records, summary
     
     def _calculate_leave_hours(self, person_id: int, company_name: str, 
                              attendance_date: str) -> float:
@@ -321,13 +382,14 @@ class AttendanceService:
         leave_records = self.leave_record_dao.get_by_person_and_date(
             person_id, attendance_date
         )
-        # 只统计已批准且属于该公司的请假
-        total_hours = sum(
-            record.leave_hours 
-            for record in leave_records 
-            if record.status == 'approved' and record.company_name == company_name
-        )
-        return total_hours
+        # 只统计已批准且属于该公司的请假，按“未带薪时长”折算
+        total_hours = 0.0
+        for record in leave_records:
+            if record.status == 'approved' and record.company_name == company_name:
+                paid_hours = record.paid_hours or 0.0
+                unpaid_hours = max(record.leave_hours - paid_hours, 0.0)
+                total_hours += unpaid_hours
+        return round(total_hours, 2)
     
     def _calculate_work_hours(self, check_in_time: str, check_out_time: str) -> float:
         """

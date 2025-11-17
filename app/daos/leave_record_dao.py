@@ -26,8 +26,8 @@ class LeaveRecordDAO(BaseDAO):
             cursor.execute("""
                 INSERT INTO leave_records 
                 (person_id, employee_id, company_name, leave_date, leave_type,
-                 start_time, end_time, leave_hours, reason, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 start_time, end_time, leave_hours, paid_hours, reason, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 leave_record.person_id,
                 leave_record.employee_id,
@@ -37,6 +37,7 @@ class LeaveRecordDAO(BaseDAO):
                 leave_record.start_time,
                 leave_record.end_time,
                 leave_record.leave_hours,
+                leave_record.paid_hours,
                 leave_record.reason,
                 leave_record.status
             ))
@@ -219,7 +220,7 @@ class LeaveRecordDAO(BaseDAO):
         cursor.execute("""
             UPDATE leave_records 
             SET leave_type = ?, start_time = ?, end_time = ?,
-                leave_hours = ?, reason = ?, status = ?,
+                leave_hours = ?, paid_hours = ?, reason = ?, status = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
         """, (
@@ -227,6 +228,7 @@ class LeaveRecordDAO(BaseDAO):
             leave_record.start_time,
             leave_record.end_time,
             leave_record.leave_hours,
+            leave_record.paid_hours,
             leave_record.reason,
             leave_record.status,
             leave_record.id

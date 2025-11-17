@@ -16,6 +16,7 @@ class LeaveRecord:
                  start_time: Optional[str] = None,
                  end_time: Optional[str] = None,
                  reason: Optional[str] = None,
+                 paid_hours: float = 0.0,
                  status: str = 'approved',
                  employee_id: Optional[int] = None,
                  id: Optional[int] = None,
@@ -30,6 +31,7 @@ class LeaveRecord:
         self.start_time = start_time
         self.end_time = end_time
         self.leave_hours = leave_hours
+        self.paid_hours = paid_hours
         self.reason = reason
         self.status = status
         self.created_at = created_at
@@ -47,6 +49,7 @@ class LeaveRecord:
             'start_time': self.start_time,
             'end_time': self.end_time,
             'leave_hours': self.leave_hours,
+            'paid_hours': self.paid_hours,
             'reason': self.reason,
             'status': self.status,
             'created_at': self.created_at,
@@ -66,6 +69,7 @@ class LeaveRecord:
             start_time=row['start_time'],
             end_time=row['end_time'],
             leave_hours=row['leave_hours'],
+            paid_hours=row['paid_hours'] if 'paid_hours' in row.keys() else 0.0,
             reason=row['reason'],
             status=row['status'],
             created_at=row['created_at'],

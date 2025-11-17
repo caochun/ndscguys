@@ -20,11 +20,13 @@
                 <li><a href="{{ url_for('main.employees') }}" class="active"><i class="material-icons left">people</i>员工</a></li>
                 <li><a href="{{ url_for('main.persons') }}"><i class="material-icons left">person</i>人员</a></li>
                 <li><a href="{{ url_for('main.attendance') }}"><i class="material-icons left">access_time</i>考勤</a></li>
+                <li><a href="{{ url_for('main.salary') }}"><i class="material-icons left">attach_money</i>薪资</a></li>
             </ul>
             <ul class="sidenav" id="mobile-nav">
                 <li><a href="{{ url_for('main.employees') }}" class="active"><i class="material-icons left">people</i>员工</a></li>
                 <li><a href="{{ url_for('main.persons') }}"><i class="material-icons left">person</i>人员</a></li>
                 <li><a href="{{ url_for('main.attendance') }}"><i class="material-icons left">access_time</i>考勤</a></li>
+                <li><a href="{{ url_for('main.salary') }}"><i class="material-icons left">attach_money</i>薪资</a></li>
             </ul>
             <a href="#" data-target="mobile-nav" class="sidenav-trigger"><i class="material-icons">menu</i></a>
         </div>
@@ -96,7 +98,7 @@
                         <li class="tab"><a href="#personalInfoTab" class="active">个人信息</a></li>
                         <li class="tab"><a href="#employmentInfoTab">任职信息</a></li>
                         <li class="tab"><a href="#salaryInfoTab">薪资信息</a></li>
-                        <li class="tab" id="historyTabItem" style="display: none;"><a href="#historyTab">任职历史</a></li>
+                        <li class="tab"><a href="#attendanceTab">考勤记录</a></li>
                     </ul>
                     
                     <!-- 标签页内容 -->
@@ -145,15 +147,6 @@
                     <div id="salaryInfoTab" class="col s12" style="padding: 10px 0;">
                         <div id="salaryInfoContent">
                             <div class="center-align grey-text" style="padding: 30px 0;">
-                                <i class="material-icons large">account_balance_wallet</i>
-                                <p>薪资信息功能待开发</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div id="historyTab" class="col s12" style="padding: 10px 0;">
-                        <div id="historyContent" class="history-content">
-                            <div class="center-align">
                                 <div class="preloader-wrapper active">
                                     <div class="spinner-layer spinner-blue-only">
                                         <div class="circle-clipper left">
@@ -167,10 +160,52 @@
                                         </div>
                                     </div>
                                 </div>
-                                <p>加载中...</p>
+                                <p>加载薪资信息...</p>
                             </div>
                         </div>
                     </div>
+                    
+                    <div id="attendanceTab" class="col s12" style="padding: 10px 0;">
+                        <div id="attendanceSummaryContent" class="row" style="margin-bottom: 10px;">
+                            <div class="col s12 center-align grey-text" style="padding: 30px 0;">
+                                <div class="preloader-wrapper active">
+                                    <div class="spinner-layer spinner-blue-only">
+                                        <div class="circle-clipper left">
+                                            <div class="circle"></div>
+                                        </div>
+                                        <div class="gap-patch">
+                                            <div class="circle"></div>
+                                        </div>
+                                        <div class="circle-clipper right">
+                                            <div class="circle"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p>加载考勤数据...</p>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="striped highlight responsive-table">
+                                <thead>
+                                    <tr>
+                                        <th>日期</th>
+                                        <th>签到时间</th>
+                                        <th>签退时间</th>
+                                        <th>工作时长</th>
+                                        <th>未带薪时长</th>
+                                        <th>加班时长</th>
+                                        <th>状态</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="attendanceTableBody">
+                                    <tr>
+                                        <td colspan="7" class="center-align grey-text">加载中...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
                 </div>
             </div>
         </div>

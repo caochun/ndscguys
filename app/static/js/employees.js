@@ -351,15 +351,10 @@ async function showEmployeeDetail(employeeId, employeeName) {
     // 重置所有标签页内容为加载状态
     document.getElementById('personalInfoContent').innerHTML = '<div class="center-align"><div class="preloader-wrapper active"><div class="spinner-layer spinner-blue-only"><div class="circle-clipper left"><div class="circle"></div></div><div class="gap-patch"><div class="circle"></div></div><div class="circle-clipper right"><div class="circle"></div></div></div></div><p>加载中...</p></div>';
     document.getElementById('employmentInfoContent').innerHTML = '<div class="center-align"><div class="preloader-wrapper active"><div class="spinner-layer spinner-blue-only"><div class="circle-clipper left"><div class="circle"></div></div><div class="gap-patch"><div class="circle"></div></div><div class="circle-clipper right"><div class="circle"></div></div></div></div><p>加载中...</p></div>';
-    document.getElementById('historyContent').innerHTML = '<div class="center-align"><div class="preloader-wrapper active"><div class="spinner-layer spinner-blue-only"><div class="circle-clipper left"><div class="circle"></div></div><div class="gap-patch"><div class="circle"></div></div><div class="circle-clipper right"><div class="circle"></div></div></div></div><p>加载中...</p></div>';
+    document.getElementById('attendanceSummaryContent').innerHTML = '<div class="col s12 center-align grey-text" style="padding: 30px 0;"><div class="preloader-wrapper active"><div class="spinner-layer spinner-blue-only"><div class="circle-clipper left"><div class="circle"></div></div><div class="gap-patch"><div class="circle"></div></div><div class="circle-clipper right"><div class="circle"></div></div></div></div><p>加载考勤数据...</p></div>';
+    document.getElementById('attendanceTableBody').innerHTML = '<tr><td colspan="7" class="center-align grey-text">加载中...</td></tr>';
     
-    // 隐藏历史标签页，等加载完数据后再决定是否显示
-    const historyTabItem = document.getElementById('historyTabItem');
-    if (historyTabItem) {
-        historyTabItem.style.display = 'none';
-    }
-    
-    // 重新初始化标签页（确保历史标签页的显示状态正确）
+    // 重新初始化标签页
     const tabs = document.getElementById('employeeDetailTabs');
     if (tabs && employeeDetailTabsInstance) {
         employeeDetailTabsInstance.destroy();
@@ -387,8 +382,15 @@ async function showEmployeeDetail(employeeId, employeeName) {
             // 渲染任职信息
             renderEmploymentInfo(emp);
             
-            // 加载并渲染历史记录
+            // 渲染薪资信息
+            renderSalaryInfo(emp.salary);
+            loadAndRenderSalaryHistory(employeeId);
+            
+            // 加载并渲染任职历史
             await loadAndRenderHistory(employeeId);
+            
+            // 加载考勤信息
+            loadAndRenderAttendance(employeeId);
         } else {
             showError('加载员工信息失败：' + result.error);
         }
@@ -474,14 +476,170 @@ function renderEmploymentInfo(emp) {
                 <span class="info-value">${emp.supervisor_id || '-'}</span>
             </div>
         </div>
+        <div class="divider" style="margin: 20px 0;"></div>
+        <h6 class="blue-text text-darken-2" style="font-weight: 600;">任职历史</h6>
+        <div id="employmentHistoryContent" class="history-content" style="margin-top: 10px;">
+            <div class="center-align grey-text">
+                <div class="preloader-wrapper active">
+                    <div class="spinner-layer spinner-blue-only">
+                        <div class="circle-clipper left"><div class="circle"></div></div>
+                        <div class="gap-patch"><div class="circle"></div></div>
+                        <div class="circle-clipper right"><div class="circle"></div></div>
+                    </div>
+                </div>
+                <p>加载中...</p>
+            </div>
+        </div>
+    `;
+}
+
+function formatCurrency(value) {
+    if (value === null || value === undefined || value === '') {
+        return '-';
+    }
+    const number = Number(value);
+    if (Number.isNaN(number)) {
+        return '-';
+    }
+    return `¥${number.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function renderSalaryInfo(salary) {
+    const content = document.getElementById('salaryInfoContent');
+    if (!content) return;
+    
+    if (!salary) {
+        content.innerHTML = `
+            <div class="card-panel grey lighten-4 center-align" style="margin-bottom: 16px;">
+                <i class="material-icons large grey-text text-lighten-1">account_balance_wallet</i>
+                <p class="grey-text text-darken-1" style="margin-top: 10px;">暂无薪资信息</p>
+            </div>
+            <div class="card">
+                <div class="card-content">
+                    <h6 class="grey-text text-darken-2" style="margin: 0;">薪资历史</h6>
+                    <div id="salaryHistoryList" class="history-content" style="margin-top: 15px;">
+                        <div class="center-align grey-text">加载历史记录...</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    content.innerHTML = `
+        <div class="card-panel blue lighten-5" style="margin-bottom: 16px;">
+            <div class="row" style="margin-bottom: 0;">
+                <div class="col s12 m4 center-align" style="padding: 20px 10px;">
+                    <i class="material-icons large blue-text text-darken-2">account_balance_wallet</i>
+                    <p style="font-size: 1.6rem; font-weight: 600; margin: 10px 0 4px 0;">
+                        ${formatCurrency(salary.base_amount)}
+                    </p>
+                    <p class="grey-text text-darken-2" style="margin: 0;">月薪基数</p>
+                    <span class="badge blue white-text" style="margin-top: 8px;">当前生效</span>
+                </div>
+                <div class="col s12 m8">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label-compact">基本工资 (60%)：</span>
+                            <span class="info-value">${formatCurrency(salary.basic_salary)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label-compact">绩效基数 (40%)：</span>
+                            <span class="info-value">${formatCurrency(salary.performance_salary)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label-compact">生效日期：</span>
+                            <span class="info-value">${salary.effective_date || '-'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label-compact">变更原因：</span>
+                            <span class="info-value">${salary.change_reason || '—'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label-compact">版本号：</span>
+                            <span class="info-value">${salary.version || '-'}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-content">
+                <h6 class="grey-text text-darken-2" style="margin: 0;">薪资历史</h6>
+                <div id="salaryHistoryList" class="history-content" style="margin-top: 15px;">
+                    <div class="center-align grey-text">加载历史记录...</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+async function loadAndRenderSalaryHistory(employeeId) {
+    const historyContainer = document.getElementById('salaryHistoryList');
+    if (!historyContainer) return;
+    
+    historyContainer.innerHTML = '<div class="center-align grey-text">加载历史记录...</div>';
+    
+    try {
+        const response = await fetch(`/api/employees/${employeeId}/salary/history`);
+        const result = await response.json();
+        
+        if (result.success) {
+            if (result.data.length === 0) {
+                historyContainer.innerHTML = '<div class="center-align grey-text">暂无薪资历史</div>';
+            } else {
+                historyContainer.innerHTML = renderSalaryHistoryList(result.data);
+            }
+        } else {
+            historyContainer.innerHTML = `<div class="center-align red-text">加载失败：${result.error}</div>`;
+        }
+    } catch (error) {
+        historyContainer.innerHTML = `<div class="center-align red-text">加载失败：${error.message}</div>`;
+    }
+}
+
+function renderSalaryHistoryList(history) {
+    return `
+        <div class="table-responsive">
+            <table class="striped highlight responsive-table">
+                <thead>
+                    <tr>
+                        <th>版本</th>
+                        <th>月薪基数</th>
+                        <th>基本工资</th>
+                        <th>绩效基数</th>
+                        <th>生效日期</th>
+                        <th>结束日期</th>
+                        <th>变更原因</th>
+                        <th>状态</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${history.map(item => `
+                        <tr class="${item.status === 'active' ? 'current-row' : ''}">
+                            <td>${item.version || '-'}</td>
+                            <td>${formatCurrency(item.base_amount)}</td>
+                            <td>${formatCurrency(item.basic_salary)}</td>
+                            <td>${formatCurrency(item.performance_salary)}</td>
+                            <td>${item.effective_date || '-'}</td>
+                            <td>${item.end_date || '-'}</td>
+                            <td>${item.change_reason || '-'}</td>
+                            <td>
+                                ${item.status === 'active'
+                                    ? '<span class="badge blue white-text">当前</span>'
+                                    : '<span class="badge grey white-text">历史</span>'}
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
     `;
 }
 
 // 加载并渲染历史记录
 async function loadAndRenderHistory(employeeId) {
-    const content = document.getElementById('historyContent');
-    const historyTabItem = document.getElementById('historyTabItem');
-    
+    const content = document.getElementById('employmentHistoryContent');
     if (!content) return;
     
     try {
@@ -489,34 +647,138 @@ async function loadAndRenderHistory(employeeId) {
         const result = await response.json();
         
         if (result.success) {
-            if (result.data.length > 0) {
-                // 有历史记录，显示历史标签页
-                if (historyTabItem) {
-                    historyTabItem.style.display = 'block';
-                    // 重新初始化标签页以包含新的标签
-                    if (employeeDetailTabsInstance) {
-                        employeeDetailTabsInstance.destroy();
-                        employeeDetailTabsInstance = M.Tabs.init(document.getElementById('employeeDetailTabs'));
-                    }
-                }
-                content.innerHTML = renderHistoryList(result.data);
-            } else {
-                // 没有历史记录，隐藏历史标签页
-                if (historyTabItem) {
-                    historyTabItem.style.display = 'none';
-                    if (employeeDetailTabsInstance) {
-                        employeeDetailTabsInstance.destroy();
-                        employeeDetailTabsInstance = M.Tabs.init(document.getElementById('employeeDetailTabs'));
-                    }
-                }
-                content.innerHTML = '<div class="center-align grey-text">暂无历史记录</div>';
-            }
+            content.innerHTML = result.data.length > 0
+                ? renderHistoryList(result.data)
+                : '<div class="center-align grey-text">暂无历史记录</div>';
         } else {
             content.innerHTML = `<div class="center-align red-text">加载失败：${result.error}</div>`;
         }
     } catch (error) {
         content.innerHTML = `<div class="center-align red-text">加载失败：${error.message}</div>`;
     }
+}
+
+async function loadAndRenderAttendance(employeeId) {
+    const summaryContainer = document.getElementById('attendanceSummaryContent');
+    const tableBody = document.getElementById('attendanceTableBody');
+    if (!summaryContainer || !tableBody) return;
+    
+    summaryContainer.innerHTML = '<div class="col s12 center-align grey-text" style="padding: 30px 0;"><div class="preloader-wrapper active"><div class="spinner-layer spinner-blue-only"><div class="circle-clipper left"><div class="circle"></div></div><div class="gap-patch"><div class="circle"></div></div><div class="circle-clipper right"><div class="circle"></div></div></div></div><p>加载考勤数据...</p></div>';
+    tableBody.innerHTML = '<tr><td colspan="7" class="center-align grey-text">加载中...</td></tr>';
+    
+    try {
+        const response = await fetch(`/api/employees/${employeeId}/attendance/monthly`);
+        const result = await response.json();
+        if (result.success) {
+            renderAttendanceSummary(result.summary);
+            renderAttendanceTable(result.data || []);
+        } else {
+            summaryContainer.innerHTML = `<div class="col s12 center-align red-text" style="padding: 20px 0;">加载失败：${result.error}</div>`;
+            tableBody.innerHTML = '<tr><td colspan="7" class="center-align red-text">加载失败</td></tr>';
+        }
+    } catch (error) {
+        summaryContainer.innerHTML = `<div class="col s12 center-align red-text" style="padding: 20px 0;">加载失败：${error.message}</div>`;
+        tableBody.innerHTML = '<tr><td colspan="7" class="center-align red-text">加载失败</td></tr>';
+    }
+}
+
+function renderAttendanceSummary(summary) {
+    const container = document.getElementById('attendanceSummaryContent');
+    if (!container) return;
+    if (!summary) {
+        container.innerHTML = '<div class="col s12 center-align grey-text" style="padding: 20px 0;">暂无考勤数据</div>';
+        return;
+    }
+    
+    const summaryCards = [
+        {
+            label: '有效工作时长',
+            value: summary.effective_hours,
+            colorClass: 'blue-text text-darken-2'
+        },
+        {
+            label: '工作时长',
+            value: summary.work_hours,
+            colorClass: 'grey-text text-darken-3'
+        },
+        {
+            label: '未带薪时长',
+            value: summary.unpaid_leave_hours,
+            colorClass: 'orange-text text-darken-2'
+        },
+        {
+            label: '加班时长',
+            value: summary.overtime_hours,
+            colorClass: 'purple-text text-darken-2'
+        }
+    ];
+    
+    container.innerHTML = `
+        <div class="col s12" style="margin-bottom: 10px;">
+            <span class="attendance-summary-period">${summary.year} 年 ${summary.month} 月考勤（${summary.record_count || 0} 条记录，${summary.days_attended || 0} 天出勤）</span>
+        </div>
+        ${summaryCards.map(card => `
+            <div class="col s12 m6 l3" style="margin-bottom: 10px;">
+                <div class="attendance-summary-card">
+                    <p class="attendance-summary-value ${card.colorClass}">${formatHours(card.value)}</p>
+                    <p class="attendance-summary-label">${card.label}</p>
+                </div>
+            </div>
+        `).join('')}
+    `;
+}
+
+function renderAttendanceTable(records) {
+    const tableBody = document.getElementById('attendanceTableBody');
+    if (!tableBody) return;
+    
+    if (!records || records.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="7" class="center-align grey-text">本月暂无考勤数据</td></tr>';
+        return;
+    }
+    
+    tableBody.innerHTML = records.map(record => `
+        <tr>
+            <td>${record.attendance_date || '-'}</td>
+            <td>${formatDateTime(record.check_in_time)}</td>
+            <td>${formatDateTime(record.check_out_time)}</td>
+            <td>${formatHours(record.work_hours)}</td>
+            <td>${formatHours(record.leave_hours)}</td>
+            <td>${formatHours(record.overtime_hours)}</td>
+            <td>${getAttendanceStatusChip(record.status)}</td>
+        </tr>
+    `).join('');
+}
+
+function formatDateTime(value) {
+    if (!value) return '-';
+    try {
+        const dateObj = new Date(value);
+        if (Number.isNaN(dateObj.getTime())) return '-';
+        return dateObj.toLocaleString('zh-CN', { hour12: false });
+    } catch (error) {
+        return '-';
+    }
+}
+
+function formatHours(value) {
+    const num = Number(value) || 0;
+    return num.toFixed(2);
+}
+
+function getAttendanceStatusChip(status) {
+    const statusMap = {
+        'normal': { text: '正常', cls: 'status-normal', icon: 'check_circle' },
+        'late': { text: '迟到', cls: 'status-late', icon: 'schedule' },
+        'early_leave': { text: '早退', cls: 'status-early-leave', icon: 'exit_to_app' },
+        'absent': { text: '缺勤', cls: 'status-absent', icon: 'cancel' },
+        'leave': { text: '请假', cls: 'status-leave', icon: 'event_busy' },
+        'partial_leave': { text: '部分请假', cls: 'status-partial-leave', icon: 'event_available' },
+        'incomplete': { text: '未完成', cls: 'status-incomplete', icon: 'hourglass_empty' },
+        'overtime': { text: '加班', cls: 'status-overtime', icon: 'work' }
+    };
+    const info = statusMap[status] || { text: status || '未知', cls: 'status-unknown', icon: 'help' };
+    return `<span class="attendance-status-badge ${info.cls}"><i class="material-icons tiny">${info.icon}</i>${info.text}</span>`;
 }
 
 // 显示任职历史抽屉（保留以备将来使用）

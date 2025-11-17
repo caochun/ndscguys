@@ -142,6 +142,7 @@ class Database:
                 start_time TIMESTAMP,
                 end_time TIMESTAMP,
                 leave_hours REAL NOT NULL,
+                paid_hours REAL DEFAULT 0.0,
                 reason TEXT,
                 status TEXT DEFAULT 'approved',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -166,6 +167,83 @@ class Database:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_leave_employee_id ON leave_records(employee_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_leave_date ON leave_records(leave_date)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_leave_company ON leave_records(company_name)")
+        
+        # 为旧版本数据库添加 paid_hours 列
+        try:
+            cursor.execute("ALTER TABLE leave_records ADD COLUMN paid_hours REAL DEFAULT 0.0")
+        except sqlite3.OperationalError:
+            pass
+
+        # 创建薪资记录表
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS salary_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                employee_id INTEGER NOT NULL,
+                base_amount REAL NOT NULL,
+                basic_salary REAL NOT NULL,
+                performance_salary REAL NOT NULL,
+                effective_date DATE NOT NULL,
+                end_date DATE,
+                change_reason TEXT,
+                version INTEGER NOT NULL DEFAULT 1,
+                status TEXT NOT NULL DEFAULT 'active',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+            )
+        """)
+
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_salary_employee_id ON salary_records(employee_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_salary_effective_date ON salary_records(effective_date)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_salary_status ON salary_records(status)")
+
+        # 创建 payroll_record 表
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS payroll_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                period TEXT NOT NULL,
+                issue_date DATE,
+                total_gross_amount REAL DEFAULT 0.0,
+                total_net_amount REAL DEFAULT 0.0,
+                status TEXT NOT NULL DEFAULT 'draft',
+                note TEXT,
+                created_by TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # 创建 payroll_items 表
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS payroll_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                payroll_id INTEGER NOT NULL,
+                employee_id INTEGER NOT NULL,
+                basic_salary REAL NOT NULL,
+                performance_base REAL NOT NULL,
+                performance_grade TEXT NOT NULL,
+                performance_pay REAL NOT NULL,
+                adjustment REAL DEFAULT 0.0,
+                gross_pay REAL NOT NULL,
+                social_security_employee REAL DEFAULT 0.0,
+                social_security_employer REAL DEFAULT 0.0,
+                housing_fund_employee REAL DEFAULT 0.0,
+                housing_fund_employer REAL DEFAULT 0.0,
+                taxable_income REAL DEFAULT 0.0,
+                income_tax REAL DEFAULT 0.0,
+                net_pay REAL DEFAULT 0.0,
+                metadata TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (payroll_id) REFERENCES payroll_records(id) ON DELETE CASCADE,
+                FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+            )
+        """)
+
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_payroll_period ON payroll_records(period)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_payroll_status ON payroll_records(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_payroll_item_payroll_id ON payroll_items(payroll_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_payroll_item_employee_id ON payroll_items(employee_id)")
         
         self.conn.commit()
     

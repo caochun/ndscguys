@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>薪资管理 - 人事管理系统</title>
+    <!-- Materialize CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="blue darken-2">
+        <div class="nav-wrapper container">
+            <a href="{{ url_for('main.index') }}" class="brand-logo">人事管理系统</a>
+            <ul class="right hide-on-med-and-down">
+                <li><a href="{{ url_for('main.employees') }}"><i class="material-icons left">people</i>员工</a></li>
+                <li><a href="{{ url_for('main.persons') }}"><i class="material-icons left">person</i>人员</a></li>
+                <li><a href="{{ url_for('main.attendance') }}"><i class="material-icons left">access_time</i>考勤</a></li>
+                <li><a href="{{ url_for('main.salary') }}" class="active"><i class="material-icons left">attach_money</i>薪资</a></li>
+            </ul>
+            <ul class="sidenav" id="mobile-nav">
+                <li><a href="{{ url_for('main.employees') }}"><i class="material-icons left">people</i>员工</a></li>
+                <li><a href="{{ url_for('main.persons') }}"><i class="material-icons left">person</i>人员</a></li>
+                <li><a href="{{ url_for('main.attendance') }}"><i class="material-icons left">access_time</i>考勤</a></li>
+                <li><a href="{{ url_for('main.salary') }}" class="active"><i class="material-icons left">attach_money</i>薪资</a></li>
+            </ul>
+            <a href="#" data-target="mobile-nav" class="sidenav-trigger"><i class="material-icons">menu</i></a>
+        </div>
+    </nav>
+
+    <div class="container" style="margin-top: 20px;">
+        <div class="card">
+            <div class="card-content">
+                <div class="row">
+                    <div class="col s12 m9">
+                        <h5 class="card-title" style="margin-top: 0;">薪资管理</h5>
+                        <p class="grey-text text-darken-1">
+                            汇总所有在职员工的薪资信息，按绩效等级快速计算当月应发工资。
+                            绩效等级默认为 C，可在弹窗中逐一调整。
+                        </p>
+                    </div>
+                    <div class="col s12 m3 right-align">
+                        <button id="newPayrollBtn" class="btn waves-effect waves-light blue" style="margin-top: 10px;">
+                            <i class="material-icons left">playlist_add</i>生成薪资批次
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 状态栏 -->
+        <div id="statusBar" class="card-panel teal lighten-2 white-text" style="margin-top: 20px; padding: 10px 20px;">
+            <span id="statusText">待创建薪资</span>
+        </div>
+    </div>
+
+    <!-- 薪资计算模态框 -->
+    <div id="payrollModal" class="modal modal-fixed-footer payroll-modal">
+        <div class="modal-content">
+            <h4>生成薪资批次</h4>
+            <div class="row">
+                <div class="input-field col s12 m4">
+                    <input type="text" id="payrollPeriod" class="payroll-period-input" readonly>
+                    <label for="payrollPeriod" class="active">发薪期 *</label>
+                </div>
+                <div class="input-field col s12 m4">
+                    <input type="date" id="issueDate">
+                    <label for="issueDate">发薪日期</label>
+                </div>
+                <div class="input-field col s12 m4">
+                    <input type="text" id="payrollNote">
+                    <label for="payrollNote">备注</label>
+                </div>
+            </div>
+            <p class="grey-text">根据当前有效员工自动生成薪资草稿，可调整绩效等级后保存批次，后续再完善社保、公积金和个税信息。</p>
+            <div class="row" style="margin-top: 15px;">
+                <div class="col s12">
+                    <ul class="tabs tabs-fixed-width payroll-tabs" id="payrollTabs">
+                        <li class="tab col s3"><a href="#payrollTab" class="active"><i class="material-icons tiny">attach_money</i>薪资</a></li>
+                        <li class="tab col s3"><a href="#socialSecurityTab"><i class="material-icons tiny">shield</i>社保</a></li>
+                        <li class="tab col s3"><a href="#housingFundTab"><i class="material-icons tiny">account_balance</i>公积金</a></li>
+                        <li class="tab col s3"><a href="#taxTab"><i class="material-icons tiny">assessment</i>综合所得税</a></li>
+                    </ul>
+                </div>
+                <div id="payrollTab" class="col s12 tab-content-panel">
+                    <div class="table-responsive">
+                        <table class="striped highlight responsive-table">
+                            <thead>
+                                <tr>
+                                    <th>姓名</th>
+                                    <th>公司</th>
+                                    <th>部门</th>
+                                    <th>岗位</th>
+                                    <th>基本工资</th>
+                                    <th>绩效薪资基数</th>
+                                    <th>绩效等级</th>
+                                    <th>绩效薪资</th>
+                                    <th>补扣</th>
+                                    <th>应发工资</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payrollTableBody">
+                                <tr>
+                                    <td colspan="8" class="center-align grey-text">加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="socialSecurityTab" class="col s12 tab-content-panel">
+                    <div class="table-responsive">
+                        <table class="striped highlight responsive-table">
+                            <thead>
+                                <tr>
+                                    <th>姓名</th>
+                                    <th>公司</th>
+                                    <th>部门</th>
+                                    <th>岗位</th>
+                                    <th>缴费基数</th>
+                                    <th>养老</th>
+                                    <th>工伤</th>
+                                    <th>医疗</th>
+                                    <th>失业</th>
+                                    <th>生育</th>
+                                </tr>
+                            </thead>
+                            <tbody id="socialSecurityTableBody">
+                                <tr>
+                                    <td colspan="10" class="center-align grey-text">加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="housingFundTab" class="col s12 tab-content-panel">
+                    <div class="table-responsive">
+                        <table class="striped highlight responsive-table">
+                            <thead>
+                                <tr>
+                                    <th>姓名</th>
+                                    <th>公司</th>
+                                    <th>部门</th>
+                                    <th>岗位</th>
+                                    <th>基数</th>
+                                    <th>单位部分</th>
+                                    <th>个人部分</th>
+                                </tr>
+                            </thead>
+                            <tbody id="housingFundTableBody">
+                                <tr>
+                                    <td colspan="7" class="center-align grey-text">加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="taxTab" class="col s12 tab-content-panel">
+                    <div class="card-panel grey lighten-4 center-align" style="color: #757575;">
+                        <i class="material-icons large grey-text text-lighten-1">assessment</i>
+                        <p>个税申报功能待实现</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="modal-close waves-effect waves-green btn-flat">取消</button>
+            <button type="button" id="savePayrollBtn" class="btn waves-effect waves-light blue">保存批次</button>
+        </div>
+    </div>
+
+    <!-- Materialize JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script src="{{ url_for('static', filename='js/salary.js') }}"></script>
+</body>
+</html>
+
