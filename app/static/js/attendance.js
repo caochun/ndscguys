@@ -191,7 +191,7 @@ function renderAttendanceTable(attendanceList) {
                     const checkOutTime = attendance.check_out_time ? 
                         new Date(attendance.check_out_time).toLocaleString('zh-CN', {hour12: false}) : '-';
                     const workHours = attendance.work_hours ? attendance.work_hours.toFixed(2) : '-';
-                    const leaveHours = attendance.leave_hours ? attendance.leave_hours.toFixed(2) : '-';
+                    const leaveHours = attendance.leave_hours ? attendance.leave_hours.toFixed(2) : '0.00';
                     const overtimeHours = attendance.overtime_hours ? attendance.overtime_hours.toFixed(2) : '-';
                     
                     return `
@@ -201,7 +201,16 @@ function renderAttendanceTable(attendanceList) {
                         <td>${checkInTime}</td>
                         <td>${checkOutTime}</td>
                         <td>${workHours}</td>
-                        <td>${leaveHours}</td>
+                        <td>
+                            <input type="number" 
+                                   class="browser-default leave-hours-input" 
+                                   data-attendance-id="${attendance.id}"
+                                   value="${leaveHours}" 
+                                   step="0.1" 
+                                   min="0"
+                                   style="width: 80px; text-align: center;"
+                                   onblur="saveLeaveHours(${attendance.id}, this.value)">
+                        </td>
                         <td>${overtimeHours}</td>
                         <td>${statusBadge}</td>
                         <td>
@@ -276,6 +285,7 @@ async function showAttendanceDetail(attendanceId) {
             }
             
             document.getElementById('standardHours').value = attendance.standard_hours || 8.0;
+            document.getElementById('leaveHours').value = attendance.leave_hours || 0.0;
             document.getElementById('attendanceStatus').value = getStatusText(attendance.status);
             document.getElementById('attendanceRemark').value = attendance.remark || '';
             
@@ -338,6 +348,7 @@ async function saveAttendance(e) {
         check_in_time: checkInTime || null,
         check_out_time: checkOutTime || null,
         standard_hours: parseFloat(document.getElementById('standardHours').value) || 8.0,
+        leave_hours: parseFloat(document.getElementById('leaveHours').value) || 0.0,
         remark: document.getElementById('attendanceRemark').value || null
     };
     
@@ -389,6 +400,69 @@ function updateStatus(message) {
     const statusText = document.getElementById('statusText');
     if (statusText) {
         statusText.textContent = message;
+    }
+}
+
+// 保存未带薪时长
+async function saveLeaveHours(attendanceId, leaveHours) {
+    try {
+        const leaveHoursValue = parseFloat(leaveHours);
+        
+        // 验证输入
+        if (isNaN(leaveHoursValue) || leaveHoursValue < 0) {
+            M.toast({html: '未带薪时长必须是非负数', classes: 'orange'});
+            // 恢复原值
+            loadAttendance();
+            return;
+        }
+        
+        // 获取当前考勤记录
+        const response = await fetch(`/api/attendance/${attendanceId}`);
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.error || '获取考勤记录失败');
+        }
+        
+        const attendance = result.data;
+        
+        // 更新 leave_hours 字段
+        const updateData = {
+            check_in_time: attendance.check_in_time,
+            check_out_time: attendance.check_out_time,
+            status: attendance.status,
+            work_hours: attendance.work_hours,
+            standard_hours: attendance.standard_hours,
+            overtime_hours: attendance.overtime_hours,
+            leave_hours: leaveHoursValue,
+            remark: attendance.remark
+        };
+        
+        const updateResponse = await fetch(`/api/attendance/${attendanceId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updateData)
+        });
+        
+        const updateResult = await updateResponse.json();
+        
+        if (updateResult.success) {
+            M.toast({html: '未带薪时长已更新', classes: 'green'});
+            // 更新本地数据
+            const attendanceItem = attendanceList.find(a => a.id === attendanceId);
+            if (attendanceItem) {
+                attendanceItem.leave_hours = leaveHoursValue;
+            }
+        } else {
+            throw new Error(updateResult.error || '保存失败');
+        }
+    } catch (error) {
+        console.error('保存未带薪时长失败：', error);
+        M.toast({html: '保存失败：' + error.message, classes: 'red'});
+        // 恢复原值
+        loadAttendance();
     }
 }
 

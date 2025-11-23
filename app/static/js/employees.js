@@ -323,6 +323,7 @@ function renderEmployeeCards(employees) {
                         <p><i class="material-icons tiny">business</i> <strong>公司：</strong>${emp.company_name || '-'}</p>
                         <p><i class="material-icons tiny">domain</i> <strong>部门：</strong>${emp.department || '-'}</p>
                         <p><i class="material-icons tiny">work</i> <strong>职位：</strong>${emp.position || '-'}</p>
+                        <p><i class="material-icons tiny">badge</i> <strong>类型：</strong>${emp.employee_type || '正式员工'}</p>
                     </div>
                 </div>
                 <div class="card-action">
@@ -470,6 +471,10 @@ function renderEmploymentInfo(emp) {
             <div class="info-item">
                 <span class="info-label-compact">入职时间：</span>
                 <span class="info-value">${emp.hire_date || '-'}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label-compact">员工类型：</span>
+                <span class="info-value">${emp.employee_type || '正式员工'}</span>
             </div>
             <div class="info-item">
                 <span class="info-label-compact">上级ID：</span>
@@ -846,6 +851,7 @@ function renderHistoryList(history) {
                         <th>员工编号</th>
                         <th>部门</th>
                         <th>职位</th>
+                        <th>员工类型</th>
                         <th>入职时间</th>
                         <th>变更原因</th>
                     </tr>
@@ -867,6 +873,7 @@ function renderHistoryList(history) {
                             <td>${h.employee_number || '-'}</td>
                             <td>${h.department || '-'}</td>
                             <td>${h.position || '-'}</td>
+                            <td>${h.employee_type || '正式员工'}</td>
                             <td>${h.hire_date || '-'}</td>
                             <td>${h.change_reason || '-'}</td>
                         </tr>

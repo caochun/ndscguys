@@ -20,12 +20,14 @@
                 <li><a href="{{ url_for('main.employees') }}"><i class="material-icons left">people</i>员工</a></li>
                 <li><a href="{{ url_for('main.persons') }}"><i class="material-icons left">person</i>人员</a></li>
                 <li><a href="{{ url_for('main.attendance') }}"><i class="material-icons left">access_time</i>考勤</a></li>
+                <li><a href="{{ url_for('main.leave') }}"><i class="material-icons left">event_busy</i>请假</a></li>
                 <li><a href="{{ url_for('main.salary') }}" class="active"><i class="material-icons left">attach_money</i>薪资</a></li>
             </ul>
             <ul class="sidenav" id="mobile-nav">
                 <li><a href="{{ url_for('main.employees') }}"><i class="material-icons left">people</i>员工</a></li>
                 <li><a href="{{ url_for('main.persons') }}"><i class="material-icons left">person</i>人员</a></li>
                 <li><a href="{{ url_for('main.attendance') }}"><i class="material-icons left">access_time</i>考勤</a></li>
+                <li><a href="{{ url_for('main.leave') }}"><i class="material-icons left">event_busy</i>请假</a></li>
                 <li><a href="{{ url_for('main.salary') }}" class="active"><i class="material-icons left">attach_money</i>薪资</a></li>
             </ul>
             <a href="#" data-target="mobile-nav" class="sidenav-trigger"><i class="material-icons">menu</i></a>
@@ -56,29 +58,88 @@
         <div id="statusBar" class="card-panel teal lighten-2 white-text" style="margin-top: 20px; padding: 10px 20px;">
             <span id="statusText">待创建薪资</span>
         </div>
+
+        <!-- 薪资批次列表 -->
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-content">
+                <h5 class="card-title" style="margin-top: 0;">已生成薪资批次</h5>
+                <div class="table-responsive">
+                    <table class="striped highlight responsive-table">
+                        <thead>
+                            <tr>
+                                <th>发薪期</th>
+                                <th>发薪日期</th>
+                                <th>应发总额</th>
+                                <th>实发总额</th>
+                                <th>状态</th>
+                                <th>备注</th>
+                                <th>创建时间</th>
+                                <th>明细</th>
+                            </tr>
+                        </thead>
+                        <tbody id="payrollRecordsTableBody">
+                            <tr>
+                                <td colspan="8" class="center-align grey-text">加载中...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- 薪资计算模态框 -->
-    <div id="payrollModal" class="modal modal-fixed-footer payroll-modal">
-        <div class="modal-content">
-            <h4>生成薪资批次</h4>
-            <div class="row">
-                <div class="input-field col s12 m4">
-                    <input type="text" id="payrollPeriod" class="payroll-period-input" readonly>
-                    <label for="payrollPeriod" class="active">发薪期 *</label>
+    <div id="payrollModal" class="modal payroll-modal">
+        <div class="modal-content" style="padding: 0;">
+            <!-- 标题区域 -->
+            <div id="payrollModalHeader" style="padding: 1.5rem 2rem 1rem 2rem; border-bottom: 1px solid #e0e0e0;">
+                <h4 style="margin: 0; color: #1976d2; display: flex; align-items: center;">
+                    <i class="material-icons" style="margin-right: 10px;">playlist_add</i>
+                    <span id="payrollModalTitle">生成薪资批次</span>
+                </h4>
+            </div>
+            
+            <!-- 批次信息区域（创建模式） -->
+            <div id="payrollInfoSection" style="padding: 2rem;">
+                <div class="row" style="margin-bottom: 0;">
+                    <div class="col s12">
+                        <div class="card-panel blue lighten-5" style="padding: 1.5rem; margin-bottom: 0;">
+                            <div class="row" style="margin-bottom: 0;">
+                                <div class="input-field col s12 m6" style="margin-top: 0;">
+                                    <i class="material-icons prefix">date_range</i>
+                                    <input type="text" id="payrollPeriod" class="payroll-period-input" readonly>
+                                    <label for="payrollPeriod" class="active">发薪期 *</label>
+                                </div>
+                                <div class="input-field col s12 m6" style="margin-top: 0;">
+                                    <i class="material-icons prefix">event</i>
+                                    <input type="date" id="issueDate">
+                                    <label for="issueDate">发薪日期</label>
+                                </div>
+                            </div>
+                            <div class="row" style="margin-bottom: 0;">
+                                <div class="input-field col s12" style="margin-top: 0;">
+                                    <i class="material-icons prefix">note</i>
+                                    <input type="text" id="payrollNote">
+                                    <label for="payrollNote">备注（可选）</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="input-field col s12 m4">
-                    <input type="date" id="issueDate">
-                    <label for="issueDate">发薪日期</label>
-                </div>
-                <div class="input-field col s12 m4">
-                    <input type="text" id="payrollNote">
-                    <label for="payrollNote">备注</label>
+                
+                <!-- 创建模式下的按钮区域 -->
+                <div id="createModeButtons" class="row" style="margin-top: 1.5rem; margin-bottom: 0;">
+                    <div class="col s12" style="display: flex; justify-content: flex-end; gap: 1rem;">
+                        <button type="button" class="modal-close waves-effect waves-green btn-flat">取消</button>
+                        <button type="button" id="savePayrollBtn" class="btn waves-effect waves-light blue">
+                            <i class="material-icons left">save</i>保存批次
+                        </button>
+                    </div>
                 </div>
             </div>
-            <p class="grey-text">根据当前有效员工自动生成薪资草稿，可调整绩效等级后保存批次，后续再完善社保、公积金和个税信息。</p>
-            <div class="row" style="margin-top: 15px;">
-                <div class="col s12">
+            <p class="grey-text" id="payrollModalDescription" style="display: none;">根据当前有效员工自动生成薪资草稿，可调整绩效等级后保存批次，后续再完善社保、公积金和个税信息。</p>
+            <div class="row" style="margin: 0; padding: 1.5rem 2rem;" id="payrollTablesContainer">
+                <div class="col s12" id="payrollTabsContainer" style="display: none;">
                     <ul class="tabs tabs-fixed-width payroll-tabs" id="payrollTabs">
                         <li class="tab col s3"><a href="#payrollTab" class="active"><i class="material-icons tiny">attach_money</i>薪资</a></li>
                         <li class="tab col s3"><a href="#socialSecurityTab"><i class="material-icons tiny">shield</i>社保</a></li>
@@ -95,6 +156,7 @@
                                     <th>公司</th>
                                     <th>部门</th>
                                     <th>岗位</th>
+                                    <th>类型</th>
                                     <th>基本工资</th>
                                     <th>绩效薪资基数</th>
                                     <th>绩效等级</th>
@@ -105,7 +167,7 @@
                             </thead>
                             <tbody id="payrollTableBody">
                                 <tr>
-                                    <td colspan="8" class="center-align grey-text">加载中...</td>
+                                    <td colspan="11" class="center-align grey-text">加载中...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -120,6 +182,7 @@
                                     <th>公司</th>
                                     <th>部门</th>
                                     <th>岗位</th>
+                                    <th>类型</th>
                                     <th>缴费基数</th>
                                     <th>养老</th>
                                     <th>工伤</th>
@@ -130,7 +193,7 @@
                             </thead>
                             <tbody id="socialSecurityTableBody">
                                 <tr>
-                                    <td colspan="10" class="center-align grey-text">加载中...</td>
+                                    <td colspan="11" class="center-align grey-text">加载中...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -145,6 +208,7 @@
                                     <th>公司</th>
                                     <th>部门</th>
                                     <th>岗位</th>
+                                    <th>类型</th>
                                     <th>基数</th>
                                     <th>单位部分</th>
                                     <th>个人部分</th>
@@ -152,7 +216,7 @@
                             </thead>
                             <tbody id="housingFundTableBody">
                                 <tr>
-                                    <td colspan="7" class="center-align grey-text">加载中...</td>
+                                    <td colspan="8" class="center-align grey-text">加载中...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -165,10 +229,11 @@
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="modal-close waves-effect waves-green btn-flat">取消</button>
-            <button type="button" id="savePayrollBtn" class="btn waves-effect waves-light blue">保存批次</button>
+            
+            <!-- 查看模式下的底部按钮区域 -->
+            <div id="viewModeFooter" style="display: none; padding: 1rem 2rem; border-top: 1px solid #e0e0e0; text-align: right;">
+                <button type="button" class="modal-close waves-effect waves-green btn-flat">关闭</button>
+            </div>
         </div>
     </div>
 

@@ -5,6 +5,41 @@ body {
     background-color: #f5f5f5;
 }
 
+/* 通用模态框优化 */
+.modal {
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.modal-fixed-footer {
+    border-radius: 8px;
+}
+
+.modal-content {
+    border-radius: 8px 8px 0 0;
+}
+
+.modal-footer {
+    border-radius: 0 0 8px 8px;
+    border-top: 1px solid #e0e0e0;
+}
+
+/* 编辑类模态框（员工、人员、考勤） */
+.modal-fixed-footer.modal {
+    width: 90%;
+    max-width: 700px;
+}
+
+.modal-fixed-footer .modal-content {
+    max-height: calc(85vh - 100px);
+    overflow-y: auto;
+    padding: 2rem;
+}
+
+.modal-fixed-footer .modal-footer {
+    padding: 1rem 2rem;
+}
+
 /* 标签页内容显示控制 */
 .tab-content {
     display: none;
@@ -19,14 +54,115 @@ body {
     background-color: rgba(255, 255, 255, 0.1) !important;
 }
 
-/* 表格样式增强 */
+/* 通用表格样式优化 */
+table {
+    border-collapse: collapse;
+    width: 100%;
+    background-color: #fff;
+}
+
+table thead {
+    background-color: #f5f5f5;
+}
+
+table thead th {
+    color: #424242;
+    font-weight: 500;
+    font-size: 14px;
+    padding: 12px 12px;
+    text-align: left;
+    border-bottom: 2px solid #e0e0e0;
+    white-space: nowrap;
+}
+
+table tbody tr {
+    border-bottom: 1px solid #e0e0e0;
+}
+
+table tbody tr:last-child {
+    border-bottom: none;
+}
+
+table.striped tbody tr:nth-child(even) {
+    background-color: #fafafa;
+}
+
 table.striped tbody tr:nth-child(odd) {
-    background-color: #f9f9f9;
+    background-color: #fff;
 }
 
 table.highlight tbody tr:hover {
-    background-color: #e3f2fd;
+    background-color: #f5f5f5;
     cursor: pointer;
+}
+
+table tbody td {
+    padding: 12px 12px;
+    font-size: 14px;
+    color: #424242;
+    vertical-align: middle;
+}
+
+table tbody tr:hover td {
+    color: #424242;
+}
+
+/* 表格容器优化 */
+.table-responsive {
+    overflow-x: auto;
+    background-color: #fff;
+}
+
+/* 表格中的按钮样式 */
+table .btn,
+table .btn-small {
+    margin: 2px;
+}
+
+/* 表格中的输入框样式 */
+table input[type="text"],
+table input[type="number"],
+table select {
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 14px;
+}
+
+table input[type="text"]:focus,
+table input[type="number"]:focus,
+table select:focus {
+    border-color: #1976d2;
+    outline: none;
+}
+
+table input[readonly] {
+    background-color: #f5f5f5;
+    cursor: default;
+}
+
+/* 表格中的状态标签 */
+table .status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* 表格对齐样式 */
+table .center-align {
+    text-align: center;
+}
+
+table .right-align {
+    text-align: right;
+}
+
+table .left-align {
+    text-align: left;
 }
 
 /* 员工卡片样式 */
@@ -107,7 +243,10 @@ table.highlight tbody tr:hover {
 }
 
 /* 员工详情模态框样式 */
+/* 员工详情模态框 */
 #employeeDetailModal {
+    width: 92%;
+    max-width: 1000px;
     max-height: 90vh;
 }
 
@@ -118,7 +257,7 @@ table.highlight tbody tr:hover {
 }
 
 #employeeDetailModal .card-content {
-    max-height: calc(90vh - 100px); /* 减去标题、标签页和底部按钮的高度 */
+    max-height: calc(88vh - 120px); /* 减去标题、标签页和底部按钮的高度 */
     overflow-y: auto;
 }
 
@@ -141,14 +280,114 @@ table.highlight tbody tr:hover {
     background-color: #2196F3;
 }
 
+/* 薪资模态框基础样式 */
 .payroll-modal {
     width: 90%;
-    max-height: 80vh;
+    max-width: 600px;
 }
 
 .payroll-modal .modal-content {
-    max-height: calc(80vh - 100px);
+    max-height: calc(85vh - 60px);
     overflow-y: auto;
+    padding: 0 !important;
+}
+
+/* 创建模式下的紧凑布局 */
+.payroll-modal.create-mode {
+    width: 90%;
+    max-width: 600px;
+}
+
+.payroll-modal.create-mode .modal-content {
+    max-height: none;
+    overflow-y: visible;
+}
+
+/* 查看模式（显示表格）下的宽屏布局 */
+.payroll-modal:not(.create-mode) {
+    width: 95%;
+    max-width: 1400px;
+}
+
+.payroll-modal:not(.create-mode) .modal-content {
+    max-height: calc(90vh - 60px);
+    overflow-y: auto;
+}
+
+/* 薪资模态框表格样式优化 */
+.payroll-modal .table-responsive {
+    overflow-x: auto;
+    margin: 0;
+    -webkit-overflow-scrolling: touch;
+}
+
+.payroll-modal table {
+    margin-bottom: 0;
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #fff;
+}
+
+.payroll-modal table thead {
+    background-color: #f5f5f5;
+}
+
+.payroll-modal table thead th {
+    position: sticky;
+    top: 0;
+    background-color: #f5f5f5;
+    color: #424242;
+    z-index: 10;
+    white-space: nowrap;
+    padding: 12px 12px;
+    font-weight: 500;
+    font-size: 14px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.payroll-modal table tbody td {
+    white-space: nowrap;
+    padding: 12px 12px;
+    font-size: 14px;
+    color: #424242;
+    vertical-align: middle;
+}
+
+.payroll-modal table tbody tr {
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.payroll-modal table.striped tbody tr:nth-child(even) {
+    background-color: #fafafa;
+}
+
+.payroll-modal table.striped tbody tr:nth-child(odd) {
+    background-color: #fff;
+}
+
+.payroll-modal table tbody tr:hover {
+    background-color: #f5f5f5;
+}
+
+.payroll-modal table tbody tr:hover td {
+    color: #424242;
+}
+
+.payroll-modal .input-field .prefix {
+    color: #1976d2;
+    top: 0.8rem;
+}
+
+.payroll-modal .input-field .prefix ~ input,
+.payroll-modal .input-field .prefix ~ label {
+    margin-left: 3rem;
+    width: calc(100% - 3rem);
+}
+
+.payroll-modal .card-panel {
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-left: 4px solid #1976d2;
 }
 
 .payroll-modal.modal-fixed-footer {
@@ -195,7 +434,7 @@ table.highlight tbody tr:hover {
     margin: 10px 0;
 }
 
-/* 模态框内表格样式（保留用于历史记录） */
+/* 员工详情模态框表格样式 */
 #employeeDetailModal table {
     margin-bottom: 0;
 }
@@ -203,14 +442,52 @@ table.highlight tbody tr:hover {
 #employeeDetailModal .info-label {
     width: 120px;
     color: #757575;
+    font-weight: 500;
 }
 
 #employeeDetailModal table tbody tr {
     border-bottom: 1px solid #e0e0e0;
 }
 
+#employeeDetailModal table tbody tr:hover {
+    background-color: #f5f5f5;
+}
+
 #employeeDetailModal table tbody tr:last-child {
     border-bottom: none;
+}
+
+#employeeDetailModal table tbody td {
+    padding: 12px 16px;
+    font-size: 14px;
+}
+
+/* 表格空状态和加载状态 */
+table tbody tr td.center-align.grey-text {
+    padding: 40px 20px;
+    text-align: center;
+    color: #9e9e9e;
+    font-size: 14px;
+    font-style: italic;
+}
+
+table tbody tr td.center-align.red-text {
+    padding: 40px 20px;
+    text-align: center;
+    color: #f44336;
+    font-size: 14px;
+}
+
+/* 表格中的数字格式 */
+table tbody td:has(input[type="number"]) {
+    text-align: right;
+}
+
+/* 表格中的货币格式 */
+table tbody td:contains("¥") {
+    text-align: right;
+    font-weight: 500;
+    color: #1976d2;
 }
 
 /* 历史记录表格样式 */

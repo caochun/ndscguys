@@ -209,6 +209,48 @@ class LeaveRecordDAO(BaseDAO):
         rows = cursor.fetchall()
         return [LeaveRecord.from_row(row) for row in rows]
     
+    def get_by_company(self, company_name: str,
+                      start_date: Optional[str] = None,
+                      end_date: Optional[str] = None) -> List[LeaveRecord]:
+        """
+        根据公司名称获取请假记录
+        
+        Args:
+            company_name: 公司名称
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        if start_date and end_date:
+            cursor.execute("""
+                SELECT * FROM leave_records 
+                WHERE company_name = ? AND leave_date BETWEEN ? AND ?
+                ORDER BY leave_date DESC, start_time DESC
+            """, (company_name, start_date, end_date))
+        elif start_date:
+            cursor.execute("""
+                SELECT * FROM leave_records 
+                WHERE company_name = ? AND leave_date >= ?
+                ORDER BY leave_date DESC, start_time DESC
+            """, (company_name, start_date))
+        elif end_date:
+            cursor.execute("""
+                SELECT * FROM leave_records 
+                WHERE company_name = ? AND leave_date <= ?
+                ORDER BY leave_date DESC, start_time DESC
+            """, (company_name, end_date))
+        else:
+            cursor.execute("""
+                SELECT * FROM leave_records 
+                WHERE company_name = ?
+                ORDER BY leave_date DESC, start_time DESC
+            """, (company_name,))
+        
+        rows = cursor.fetchall()
+        return [LeaveRecord.from_row(row) for row in rows]
+    
     def update(self, leave_record: LeaveRecord) -> bool:
         """更新请假记录"""
         if leave_record.id is None:
@@ -245,6 +287,45 @@ class LeaveRecordDAO(BaseDAO):
         cursor.execute("DELETE FROM leave_records WHERE id = ?", (leave_id,))
         conn.commit()
         return cursor.rowcount > 0
+    
+    def get_all(self, start_date: Optional[str] = None,
+                end_date: Optional[str] = None) -> List[LeaveRecord]:
+        """
+        获取所有请假记录（可选日期范围）
+        
+        Args:
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        if start_date and end_date:
+            cursor.execute("""
+                SELECT * FROM leave_records 
+                WHERE leave_date BETWEEN ? AND ?
+                ORDER BY leave_date DESC, start_time DESC
+            """, (start_date, end_date))
+        elif start_date:
+            cursor.execute("""
+                SELECT * FROM leave_records 
+                WHERE leave_date >= ?
+                ORDER BY leave_date DESC, start_time DESC
+            """, (start_date,))
+        elif end_date:
+            cursor.execute("""
+                SELECT * FROM leave_records 
+                WHERE leave_date <= ?
+                ORDER BY leave_date DESC, start_time DESC
+            """, (end_date,))
+        else:
+            cursor.execute("""
+                SELECT * FROM leave_records 
+                ORDER BY leave_date DESC, start_time DESC
+            """)
+        
+        rows = cursor.fetchall()
+        return [LeaveRecord.from_row(row) for row in rows]
     
     def count(self) -> int:
         """获取请假记录总数"""

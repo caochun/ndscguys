@@ -3,8 +3,8 @@
 """
 from typing import List, Optional, Dict
 from dataclasses import dataclass
-from app.models import Person, Employee, Employment, EmploymentHistory, SalaryRecord, PayrollRecord, PayrollItem
-from app.daos import PersonDAO, EmployeeDAO, EmploymentDAO, SalaryDAO, PayrollDAO
+from app.models import Person, Employee, Employment, EmploymentHistory
+from app.daos import PersonDAO, EmployeeDAO, EmploymentDAO
 
 
 @dataclass
@@ -26,6 +26,7 @@ class EmploymentHistoryItem:
                 'position': self.employment.position,
                 'hire_date': self.employment.hire_date,
                 'supervisor_id': self.employment.supervisor_id,
+                'employee_type': getattr(self.employment, 'employee_type', '正式员工'),
                 'changed_at': self.employment.updated_at or '',  # 使用updated_at作为时间戳
                 'change_reason': None,  # 当前任职没有变更原因
                 'company_name': self.employee.company_name,
@@ -41,6 +42,7 @@ class EmploymentHistoryItem:
                 'position': self.employment_history.position,
                 'hire_date': self.employment_history.hire_date,
                 'supervisor_id': self.employment_history.supervisor_id,
+                'employee_type': getattr(self.employment_history, 'employee_type', '正式员工'),
                 'changed_at': self.employment_history.changed_at or '',
                 'change_reason': self.employment_history.change_reason,
                 'company_name': self.employee.company_name,
@@ -114,103 +116,8 @@ class EmployeeService:
         self.person_dao = PersonDAO()
         self.employee_dao = EmployeeDAO()
         self.employment_dao = EmploymentDAO()
-        self.salary_dao = SalaryDAO()
-        self.payroll_dao = PayrollDAO()
-    
-    # ========== 人员基本信息管理 ==========
-    
-    def create_person(self, person: Person) -> int:
-        """
-        创建新人员
-        
-        Args:
-            person: 人员对象
-            
-        Returns:
-            新创建人员的ID
-        """
-        return self.person_dao.create(person)
-    
-    def get_person(self, person_id: int) -> Optional[Person]:
-        """根据ID获取人员信息"""
-        return self.person_dao.get_by_id(person_id)
-    
-    def get_all_persons(self) -> List[Person]:
-        """获取所有人员列表"""
-        return self.person_dao.get_all()
-    
-    def get_unemployed_persons(self) -> List[Person]:
-        """获取未任职人员列表（未在任何公司有active员工记录的人员）"""
-        return self.person_dao.get_unemployed_persons()
-    
-    def get_employed_persons(self) -> List[Person]:
-        """获取已任职人员列表（至少在一个公司有active员工记录的人员）"""
-        return self.person_dao.get_employed_persons()
-    
-    def update_person(self, person: Person) -> bool:
-        """更新人员信息"""
-        return self.person_dao.update(person)
-    
-    def find_or_create_person(self, person: Person) -> int:
-        """
-        查找或创建人员（根据手机号或邮箱匹配）
-        
-        业务逻辑：
-        1. 如果提供了 phone，先根据 phone 查找
-        2. 如果找到，更新 person 信息，返回 person_id
-        3. 如果没找到且提供了 email，根据 email 查找
-        4. 如果找到，更新 person 信息，返回 person_id
-        5. 如果都没找到，创建新 person，返回 person_id
-        
-        Args:
-            person: Person 对象（包含人员信息）
-        
-        Returns:
-            person_id: 人员ID（已存在或新创建的）
-        """
-        # 检查是否已存在相同的人员（根据手机、邮箱匹配）
-        person_id = None
-        if person.phone:
-            existing_person = self.person_dao.get_by_phone(person.phone)
-            if existing_person:
-                person_id = existing_person.id
-                # 更新人员信息
-                person.id = person_id
-                self.person_dao.update(person)
-        
-        if not person_id and person.email:
-            existing_person = self.person_dao.get_by_email(person.email)
-            if existing_person:
-                person_id = existing_person.id
-                # 更新人员信息
-                person.id = person_id
-                self.person_dao.update(person)
-        
-        # 如果没找到，创建新人员
-        if not person_id:
-            person_id = self.person_dao.create(person)
-        
-        return person_id
     
     # ========== 员工管理 ==========
-    
-    def create_employee(self, person: Person, company_name: str, employee_number: str) -> int:
-        """
-        创建新员工（先创建或查找人员，再创建员工记录）
-        
-        Args:
-            person: 人员对象
-            company_name: 公司名称
-            employee_number: 员工编号
-            
-        Returns:
-            新创建员工的ID
-        """
-        # 使用 find_or_create_person 方法
-        person_id = self.find_or_create_person(person)
-        
-        # 创建员工记录
-        return self.employee_dao.create(person_id, company_name, employee_number, 'active')
     
     def create_employee_with_employment(
         self,
@@ -220,7 +127,8 @@ class EmployeeService:
         department: str,
         position: str,
         hire_date: str,
-        supervisor_id: Optional[int] = None
+        supervisor_id: Optional[int] = None,
+        employee_type: str = '正式员工'
     ) -> int:
         """
         创建员工和入职信息（原子操作）
@@ -267,6 +175,7 @@ class EmployeeService:
             position=position,
             hire_date=hire_date,
             supervisor_id=supervisor_id,
+            employee_type=employee_type,
             version=1
         )
         self.employment_dao.create(employment)
@@ -397,6 +306,7 @@ class EmployeeService:
     def update_employment(self, employee_id: int, 
                               department: str, position: str,
                               hire_date: str, supervisor_id: Optional[int] = None,
+                              employee_type: Optional[str] = None,
                               change_reason: Optional[str] = None) -> bool:
         """
         更新入职信息（会记录历史版本）
@@ -416,7 +326,7 @@ class EmployeeService:
             是否更新成功（如果字段没有变化，返回 False）
         """
         return self.employment_dao.update(
-            employee_id, department, position, hire_date, supervisor_id, change_reason
+            employee_id, department, position, hire_date, supervisor_id, employee_type, change_reason
         )
     
     def update_employment_info(
@@ -426,6 +336,7 @@ class EmployeeService:
         position: str,
         hire_date: str,
         supervisor_id: Optional[int] = None,
+        employee_type: Optional[str] = None,
         change_reason: Optional[str] = None
     ) -> bool:
         """
@@ -469,11 +380,15 @@ class EmployeeService:
         
         if current_employment:
             # 4. 判断字段是否变化
+            current_employee_type = current_employment.employee_type if hasattr(current_employment, 'employee_type') else '正式员工'
+            new_employee_type = employee_type if employee_type is not None else current_employee_type
+            
             has_changed = (
                 department != current_employment.department or
                 position != current_employment.position or
                 hire_date != current_employment.hire_date or
-                (supervisor_id or 0) != (current_employment.supervisor_id or 0)
+                (supervisor_id or 0) != (current_employment.supervisor_id or 0) or
+                current_employee_type != new_employee_type
             )
             
             if has_changed:
@@ -481,19 +396,21 @@ class EmployeeService:
                 if change_reason is None:
                     change_reason = '未填写变更原因'
                 return self.employment_dao.update(
-                    employee_id, department, position, hire_date, supervisor_id, change_reason
+                    employee_id, department, position, hire_date, supervisor_id, new_employee_type, change_reason
                 )
             else:
                 # 6. 如果没有变化，返回 False
                 return False
         else:
             # 7. 如果没有 employment，创建新的
+            new_employee_type = employee_type if employee_type is not None else '正式员工'
             employment = Employment(
                 employee_id=employee_id,
                 department=department,
                 position=position,
                 hire_date=hire_date,
                 supervisor_id=supervisor_id,
+                employee_type=new_employee_type,
                 version=1
             )
             self.employment_dao.create(employment)
@@ -504,6 +421,7 @@ class EmployeeService:
                                      new_employee_number: str,
                                      department: str, position: str,
                                      hire_date: str, supervisor_id: Optional[int] = None,
+                                     employee_type: str = '正式员工',
                                      change_reason: Optional[str] = None) -> int:
         """
         将员工转移到新公司（创建新的employee记录）
@@ -544,6 +462,7 @@ class EmployeeService:
             position=position,
             supervisor_id=supervisor_id,
             hire_date=hire_date,
+            employee_type=employee_type,
             version=1
         )
         self.employment_dao.create(new_employment)
@@ -668,6 +587,12 @@ class EmployeeService:
             # 构建Employment对象
             employment = None
             if row['employment_id']:
+                # sqlite3.Row 不支持 .get()，使用 try-except 兼容旧数据
+                try:
+                    employee_type = row['employee_type']
+                except (KeyError, IndexError):
+                    employee_type = '正式员工'  # 兼容旧数据
+                
                 employment = Employment(
                     id=row['employment_id'],
                     employee_id=row['employee_id'],
@@ -675,6 +600,7 @@ class EmployeeService:
                     position=row['position'],
                     hire_date=row['hire_date'],
                     supervisor_id=row['supervisor_id'],
+                    employee_type=employee_type,
                     version=row['version'],
                     created_at=row['employment_created_at'],
                     updated_at=row['employment_updated_at']
@@ -810,163 +736,3 @@ class EmployeeService:
         
         return max_number
     
-    # ========== 薪资管理 ==========
-    
-    def create_salary_record(
-        self,
-        employee_id: int,
-        base_amount: float,
-        effective_date: str,
-        change_reason: Optional[str] = None
-    ) -> int:
-        """
-        创建新的薪资记录，并自动失效上一条记录
-        """
-        employee = self.employee_dao.get_by_id(employee_id)
-        if not employee:
-            raise ValueError(f"员工ID {employee_id} 不存在")
-        
-        if base_amount is None:
-            raise ValueError("月薪基数不能为空")
-        
-        try:
-            base_amount_value = float(base_amount)
-        except (TypeError, ValueError):
-            raise ValueError("月薪基数必须为数字")
-        
-        if base_amount_value <= 0:
-            raise ValueError("月薪基数必须大于0")
-        
-        if not effective_date:
-            raise ValueError("生效日期不能为空")
-        
-        # 结束当前生效薪资
-        self.salary_dao.deactivate_current(employee_id, effective_date)
-        
-        basic_salary = round(base_amount_value * 0.6, 2)
-        performance_salary = round(base_amount_value * 0.4, 2)
-        version = self.salary_dao.get_next_version(employee_id)
-        
-        salary_record = SalaryRecord(
-            employee_id=employee_id,
-            base_amount=round(base_amount_value, 2),
-            basic_salary=basic_salary,
-            performance_salary=performance_salary,
-            effective_date=effective_date,
-            change_reason=change_reason,
-            version=version,
-            status='active'
-        )
-        
-        return self.salary_dao.create(salary_record)
-    
-    def get_current_salary(self, employee_id: int) -> Optional[SalaryRecord]:
-        """获取员工当前薪资"""
-        return self.salary_dao.get_current_by_employee(employee_id)
-    
-    def get_salary_history(self, employee_id: int) -> List[SalaryRecord]:
-        """获取员工薪资历史记录"""
-        return self.salary_dao.get_history_by_employee(employee_id)
-    
-    def get_active_employees_with_salary(self, company_name: Optional[str] = None) -> List[Dict]:
-        """
-        获取所有在职员工的当前薪资信息
-        """
-        employees = self.employee_dao.get_all(company_name, 'active')
-        result: List[Dict] = []
-        
-        for employee in employees:
-            person = self.person_dao.get_by_id(employee.person_id)
-            employment = self.employment_dao.get_by_employee_id(employee.id)
-            salary = self.salary_dao.get_current_by_employee(employee.id)
-            
-            basic_salary = float(salary.basic_salary) if salary and salary.basic_salary else 0.0
-            performance_salary = float(salary.performance_salary) if salary and salary.performance_salary else 0.0
-            
-            result.append({
-                'employee_id': employee.id,
-                'person_id': employee.person_id,
-                'name': person.name if person else '未知',
-                'company_name': employee.company_name,
-                'department': employment.department if employment else None,
-                'position': employment.position if employment else None,
-                'basic_salary': basic_salary,
-                'performance_salary': performance_salary,
-                'has_salary': salary is not None
-            })
-        
-        return result
-    
-    def create_payroll_record(
-        self,
-        period: str,
-        data: List[Dict],
-        issue_date: Optional[str] = None,
-        note: Optional[str] = None,
-        created_by: Optional[str] = None
-    ) -> int:
-        """
-        根据前端计算的薪资数据创建发薪批次（占位实现）
-        """
-        if not period:
-            raise ValueError("发薪期不能为空")
-        if not data:
-            raise ValueError("薪资明细不能为空")
-        
-        total_gross = sum(item.get('gross_pay', 0.0) for item in data)
-        payroll_id = self.payroll_dao.create_payroll_record(
-            period=period,
-            issue_date=issue_date,
-            total_gross_amount=total_gross,
-            total_net_amount=total_gross,
-            note=note,
-            created_by=created_by
-        )
-        
-        for item in data:
-            self.payroll_dao.create_payroll_item(
-                payroll_id=payroll_id,
-                employee_id=item['employee_id'],
-                basic_salary=float(item.get('basic_salary', 0.0)),
-                performance_base=float(item.get('performance_base', 0.0)),
-                performance_grade=item['grade'],
-                performance_pay=float(item.get('performance_pay', 0.0)),
-                adjustment=float(item.get('adjustment', 0.0)),
-                gross_pay=float(item.get('total_pay', 0.0)),
-                social_security_employee=0.0,
-                social_security_employer=0.0,
-                housing_fund_employee=0.0,
-                housing_fund_employer=0.0,
-                taxable_income=float(item.get('total_pay', 0.0)),
-                income_tax=0.0,
-                net_pay=float(item.get('total_pay', 0.0))
-            )
-        
-        return payroll_id
-    
-    def get_statistics(self) -> Dict:
-        """
-        获取数据库统计信息
-        
-        Returns:
-            包含各表记录数的字典
-        """
-        return {
-            'person_count': self.person_dao.count(),
-            'employee_count': self.employee_dao.count(),
-            'employment_count': self.employment_dao.count_employment(),
-            'history_count': self.employment_dao.count_history()
-        }
-    
-    def clear_all_data(self):
-        """
-        清空所有数据（谨慎使用，仅用于测试）
-        
-        注意：按照外键依赖关系，先清空子表，再清空父表
-        """
-        # 先清空子表（salary_records, employment_history, employment, employees）
-        self.salary_dao.clear_all()
-        self.employment_dao.clear_all()
-        self.employee_dao.clear_all()
-        # 最后清空父表（persons）
-        self.person_dao.clear_all()

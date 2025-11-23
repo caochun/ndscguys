@@ -20,12 +20,14 @@
                 <li><a href="{{ url_for('main.employees') }}"><i class="material-icons left">people</i>员工</a></li>
                 <li><a href="{{ url_for('main.persons') }}"><i class="material-icons left">person</i>人员</a></li>
                 <li><a href="{{ url_for('main.attendance') }}" class="active"><i class="material-icons left">access_time</i>考勤</a></li>
+                <li><a href="{{ url_for('main.leave') }}"><i class="material-icons left">event_busy</i>请假</a></li>
                 <li><a href="{{ url_for('main.salary') }}"><i class="material-icons left">attach_money</i>薪资</a></li>
             </ul>
             <ul class="sidenav" id="mobile-nav">
                 <li><a href="{{ url_for('main.employees') }}"><i class="material-icons left">people</i>员工</a></li>
                 <li><a href="{{ url_for('main.persons') }}"><i class="material-icons left">person</i>人员</a></li>
                 <li><a href="{{ url_for('main.attendance') }}" class="active"><i class="material-icons left">access_time</i>考勤</a></li>
+                <li><a href="{{ url_for('main.leave') }}"><i class="material-icons left">event_busy</i>请假</a></li>
                 <li><a href="{{ url_for('main.salary') }}"><i class="material-icons left">attach_money</i>薪资</a></li>
             </ul>
             <a href="#" data-target="mobile-nav" class="sidenav-trigger"><i class="material-icons">menu</i></a>
@@ -127,6 +129,10 @@
                     <div class="input-field col s12 m6">
                         <input type="number" id="standardHours" step="0.1" value="8.0">
                         <label for="standardHours">标准工作时长（小时）</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <input type="number" id="leaveHours" step="0.1" min="0" value="0.0">
+                        <label for="leaveHours">未带薪时长（小时）</label>
                     </div>
                     <div class="input-field col s12 m6">
                         <input type="text" id="attendanceStatus" readonly>

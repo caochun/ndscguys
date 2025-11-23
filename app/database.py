@@ -79,6 +79,7 @@ class Database:
                 position TEXT NOT NULL,
                 supervisor_id INTEGER,
                 hire_date DATE NOT NULL,
+                employee_type TEXT NOT NULL DEFAULT '正式员工',
                 version INTEGER NOT NULL DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -97,6 +98,7 @@ class Database:
                 position TEXT NOT NULL,
                 supervisor_id INTEGER,
                 hire_date DATE NOT NULL,
+                employee_type TEXT NOT NULL DEFAULT '正式员工',
                 version INTEGER NOT NULL,
                 changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 change_reason TEXT,
@@ -159,6 +161,17 @@ class Database:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_employment_employee_id ON employment(employee_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_history_employee_id ON employment_history(employee_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_history_version ON employment_history(employee_id, version)")
+        
+        # 为旧版本数据库添加 employee_type 列
+        try:
+            cursor.execute("ALTER TABLE employment ADD COLUMN employee_type TEXT NOT NULL DEFAULT '正式员工'")
+        except sqlite3.OperationalError:
+            pass
+        
+        try:
+            cursor.execute("ALTER TABLE employment_history ADD COLUMN employee_type TEXT NOT NULL DEFAULT '正式员工'")
+        except sqlite3.OperationalError:
+            pass
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_attendance_person_id ON attendance(person_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_attendance_employee_id ON attendance(employee_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(attendance_date)")
@@ -201,7 +214,7 @@ class Database:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS payroll_records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                period TEXT NOT NULL,
+                period TEXT NOT NULL UNIQUE,
                 issue_date DATE,
                 total_gross_amount REAL DEFAULT 0.0,
                 total_net_amount REAL DEFAULT 0.0,
@@ -240,10 +253,13 @@ class Database:
             )
         """)
 
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_payroll_period ON payroll_records(period)")
+        # period 字段已有 UNIQUE 约束，不需要额外索引
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_payroll_status ON payroll_records(status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_payroll_item_payroll_id ON payroll_items(payroll_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_payroll_item_employee_id ON payroll_items(employee_id)")
+        
+        # 如果表已存在但没有 UNIQUE 约束，尝试添加（SQLite 不支持直接添加 UNIQUE 约束，需要重建表）
+        # 这里我们通过代码逻辑来保证唯一性
         
         self.conn.commit()
     

@@ -10,6 +10,7 @@ class Employment:
     def __init__(self, employee_id: int, department: str, position: str,
                  hire_date: str,
                  supervisor_id: Optional[int] = None,
+                 employee_type: str = '正式员工',
                  version: int = 1, id: Optional[int] = None,
                  created_at: Optional[str] = None,
                  updated_at: Optional[str] = None):
@@ -19,6 +20,7 @@ class Employment:
         self.position = position
         self.supervisor_id = supervisor_id
         self.hire_date = hire_date
+        self.employee_type = employee_type  # 正式员工、试用期员工、实习生
         self.version = version
         self.created_at = created_at
         self.updated_at = updated_at
@@ -32,6 +34,7 @@ class Employment:
             'position': self.position,
             'supervisor_id': self.supervisor_id,
             'hire_date': self.hire_date,
+            'employee_type': self.employee_type,
             'version': self.version,
             'created_at': self.created_at,
             'updated_at': self.updated_at
@@ -40,6 +43,12 @@ class Employment:
     @classmethod
     def from_row(cls, row):
         """从数据库行创建对象"""
+        # sqlite3.Row 不支持 .get()，使用 try-except 兼容旧数据
+        try:
+            employee_type = row['employee_type']
+        except (KeyError, IndexError):
+            employee_type = '正式员工'  # 兼容旧数据
+        
         return cls(
             id=row['id'],
             employee_id=row['employee_id'],
@@ -47,6 +56,7 @@ class Employment:
             position=row['position'],
             supervisor_id=row['supervisor_id'],
             hire_date=row['hire_date'],
+            employee_type=employee_type,
             version=row['version'],
             created_at=row['created_at'],
             updated_at=row['updated_at']

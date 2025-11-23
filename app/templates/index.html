@@ -47,12 +47,13 @@
                                 <th>公司</th>
                                 <th>部门</th>
                                 <th>职位</th>
+                                <th>员工类型</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
                         <tbody id="employeeTableBody">
                             <tr>
-                                <td colspan="11" class="center-align">加载中...</td>
+                                <td colspan="12" class="center-align">加载中...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -182,6 +183,14 @@
                     <div class="input-field col s12 m6">
                         <input type="date" id="hireDate" class="datepicker" required>
                         <label for="hireDate">入职时间 *</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <select id="employeeType" required>
+                            <option value="正式员工" selected>正式员工</option>
+                            <option value="试用期员工">试用期员工</option>
+                            <option value="实习生">实习生</option>
+                        </select>
+                        <label for="employeeType">员工类型 *</label>
                     </div>
                     <div class="input-field col s12" id="changeReasonRow" style="display: none;">
                         <input type="text" id="changeReason">

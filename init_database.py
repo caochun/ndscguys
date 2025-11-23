@@ -269,13 +269,22 @@ def init_database():
                 if random.random() < 0.3:
                     supervisor_id = random.choice(supervisors_company1[department])
             
-            # 创建入职信息
+            # 创建入职信息（随机分配员工类型：70%正式员工，20%试用期员工，10%实习生）
+            employee_type_rand = random.random()
+            if employee_type_rand < 0.7:
+                employee_type = '正式员工'
+            elif employee_type_rand < 0.9:
+                employee_type = '试用期员工'
+            else:
+                employee_type = '实习生'
+            
             employment = Employment(
                 employee_id=employee_id,
                 department=department,
                 position=position,
                 hire_date=hire_date,
-                supervisor_id=supervisor_id
+                supervisor_id=supervisor_id,
+                employee_type=employee_type
             )
             
             service.create_employment(employment)
@@ -364,13 +373,22 @@ def init_database():
                 if random.random() < 0.3:
                     supervisor_id = random.choice(supervisors_company2[department])
             
-            # 创建入职信息
+            # 创建入职信息（随机分配员工类型：70%正式员工，20%试用期员工，10%实习生）
+            employee_type_rand = random.random()
+            if employee_type_rand < 0.7:
+                employee_type = '正式员工'
+            elif employee_type_rand < 0.9:
+                employee_type = '试用期员工'
+            else:
+                employee_type = '实习生'
+            
             employment = Employment(
                 employee_id=employee_id,
                 department=department,
                 position=position,
                 hire_date=hire_date,
-                supervisor_id=supervisor_id
+                supervisor_id=supervisor_id,
+                employee_type=employee_type
             )
             
             service.create_employment(employment)
@@ -518,7 +536,22 @@ def init_database():
                     new_emp_count = 1
                 new_employee_number = f"EMP{new_emp_count:05d}"
                 
-                # 换公司：创建新employee记录
+                # 换公司：创建新employee记录（保持原类型或随机分配）
+                # 80%保持原类型，20%可能改变（例如试用期转正）
+                keep_type = random.random() < 0.8
+                if keep_type:
+                    current_emp = service.get_employment(employee_id)
+                    new_employee_type = current_emp.employee_type if current_emp and hasattr(current_emp, 'employee_type') else '正式员工'
+                else:
+                    # 随机分配新类型
+                    type_rand = random.random()
+                    if type_rand < 0.7:
+                        new_employee_type = '正式员工'
+                    elif type_rand < 0.9:
+                        new_employee_type = '试用期员工'
+                    else:
+                        new_employee_type = '实习生'
+                
                 new_employee_id = service.transfer_employee_to_company(
                     employee_id,
                     new_company,
@@ -527,6 +560,7 @@ def init_database():
                     new_position,
                     new_hire_date,
                     None,  # 上级暂时设为None
+                    new_employee_type,
                     change_reason
                 )
                 new_base_amount = None
@@ -551,12 +585,22 @@ def init_database():
                 print(f"  {name}: {company1} {current_department} {current_position} → {new_company} {new_department} {new_position} (原因: {change_reason})")
             else:
                 # 同一公司内的变更
+                # 根据变更类型决定是否改变员工类型
+                new_employee_type = None
+                if change_type == 'promotion':
+                    # 升职时，如果是试用期员工，有50%概率转为正式员工
+                    current_emp = service.get_employment(employee_id)
+                    if current_emp and hasattr(current_emp, 'employee_type') and current_emp.employee_type == '试用期员工':
+                        if random.random() < 0.5:
+                            new_employee_type = '正式员工'
+                
                 updated = service.update_employment(
                     employee_id,
                     new_department,
                     new_position,
                     base_hire_date,  # 入职日期不变
                     None,  # 上级暂时设为None
+                    new_employee_type,
                     change_reason
                 )
                 
@@ -711,7 +755,22 @@ def init_database():
                     new_emp_count = 1
                 new_employee_number = f"EMP{new_emp_count:05d}"
                 
-                # 换公司：创建新employee记录
+                # 换公司：创建新employee记录（保持原类型或随机分配）
+                # 80%保持原类型，20%可能改变（例如试用期转正）
+                keep_type = random.random() < 0.8
+                if keep_type:
+                    current_emp = service.get_employment(employee_id)
+                    new_employee_type = current_emp.employee_type if current_emp and hasattr(current_emp, 'employee_type') else '正式员工'
+                else:
+                    # 随机分配新类型
+                    type_rand = random.random()
+                    if type_rand < 0.7:
+                        new_employee_type = '正式员工'
+                    elif type_rand < 0.9:
+                        new_employee_type = '试用期员工'
+                    else:
+                        new_employee_type = '实习生'
+                
                 new_employee_id = service.transfer_employee_to_company(
                     employee_id,
                     new_company,
@@ -720,6 +779,7 @@ def init_database():
                     new_position,
                     new_hire_date,
                     None,  # 上级暂时设为None
+                    new_employee_type,
                     change_reason
                 )
                 new_base_amount = None
@@ -744,12 +804,22 @@ def init_database():
                 print(f"  {name}: {company2} {current_department} {current_position} → {new_company} {new_department} {new_position} (原因: {change_reason})")
             else:
                 # 同一公司内的变更
+                # 根据变更类型决定是否改变员工类型
+                new_employee_type = None
+                if change_type == 'promotion':
+                    # 升职时，如果是试用期员工，有50%概率转为正式员工
+                    current_emp = service.get_employment(employee_id)
+                    if current_emp and hasattr(current_emp, 'employee_type') and current_emp.employee_type == '试用期员工':
+                        if random.random() < 0.5:
+                            new_employee_type = '正式员工'
+                
                 updated = service.update_employment(
                     employee_id,
                     new_department,
                     new_position,
                     base_hire_date,  # 入职日期不变
                     None,  # 上级暂时设为None
+                    new_employee_type,
                     change_reason
                 )
                 

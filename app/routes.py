@@ -4,6 +4,9 @@
 from flask import Blueprint, render_template, request, jsonify
 from datetime import datetime
 from app.services.employee_service import EmployeeService
+from app.services.person_service import PersonService
+from app.services.salary_service import SalaryService
+from app.services.payroll_service import PayrollService
 from app.services.attendance_service import AttendanceService
 from app.models import Person, Employee, Employment, Attendance, LeaveRecord
 
@@ -13,6 +16,9 @@ api_bp = Blueprint('api', __name__)
 
 # 初始化服务
 employee_service = EmployeeService()
+person_service = PersonService()
+salary_service = SalaryService()
+payroll_service = PayrollService()
 attendance_service = AttendanceService()
 
 
@@ -46,6 +52,12 @@ def salary():
     return render_template('salary.html')
 
 
+@main_bp.route('/leave')
+def leave():
+    """请假管理页面"""
+    return render_template('leave.html')
+
+
 @api_bp.route('/employees', methods=['GET'])
 def get_employees():
     """获取所有员工列表"""
@@ -72,6 +84,7 @@ def get_employees():
                 'position': employment.position if employment else None,
                 'hire_date': employment.hire_date if employment else None,
                 'supervisor_id': employment.supervisor_id if employment else None,
+                'employee_type': employment.employee_type if employment and hasattr(employment, 'employee_type') else '正式员工',
                 'has_history': item.has_history,  # 是否有历史记录
             })
         return jsonify({'success': True, 'data': result})
@@ -91,7 +104,7 @@ def get_employee(employee_id):
         employee = data.employee
         employment = data.employment
         
-        salary = employee_service.get_current_salary(employee_id)
+        salary = salary_service.get_current_salary(employee_id)
         salary_data = salary.to_dict() if salary else None
         
         result = {
@@ -109,6 +122,7 @@ def get_employee(employee_id):
             'position': employment.position if employment else None,
             'hire_date': employment.hire_date if employment else None,
             'supervisor_id': employment.supervisor_id if employment else None,
+            'employee_type': employment.employee_type if employment and hasattr(employment, 'employee_type') else '正式员工',
             'salary': salary_data
         }
         return jsonify({'success': True, 'data': result})
@@ -123,11 +137,11 @@ def get_persons():
         employment_status = request.args.get('employment_status')  # 'employed', 'unemployed', 或 None（全部）
         
         if employment_status == 'employed':
-            persons = employee_service.get_employed_persons()
+            persons = person_service.get_employed_persons()
         elif employment_status == 'unemployed':
-            persons = employee_service.get_unemployed_persons()
+            persons = person_service.get_unemployed_persons()
         else:
-            persons = employee_service.get_all_persons()
+            persons = person_service.get_all_persons()
         
         result = []
         for person in persons:
@@ -168,7 +182,7 @@ def create_person():
         )
         
         # 查找或创建人员（根据手机号或邮箱匹配）
-        person_id = employee_service.find_or_create_person(person)
+        person_id = person_service.find_or_create_person(person)
         
         return jsonify({'success': True, 'message': '人员创建成功', 'id': person_id})
     except ValueError as e:
@@ -188,7 +202,7 @@ def update_person(person_id):
             return jsonify({'success': False, 'error': '姓名不能为空'}), 400
         
         # 获取人员信息
-        person = employee_service.get_person(person_id)
+        person = person_service.get_person(person_id)
         if not person:
             return jsonify({'success': False, 'error': '人员不存在'}), 404
         
@@ -200,7 +214,7 @@ def update_person(person_id):
         person.email = data.get('email')
         person.address = data.get('address')
         
-        employee_service.update_person(person)
+        person_service.update_person(person)
         
         return jsonify({'success': True, 'message': '人员信息更新成功'})
     except ValueError as e:
@@ -237,7 +251,8 @@ def create_employee():
             department=data['department'],
             position=data['position'],
             hire_date=data['hire_date'],
-            supervisor_id=data.get('supervisor_id')
+            supervisor_id=data.get('supervisor_id'),
+            employee_type=data.get('employee_type', '正式员工')
         )
         
         return jsonify({'success': True, 'message': '员工创建成功', 'id': employee_id})
@@ -268,6 +283,7 @@ def update_employee(employee_id):
             position=data['position'],
             hire_date=data['hire_date'],
             supervisor_id=data.get('supervisor_id'),
+            employee_type=data.get('employee_type'),
             change_reason=data.get('change_reason')
         )
         
@@ -336,7 +352,7 @@ def get_employee_salary(employee_id):
         if not employee:
             return jsonify({'success': False, 'error': '员工不存在'}), 404
         
-        salary = employee_service.get_current_salary(employee_id)
+        salary = salary_service.get_current_salary(employee_id)
         data = salary.to_dict() if salary else None
         return jsonify({'success': True, 'data': data})
     except Exception as e:
@@ -352,7 +368,7 @@ def create_employee_salary(employee_id):
         effective_date = data.get('effective_date')
         change_reason = data.get('change_reason')
         
-        salary_id = employee_service.create_salary_record(
+        salary_id = salary_service.create_salary_record(
             employee_id,
             base_amount,
             effective_date,
@@ -373,7 +389,7 @@ def get_employee_salary_history(employee_id):
         if not employee:
             return jsonify({'success': False, 'error': '员工不存在'}), 404
         
-        history = employee_service.get_salary_history(employee_id)
+        history = salary_service.get_salary_history(employee_id)
         result = [record.to_dict() for record in history]
         return jsonify({'success': True, 'data': result})
     except Exception as e:
@@ -385,8 +401,30 @@ def get_current_salary_list():
     """获取所有在职员工的当前薪资信息"""
     try:
         company_name = request.args.get('company_name')
-        data = employee_service.get_active_employees_with_salary(company_name)
+        data = salary_service.get_active_employees_with_salary(company_name)
         return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/payroll', methods=['GET'])
+def get_payroll_records():
+    """获取所有薪资批次列表"""
+    try:
+        records = payroll_service.get_payroll_records()
+        return jsonify({'success': True, 'data': records})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/payroll/<int:payroll_id>', methods=['GET'])
+def get_payroll_detail(payroll_id):
+    """获取批次详情（包含明细项）"""
+    try:
+        detail = payroll_service.get_payroll_detail(payroll_id)
+        return jsonify({'success': True, 'data': detail})
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 404
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -424,7 +462,7 @@ def create_payroll():
             except (KeyError, ValueError, TypeError):
                 return jsonify({'success': False, 'error': '薪资明细字段格式不正确'}), 400
         
-        payroll_id = employee_service.create_payroll_record(
+        payroll_id = payroll_service.create_payroll_record(
             period=period,
             data=normalized_items,
             issue_date=issue_date,
@@ -601,10 +639,17 @@ def update_attendance(attendance_id):
             attendance.standard_hours = data['standard_hours']
         if 'overtime_hours' in data:
             attendance.overtime_hours = data['overtime_hours']
+        
+        # 如果请求中明确提供了 leave_hours，说明用户手动设置了值，跳过自动计算
+        skip_leave_hours_calculation = False
+        if 'leave_hours' in data:
+            attendance.leave_hours = data['leave_hours']
+            skip_leave_hours_calculation = True
+        
         if 'remark' in data:
             attendance.remark = data['remark']
         
-        attendance_service.update_attendance(attendance)
+        attendance_service.update_attendance(attendance, skip_leave_hours_calculation=skip_leave_hours_calculation)
         
         return jsonify({'success': True, 'message': '考勤记录更新成功'})
     except ValueError as e:
@@ -718,8 +763,17 @@ def get_leave_record_list():
             leave_records = attendance_service.get_leave_records_by_person(
                 person_id, start_date, end_date
             )
+        elif company_name:
+            # 按公司查询
+            leave_records = attendance_service.get_leave_records_by_company(
+                company_name, start_date, end_date
+            )
+        elif start_date or end_date:
+            # 如果提供了日期范围但没有其他筛选条件，返回该日期范围内的所有记录
+            leave_records = attendance_service.get_all_leave_records(start_date, end_date)
         else:
-            return jsonify({'success': False, 'error': '请提供 person_id 或 employee_id'}), 400
+            # 如果没有提供任何筛选条件，返回空列表（避免返回过多数据）
+            leave_records = []
         
         result = [leave_record.to_dict() for leave_record in leave_records]
         return jsonify({'success': True, 'data': result})

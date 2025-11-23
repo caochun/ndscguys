@@ -383,7 +383,7 @@ function renderEmployeeTable(employees) {
     const tbody = document.getElementById('employeeTableBody');
     
     if (employees.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" class="loading">暂无员工数据</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" class="loading">暂无员工数据</td></tr>';
         return;
     }
 
@@ -407,6 +407,7 @@ function renderEmployeeTable(employees) {
             <td>${emp.company_name || ''}</td>
             <td>${emp.department || ''}</td>
             <td>${emp.position || ''}</td>
+            <td>${emp.employee_type || '正式员工'}</td>
             <td class="action-cell">${historyBtn}</td>
         </tr>
         `;
@@ -508,6 +509,7 @@ async function showEditModal() {
             document.getElementById('department').value = emp.department || '';
             document.getElementById('position').value = emp.position || '';
             document.getElementById('hireDate').value = emp.hire_date || '';
+            document.getElementById('employeeType').value = emp.employee_type || '正式员工';
             document.getElementById('supervisor').value = emp.supervisor_id || '';
             document.getElementById('changeReason').value = '';
             document.getElementById('changeReasonRow').style.display = 'block';
@@ -552,6 +554,7 @@ async function saveEmployee(e) {
         department: document.getElementById('department').value.trim(),
         position: document.getElementById('position').value.trim(),
         hire_date: document.getElementById('hireDate').value,
+        employee_type: document.getElementById('employeeType').value || '正式员工',
         supervisor_id: document.getElementById('supervisor').value || null,
         change_reason: document.getElementById('changeReason').value.trim() || null
     };
@@ -749,6 +752,10 @@ function renderHistoryList(history) {
                         <div class="history-row">
                             <span class="history-label">职位：</span>
                             <span class="history-value">${h.position || '-'}</span>
+                        </div>
+                        <div class="history-row">
+                            <span class="history-label">员工类型：</span>
+                            <span class="history-value">${h.employee_type || '正式员工'}</span>
                         </div>
                         <div class="history-row">
                             <span class="history-label">入职时间：</span>

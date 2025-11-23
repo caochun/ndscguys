@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>请假管理 - 人事管理系统</title>
+    <!-- Materialize CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="blue darken-2">
+        <div class="nav-wrapper container">
+            <a href="{{ url_for('main.index') }}" class="brand-logo">人事管理系统</a>
+            <ul class="right hide-on-med-and-down">
+                <li><a href="{{ url_for('main.employees') }}"><i class="material-icons left">people</i>员工</a></li>
+                <li><a href="{{ url_for('main.persons') }}"><i class="material-icons left">person</i>人员</a></li>
+                <li><a href="{{ url_for('main.attendance') }}"><i class="material-icons left">access_time</i>考勤</a></li>
+                <li><a href="{{ url_for('main.leave') }}" class="active"><i class="material-icons left">event_busy</i>请假</a></li>
+                <li><a href="{{ url_for('main.salary') }}"><i class="material-icons left">attach_money</i>薪资</a></li>
+            </ul>
+            <ul class="sidenav" id="mobile-nav">
+                <li><a href="{{ url_for('main.employees') }}"><i class="material-icons left">people</i>员工</a></li>
+                <li><a href="{{ url_for('main.persons') }}"><i class="material-icons left">person</i>人员</a></li>
+                <li><a href="{{ url_for('main.attendance') }}"><i class="material-icons left">access_time</i>考勤</a></li>
+                <li><a href="{{ url_for('main.leave') }}" class="active"><i class="material-icons left">event_busy</i>请假</a></li>
+                <li><a href="{{ url_for('main.salary') }}"><i class="material-icons left">attach_money</i>薪资</a></li>
+            </ul>
+            <a href="#" data-target="mobile-nav" class="sidenav-trigger"><i class="material-icons">menu</i></a>
+        </div>
+    </nav>
+
+    <div class="container" style="margin-top: 20px;">
+        <!-- 查询条件 -->
+        <div class="card">
+            <div class="card-content">
+                <h5 class="card-title">查询条件</h5>
+                <div class="row">
+                    <div class="input-field col s12 m3">
+                        <input type="date" id="startDate" class="datepicker">
+                        <label for="startDate">开始日期</label>
+                    </div>
+                    <div class="input-field col s12 m3">
+                        <input type="date" id="endDate" class="datepicker">
+                        <label for="endDate">结束日期</label>
+                    </div>
+                    <div class="input-field col s12 m3">
+                        <select id="companyFilter">
+                            <option value="">全部公司</option>
+                        </select>
+                        <label>公司</label>
+                    </div>
+                    <div class="input-field col s12 m3">
+                        <button id="searchBtn" class="btn waves-effect waves-light blue" style="width: 100%;">
+                            <i class="material-icons left">search</i>查询
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 请假记录列表 -->
+        <div class="card">
+            <div class="card-content">
+                <div class="row" style="margin-bottom: 20px;">
+                    <div class="col s12 m8">
+                        <h5 class="card-title" style="margin: 0; display: flex; align-items: center;">
+                            <i class="material-icons" style="margin-right: 10px; color: #1976d2;">event_busy</i>
+                            请假记录
+                        </h5>
+                    </div>
+                    <div class="col s12 m4 right-align">
+                        <button id="addLeaveBtn" class="btn waves-effect waves-light green">
+                            <i class="material-icons left">add</i>新增请假
+                        </button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table id="leaveTable" class="striped highlight responsive-table">
+                        <thead>
+                            <tr>
+                                <th>日期</th>
+                                <th>姓名</th>
+                                <th>公司</th>
+                                <th>请假类型</th>
+                                <th>开始时间</th>
+                                <th>结束时间</th>
+                                <th>请假时长</th>
+                                <th>带薪时长</th>
+                                <th>未带薪时长</th>
+                                <th>审批状态</th>
+                                <th>原因</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaveTableBody">
+                            <tr>
+                                <td colspan="12" class="center-align grey-text">加载中...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 状态栏 -->
+        <div id="statusBar" class="card-panel teal lighten-2 white-text" style="margin-top: 20px; padding: 10px 20px;">
+            <span id="statusText">就绪</span>
+        </div>
+    </div>
+
+    <!-- 请假记录详情/编辑对话框 -->
+    <div id="leaveModal" class="modal modal-fixed-footer">
+        <div class="modal-content">
+            <h4 id="leaveModalTitle">新增请假记录</h4>
+            <form id="leaveForm">
+                <input type="hidden" id="leaveId">
+                <input type="hidden" id="leavePersonId">
+                <input type="hidden" id="leaveEmployeeId">
+                
+                <div class="row">
+                    <div class="input-field col s12 m6">
+                        <select id="leavePersonSelect" required>
+                            <option value="">请选择人员</option>
+                        </select>
+                        <label for="leavePersonSelect">人员 *</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <select id="leaveCompanySelect" required>
+                            <option value="">请选择公司</option>
+                        </select>
+                        <label for="leaveCompanySelect">公司 *</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <input type="date" id="leaveDate" required>
+                        <label for="leaveDate">请假日期 *</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <select id="leaveType" required>
+                            <option value="">请选择请假类型</option>
+                            <option value="病假">病假</option>
+                            <option value="事假">事假</option>
+                            <option value="年假">年假</option>
+                            <option value="调休">调休</option>
+                            <option value="产假">产假</option>
+                            <option value="婚假">婚假</option>
+                        </select>
+                        <label for="leaveType">请假类型 *</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <input type="datetime-local" id="startTime">
+                        <label for="startTime">开始时间</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <input type="datetime-local" id="endTime">
+                        <label for="endTime">结束时间</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <input type="number" id="leaveHours" step="0.1" min="0" required>
+                        <label for="leaveHours">请假时长（小时） *</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <input type="number" id="paidHours" step="0.1" min="0" value="0.0">
+                        <label for="paidHours">带薪时长（小时）</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <select id="leaveStatus">
+                            <option value="approved">已批准</option>
+                            <option value="pending">待审批</option>
+                            <option value="rejected">已拒绝</option>
+                        </select>
+                        <label for="leaveStatus">审批状态</label>
+                    </div>
+                    <div class="input-field col s12">
+                        <textarea id="leaveReason" class="materialize-textarea"></textarea>
+                        <label for="leaveReason">请假原因</label>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="modal-close waves-effect waves-green btn-flat" id="cancelLeaveBtn">取消</button>
+            <button type="submit" form="leaveForm" class="waves-effect waves-light btn blue">保存</button>
+        </div>
+    </div>
+
+    <!-- Materialize JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/leave.js') }}"></script>
+</body>
+</html>
+

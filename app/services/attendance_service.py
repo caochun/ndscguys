@@ -138,21 +138,27 @@ class AttendanceService:
         """
         return self.attendance_dao.get_by_date_range(start_date, end_date, company_name)
     
-    def update_attendance(self, attendance: Attendance) -> bool:
+    def update_attendance(self, attendance: Attendance, skip_leave_hours_calculation: bool = False) -> bool:
         """
         更新考勤记录
         
         注意：更新时会重新计算请假时长和工作时长
+        
+        Args:
+            attendance: 考勤记录对象
+            skip_leave_hours_calculation: 如果为 True，跳过自动计算 leave_hours，保留用户设置的值
         """
         if attendance.id is None:
             raise ValueError("考勤记录ID不能为空")
         
-        # 重新计算请假时长
-        attendance.leave_hours = self._calculate_leave_hours(
-            attendance.person_id,
-            attendance.company_name,
-            attendance.attendance_date
-        )
+        # 重新计算请假时长（除非用户手动设置了值）
+        if not skip_leave_hours_calculation:
+            attendance.leave_hours = self._calculate_leave_hours(
+                attendance.person_id,
+                attendance.company_name,
+                attendance.attendance_date
+            )
+        # 如果 skip_leave_hours_calculation 为 True，保留用户设置的值（已经在 attendance.leave_hours 中）
         
         # 重新计算工作时长和加班时长
         if attendance.check_in_time and attendance.check_out_time:
@@ -264,6 +270,30 @@ class AttendanceService:
             end_date: 结束日期（可选）
         """
         return self.leave_record_dao.get_by_employee_id(employee_id, start_date, end_date)
+    
+    def get_leave_records_by_company(self, company_name: str,
+                                     start_date: Optional[str] = None,
+                                     end_date: Optional[str] = None) -> List[LeaveRecord]:
+        """
+        获取公司的请假记录
+        
+        Args:
+            company_name: 公司名称
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+        """
+        return self.leave_record_dao.get_by_company(company_name, start_date, end_date)
+    
+    def get_all_leave_records(self, start_date: Optional[str] = None,
+                              end_date: Optional[str] = None) -> List[LeaveRecord]:
+        """
+        获取所有请假记录（可选日期范围）
+        
+        Args:
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+        """
+        return self.leave_record_dao.get_all(start_date, end_date)
     
     def update_leave_record(self, leave_record: LeaveRecord) -> bool:
         """

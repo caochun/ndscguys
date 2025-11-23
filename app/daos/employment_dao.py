@@ -30,14 +30,15 @@ class EmploymentDAO(BaseDAO):
         
         cursor.execute("""
             INSERT INTO employment 
-            (employee_id, department, position, supervisor_id, hire_date, version)
-            VALUES (?, ?, ?, ?, ?, 1)
+            (employee_id, department, position, supervisor_id, hire_date, employee_type, version)
+            VALUES (?, ?, ?, ?, ?, ?, 1)
         """, (
             employment.employee_id,
             employment.department,
             employment.position,
             employment.supervisor_id,
-            employment.hire_date
+            employment.hire_date,
+            employment.employee_type
         ))
         
         employment_id = cursor.lastrowid
@@ -76,6 +77,7 @@ class EmploymentDAO(BaseDAO):
     def update(self, employee_id: int, 
                department: str, position: str,
                hire_date: str, supervisor_id: Optional[int] = None,
+               employee_type: Optional[str] = None,
                change_reason: Optional[str] = None) -> bool:
         """
         更新入职信息（会记录历史版本）
@@ -104,11 +106,15 @@ class EmploymentDAO(BaseDAO):
                 raise ValueError("该员工不存在入职信息")
             
             # 2. 检查字段是否有变化
+            current_employee_type = current_info.get('employee_type', '正式员工')
+            new_employee_type = employee_type if employee_type is not None else current_employee_type
+            
             fields_changed = (
                 current_info['department'] != department or
                 current_info['position'] != position or
                 current_info['hire_date'] != hire_date or
-                (current_info['supervisor_id'] or 0) != (supervisor_id or 0)
+                (current_info['supervisor_id'] or 0) != (supervisor_id or 0) or
+                current_employee_type != new_employee_type
             )
             
             if not fields_changed:
@@ -120,14 +126,15 @@ class EmploymentDAO(BaseDAO):
             # 3. 将当前任职信息保存到历史表
             cursor.execute("""
                 INSERT INTO employment_history 
-                (employee_id, department, position, supervisor_id, hire_date, version, change_reason, changed_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                (employee_id, department, position, supervisor_id, hire_date, employee_type, version, change_reason, changed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             """, (
                 employee_id,
                 current_info['department'],
                 current_info['position'],
                 current_info['supervisor_id'],
                 current_info['hire_date'],
+                current_info.get('employee_type', '正式员工'),
                 current_version,
                 change_reason
             ))
@@ -137,13 +144,14 @@ class EmploymentDAO(BaseDAO):
             cursor.execute("""
                 UPDATE employment 
                 SET department = ?, position = ?, supervisor_id = ?, 
-                    hire_date = ?, version = ?, updated_at = CURRENT_TIMESTAMP
+                    hire_date = ?, employee_type = ?, version = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE employee_id = ?
             """, (
                 department,
                 position,
                 supervisor_id,
                 hire_date,
+                new_employee_type,
                 new_version,
                 employee_id
             ))
@@ -217,6 +225,7 @@ class EmploymentDAO(BaseDAO):
                     ei.position,
                     ei.hire_date,
                     ei.supervisor_id,
+                    ei.employee_type,
                     ei.version,
                     ei.created_at as employment_created_at,
                     ei.updated_at as employment_updated_at,
