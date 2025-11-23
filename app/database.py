@@ -186,6 +186,12 @@ class Database:
             cursor.execute("ALTER TABLE leave_records ADD COLUMN paid_hours REAL DEFAULT 0.0")
         except sqlite3.OperationalError:
             pass
+        
+        # 为旧版本数据库添加 paid_hours_history 列（JSON格式存储历史记录）
+        try:
+            cursor.execute("ALTER TABLE leave_records ADD COLUMN paid_hours_history TEXT")
+        except sqlite3.OperationalError:
+            pass
 
         # 创建薪资记录表
         cursor.execute("""

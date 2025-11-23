@@ -213,6 +213,15 @@ class AttendanceService:
         if leave_record.paid_hours > leave_record.leave_hours:
             raise ValueError("带薪时长不能超过请假时长")
         
+        # 如果设置了paid_hours，记录初始历史
+        if leave_record.paid_hours > 0:
+            leave_record.add_paid_hours_history(
+                old_value=None,
+                new_value=leave_record.paid_hours,
+                change_reason="初始设置",
+                changed_by="system"
+            )
+        
         leave_id = self.leave_record_dao.create(leave_record)
         
         # 如果请假已批准，更新对应日期的考勤记录的请假时长
@@ -295,27 +304,57 @@ class AttendanceService:
         """
         return self.leave_record_dao.get_all(start_date, end_date)
     
-    def update_leave_record(self, leave_record: LeaveRecord) -> bool:
+    def update_leave_record(self, leave_record: LeaveRecord, 
+                           change_reason: Optional[str] = None,
+                           changed_by: str = 'system') -> bool:
         """
         更新请假记录
         
         注意：如果状态改变，会更新对应日期的考勤记录
+        如果paid_hours发生变化，会自动记录历史
+        
+        Args:
+            leave_record: 请假记录对象
+            change_reason: paid_hours修改原因（如果paid_hours发生变化）
+            changed_by: 修改人（用户名或ID），默认为'system'
         """
         if leave_record.id is None:
             raise ValueError("请假记录ID不能为空")
         
-        # 获取旧记录以判断状态是否改变
+        # 获取旧记录以判断状态和paid_hours是否改变
         old_record = self.leave_record_dao.get_by_id(leave_record.id)
-        old_status = old_record.status if old_record else None
+        if not old_record:
+            raise ValueError("请假记录不存在")
         
-        if leave_record.paid_hours is None and old_record:
-            leave_record.paid_hours = old_record.paid_hours
+        old_status = old_record.status
+        old_paid_hours = old_record.paid_hours
+        
+        # 处理paid_hours
+        if leave_record.paid_hours is None:
+            leave_record.paid_hours = old_paid_hours
         if leave_record.paid_hours is None:
             leave_record.paid_hours = 0.0
         if leave_record.paid_hours < 0:
             raise ValueError("带薪时长不能小于0")
         if leave_record.paid_hours > leave_record.leave_hours:
             raise ValueError("带薪时长不能超过请假时长")
+        
+        # 如果paid_hours发生变化，记录历史
+        if abs(old_paid_hours - leave_record.paid_hours) > 0.001:  # 浮点数比较
+            # 继承旧记录的历史记录
+            if hasattr(old_record, 'paid_hours_history'):
+                leave_record.paid_hours_history = old_record.paid_hours_history
+            else:
+                leave_record.paid_hours_history = None
+            
+            # 添加新的历史记录
+            reason = change_reason or f"带薪时长从 {old_paid_hours} 调整为 {leave_record.paid_hours}"
+            leave_record.add_paid_hours_history(
+                old_value=old_paid_hours,
+                new_value=leave_record.paid_hours,
+                change_reason=reason,
+                changed_by=changed_by
+            )
         
         result = self.leave_record_dao.update(leave_record)
         

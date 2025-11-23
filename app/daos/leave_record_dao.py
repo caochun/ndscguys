@@ -23,11 +23,14 @@ class LeaveRecordDAO(BaseDAO):
         cursor = conn.cursor()
         
         try:
+            # 处理 paid_hours_history 字段（可能不存在于旧数据中）
+            paid_hours_history = getattr(leave_record, 'paid_hours_history', None)
+            
             cursor.execute("""
                 INSERT INTO leave_records 
                 (person_id, employee_id, company_name, leave_date, leave_type,
-                 start_time, end_time, leave_hours, paid_hours, reason, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 start_time, end_time, leave_hours, paid_hours, reason, status, paid_hours_history)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 leave_record.person_id,
                 leave_record.employee_id,
@@ -39,7 +42,8 @@ class LeaveRecordDAO(BaseDAO):
                 leave_record.leave_hours,
                 leave_record.paid_hours,
                 leave_record.reason,
-                leave_record.status
+                leave_record.status,
+                paid_hours_history
             ))
             leave_id = cursor.lastrowid
             conn.commit()
@@ -259,11 +263,14 @@ class LeaveRecordDAO(BaseDAO):
         conn = self.get_connection()
         cursor = conn.cursor()
         
+        # 处理 paid_hours_history 字段（可能不存在于旧数据中）
+        paid_hours_history = getattr(leave_record, 'paid_hours_history', None)
+        
         cursor.execute("""
             UPDATE leave_records 
             SET leave_type = ?, start_time = ?, end_time = ?,
                 leave_hours = ?, paid_hours = ?, reason = ?, status = ?,
-                updated_at = CURRENT_TIMESTAMP
+                paid_hours_history = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
         """, (
             leave_record.leave_type,
@@ -273,6 +280,7 @@ class LeaveRecordDAO(BaseDAO):
             leave_record.paid_hours,
             leave_record.reason,
             leave_record.status,
+            paid_hours_history,
             leave_record.id
         ))
         

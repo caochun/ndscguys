@@ -822,7 +822,15 @@ def update_leave_record(leave_id):
             return jsonify({'success': False, 'error': '带薪时长不能超过请假时长'}), 400
         leave_record.paid_hours = paid_hours_value
         
-        attendance_service.update_leave_record(leave_record)
+        # 获取修改原因和修改人（如果提供）
+        change_reason = data.get('paid_hours_change_reason')
+        changed_by = request.headers.get('X-User', 'system')  # 从请求头获取用户信息，默认为'system'
+        
+        attendance_service.update_leave_record(
+            leave_record, 
+            change_reason=change_reason,
+            changed_by=changed_by
+        )
         
         return jsonify({'success': True, 'message': '请假记录更新成功'})
     except ValueError as e:

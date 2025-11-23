@@ -10,6 +10,8 @@ let personMap = {};
 
 // Materialize 组件实例
 let leaveModalInstance = null;
+let paidHoursCardElement = null;
+let paidHoursOverlayElement = null;
 
 // DOM 加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
@@ -31,6 +33,36 @@ function initMaterializeComponents() {
                 M.updateTextFields();
                 isEditMode = false;
                 selectedLeaveId = null;
+            }
+        });
+    }
+    
+    // 获取带薪时长卡片和遮罩层元素
+    paidHoursCardElement = document.getElementById('paidHoursCard');
+    paidHoursOverlayElement = document.getElementById('paidHoursOverlay');
+    
+    // 点击遮罩层关闭卡片
+    if (paidHoursOverlayElement) {
+        paidHoursOverlayElement.addEventListener('click', closePaidHoursCard);
+    }
+    
+    // 关闭按钮
+    const closeBtn = document.querySelector('.paid-hours-close');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closePaidHoursCard);
+    }
+    
+    // 历史记录切换
+    const historyToggle = document.getElementById('paidHoursHistoryToggle');
+    if (historyToggle) {
+        historyToggle.addEventListener('click', function() {
+            const history = document.getElementById('paidHoursHistory');
+            if (history.style.display === 'none') {
+                history.style.display = 'block';
+                historyToggle.innerHTML = '<i class="material-icons tiny">expand_less</i> 收起历史';
+            } else {
+                history.style.display = 'none';
+                historyToggle.innerHTML = '<i class="material-icons tiny">history</i> 查看历史';
             }
         });
     }
@@ -86,6 +118,29 @@ function initEventListeners() {
             updateCompanyOptions();
         });
     }
+    
+    // 带薪时长保存和取消按钮
+    const savePaidHoursBtn = document.getElementById('savePaidHoursBtn');
+    if (savePaidHoursBtn) {
+        savePaidHoursBtn.addEventListener('click', savePaidHours);
+    }
+    
+    const cancelPaidHoursBtn = document.getElementById('cancelPaidHoursBtn');
+    if (cancelPaidHoursBtn) {
+        cancelPaidHoursBtn.addEventListener('click', closePaidHoursCard);
+    }
+    
+    // 使用事件委托处理带薪时长的点击事件
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('paid-hours-clickable') || 
+            e.target.parentElement?.classList.contains('paid-hours-clickable')) {
+            const target = e.target.classList.contains('paid-hours-clickable') ? e.target : e.target.parentElement;
+            const leaveId = parseInt(target.getAttribute('data-leave-id'));
+            const currentPaidHours = parseFloat(target.getAttribute('data-paid-hours')) || 0;
+            const rect = target.getBoundingClientRect();
+            showPaidHoursCard(leaveId, currentPaidHours, rect);
+        }
+    });
 }
 
 // 加载公司列表
@@ -255,7 +310,15 @@ function renderLeaveTable(leaveRecords) {
                 <td>${startTime}</td>
                 <td>${endTime}</td>
                 <td>${leave.leave_hours.toFixed(1)} 小时</td>
-                <td>${(leave.paid_hours || 0).toFixed(1)} 小时</td>
+                <td>
+                    <span class="paid-hours-clickable" 
+                          data-leave-id="${leave.id}" 
+                          data-paid-hours="${leave.paid_hours || 0}"
+                          style="cursor: pointer; color: #1976d2; text-decoration: underline;"
+                          title="点击修改带薪时长">
+                        ${(leave.paid_hours || 0).toFixed(1)} 小时
+                    </span>
+                </td>
                 <td>${unpaidHours} 小时</td>
                 <td>${statusBadge}</td>
                 <td>${leave.reason || '-'}</td>
@@ -518,6 +581,180 @@ async function deleteLeaveRecord(leaveId) {
     } catch (error) {
         console.error('删除请假记录失败：', error);
         M.toast({html: '删除失败：' + error.message, classes: 'red'});
+    }
+}
+
+// 显示带薪时长编辑卡片
+async function showPaidHoursCard(leaveId, currentPaidHours, rect) {
+    try {
+        // 获取请假记录详情（包含历史记录）
+        const response = await fetch(`/api/leave-records/${leaveId}`);
+        const result = await response.json();
+        
+        if (!result.success) {
+            M.toast({html: '加载请假记录失败：' + result.error, classes: 'red'});
+            return;
+        }
+        
+        const leave = result.data;
+        const history = leave.paid_hours_history || [];
+        
+        // 使用从API获取的实际值，而不是表格中的值
+        const actualPaidHours = leave.paid_hours || 0;
+        
+        // 设置当前值
+        document.getElementById('paidHoursLeaveId').value = leaveId;
+        document.getElementById('paidHoursCurrentValue').value = actualPaidHours;
+        document.getElementById('paidHoursNewValue').value = actualPaidHours;
+        document.getElementById('paidHoursChangeReason').value = '';
+        
+        // 渲染历史记录
+        const historyContainer = document.getElementById('paidHoursHistory');
+        const historyToggle = document.getElementById('paidHoursHistoryToggle');
+        
+        if (history.length > 0) {
+            historyContainer.innerHTML = history.map((item, index) => `
+                <div class="paid-hours-history-item">
+                    <div>
+                        <span class="value-change">
+                            ${item.old_value !== null && item.old_value !== undefined ? item.old_value.toFixed(1) : '初始'} 
+                            → ${item.new_value.toFixed(1)}
+                        </span>
+                        <span class="time">${item.changed_at}</span>
+                    </div>
+                    <div class="reason">${item.change_reason || '无'} (${item.changed_by || 'system'})</div>
+                </div>
+            `).join('');
+            historyToggle.style.display = 'block';
+            historyContainer.style.display = 'none';
+        } else {
+            historyContainer.innerHTML = '<div style="text-align: center; color: #999; padding: 8px; font-size: 12px;">暂无修改历史</div>';
+            historyToggle.style.display = 'none';
+            historyContainer.style.display = 'block';
+        }
+        
+        // 计算卡片位置（在点击元素附近）
+        const cardWidth = 320;
+        const cardHeight = 200; // 估算高度
+        let left = rect.left + rect.width / 2 - cardWidth / 2;
+        let top = rect.bottom + 8;
+        
+        // 确保不超出视口
+        if (left < 10) left = 10;
+        if (left + cardWidth > window.innerWidth - 10) {
+            left = window.innerWidth - cardWidth - 10;
+        }
+        if (top + cardHeight > window.innerHeight - 10) {
+            top = rect.top - cardHeight - 8;
+        }
+        
+        // 设置位置并显示
+        if (paidHoursCardElement) {
+            paidHoursCardElement.style.left = left + 'px';
+            paidHoursCardElement.style.top = top + 'px';
+            paidHoursCardElement.style.display = 'block';
+        }
+        
+        if (paidHoursOverlayElement) {
+            paidHoursOverlayElement.style.display = 'block';
+        }
+        
+        // 聚焦到输入框
+        setTimeout(() => {
+            document.getElementById('paidHoursNewValue').focus();
+        }, 100);
+    } catch (error) {
+        console.error('加载请假记录失败：', error);
+        M.toast({html: '加载请假记录失败：' + error.message, classes: 'red'});
+    }
+}
+
+// 关闭带薪时长编辑卡片
+function closePaidHoursCard() {
+    if (paidHoursCardElement) {
+        paidHoursCardElement.style.display = 'none';
+    }
+    if (paidHoursOverlayElement) {
+        paidHoursOverlayElement.style.display = 'none';
+    }
+    // 重置表单
+    document.getElementById('paidHoursForm').reset();
+    document.getElementById('paidHoursHistory').innerHTML = '';
+}
+
+// 保存带薪时长
+async function savePaidHours() {
+    try {
+        const leaveId = parseInt(document.getElementById('paidHoursLeaveId').value);
+        const currentValue = parseFloat(document.getElementById('paidHoursCurrentValue').value);
+        const newValue = parseFloat(document.getElementById('paidHoursNewValue').value);
+        const changeReason = document.getElementById('paidHoursChangeReason').value.trim();
+        
+        // 验证
+        if (!leaveId) {
+            M.toast({html: '请假记录ID无效', classes: 'orange'});
+            return;
+        }
+        
+        if (isNaN(newValue) || newValue < 0) {
+            M.toast({html: '请输入有效的带薪时长', classes: 'orange'});
+            return;
+        }
+        
+        if (!changeReason) {
+            M.toast({html: '请输入修改原因', classes: 'orange'});
+            return;
+        }
+        
+        // 获取请假记录以验证带薪时长不能超过请假时长
+        const getResponse = await fetch(`/api/leave-records/${leaveId}`);
+        const getResult = await getResponse.json();
+        
+        if (!getResult.success) {
+            M.toast({html: '获取请假记录失败：' + getResult.error, classes: 'red'});
+            return;
+        }
+        
+        const leave = getResult.data;
+        if (newValue > leave.leave_hours) {
+            M.toast({html: '带薪时长不能超过请假时长', classes: 'orange'});
+            return;
+        }
+        
+        // 使用从API获取的实际值进行比较，而不是隐藏字段的值
+        const actualCurrentValue = leave.paid_hours || 0;
+        if (Math.abs(newValue - actualCurrentValue) < 0.001) {
+            M.toast({html: '带薪时长未发生变化', classes: 'orange'});
+            return;
+        }
+        
+        // 更新请假记录
+        const updateData = {
+            paid_hours: newValue,
+            paid_hours_change_reason: changeReason
+        };
+        
+        const response = await fetch(`/api/leave-records/${leaveId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User': 'admin'  // 可以从登录信息中获取
+            },
+            body: JSON.stringify(updateData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            M.toast({html: '带薪时长更新成功', classes: 'green'});
+            closePaidHoursCard();
+            loadLeaveRecords();  // 重新加载列表
+        } else {
+            M.toast({html: '更新失败：' + result.error, classes: 'red'});
+        }
+    } catch (error) {
+        console.error('保存带薪时长失败：', error);
+        M.toast({html: '保存失败：' + error.message, classes: 'red'});
     }
 }
 

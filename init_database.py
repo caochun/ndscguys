@@ -5,6 +5,7 @@ import random
 from datetime import datetime, timedelta
 from app.services.employee_service import EmployeeService
 from app.services.attendance_service import AttendanceService
+from app.services.salary_service import SalaryService
 from app.models import Person, Employment, Attendance, LeaveRecord
 
 
@@ -126,11 +127,11 @@ def generate_base_salary(position: str) -> float:
     return random.randint(base_min, base_max)
 
 
-def apply_salary_adjustment(service: EmployeeService, employee_id: int, position: str,
+def apply_salary_adjustment(salary_service: SalaryService, employee_id: int, position: str,
                             reason: str, multiplier_range=(0.95, 1.05),
                             effective_date: str = None):
     """根据变动创建新的薪资记录"""
-    current_salary = service.get_current_salary(employee_id)
+    current_salary = salary_service.get_current_salary(employee_id)
     if current_salary:
         base_amount = current_salary.base_amount * random.uniform(*multiplier_range)
     else:
@@ -140,7 +141,7 @@ def apply_salary_adjustment(service: EmployeeService, employee_id: int, position
     effective = effective_date or datetime.now().strftime('%Y-%m-%d')
     
     try:
-        service.create_salary_record(
+        salary_service.create_salary_record(
             employee_id=employee_id,
             base_amount=base_amount,
             effective_date=effective,
@@ -178,6 +179,7 @@ def get_next_employee_number(service, company_name, base_number=0):
 def init_database():
     """初始化数据库，生成测试数据"""
     service = EmployeeService()
+    salary_service = SalaryService()
     
     print("开始初始化数据库...")
     print("=" * 50)
@@ -289,7 +291,7 @@ def init_database():
             
             service.create_employment(employment)
             apply_salary_adjustment(
-                service,
+                salary_service,
                 employee_id,
                 position,
                 '初始薪资',
@@ -523,7 +525,7 @@ def init_database():
         try:
             if change_type == 'transfer_company':
                 # 换公司：使用 Service 层获取下一个员工编号
-                current_salary = service.get_current_salary(employee_id)
+                current_salary = salary_service.get_current_salary(employee_id)
                 max_number = service.get_max_employee_number(new_company)
                 if max_number:
                     try:
@@ -572,7 +574,7 @@ def init_database():
                 if new_base_amount is None:
                     new_base_amount = generate_base_salary(new_position)
                 try:
-                    service.create_salary_record(
+                    salary_service.create_salary_record(
                         new_employee_id,
                         new_base_amount,
                         new_hire_date,
@@ -613,7 +615,7 @@ def init_database():
                         'department': (0.95, 1.05)
                     }
                     apply_salary_adjustment(
-                        service,
+                        salary_service,
                         employee_id,
                         new_position,
                         f"{change_reason} - 薪资调整",
@@ -742,7 +744,7 @@ def init_database():
         try:
             if change_type == 'transfer_company':
                 # 换公司：使用 Service 层获取下一个员工编号
-                current_salary = service.get_current_salary(employee_id)
+                current_salary = salary_service.get_current_salary(employee_id)
                 max_number = service.get_max_employee_number(new_company)
                 if max_number:
                     try:
@@ -791,7 +793,7 @@ def init_database():
                 if new_base_amount is None:
                     new_base_amount = generate_base_salary(new_position)
                 try:
-                    service.create_salary_record(
+                    salary_service.create_salary_record(
                         new_employee_id,
                         new_base_amount,
                         new_hire_date,
@@ -832,7 +834,7 @@ def init_database():
                         'department': (0.95, 1.05)
                     }
                     apply_salary_adjustment(
-                        service,
+                        salary_service,
                         employee_id,
                         new_position,
                         f"{change_reason} - 薪资调整",
@@ -925,7 +927,7 @@ def init_database():
     attendance_service = AttendanceService()
     
     # 获取所有活跃员工
-    all_employees = service.get_employees(status='active')
+    all_employees = service.get_employees(None, 'active')
     
     # 生成最近30天的考勤数据
     end_date = datetime.now().date()

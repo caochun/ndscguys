@@ -736,3 +736,74 @@ class EmployeeService:
         
         return max_number
     
+    def clear_all_data(self):
+        """清空所有数据（谨慎使用，仅用于测试）"""
+        from app.daos.attendance_dao import AttendanceDAO
+        from app.daos.leave_record_dao import LeaveRecordDAO
+        from app.daos import SalaryDAO, PayrollDAO
+        
+        # 注意：删除顺序很重要，因为有外键约束
+        # 先删除子表数据，再删除父表数据
+        attendance_dao = AttendanceDAO()
+        leave_record_dao = LeaveRecordDAO()
+        salary_dao = SalaryDAO()
+        payroll_dao = PayrollDAO()
+        
+        # 清空子表
+        attendance_dao.clear_all()
+        leave_record_dao.clear_all()
+        salary_dao.clear_all()
+        payroll_dao.clear_all()
+        
+        # 清空父表
+        self.employment_dao.clear_all()
+        self.employee_dao.clear_all()
+        self.person_dao.clear_all()
+    
+    def get_statistics(self) -> Dict:
+        """获取数据库统计信息"""
+        return {
+            'person_count': self.person_dao.count(),
+            'employee_count': self.employee_dao.count(),
+            'employment_count': self.employment_dao.count_employment(),
+            'history_count': self.employment_dao.count_history()
+        }
+    
+    def create_employee(self, person: Person, company_name: str, employee_number: str) -> int:
+        """
+        创建员工（用于初始化脚本，会自动创建或查找 Person）
+        
+        Args:
+            person: Person 对象
+            company_name: 公司名称
+            employee_number: 员工编号
+            
+        Returns:
+            employee_id: 新创建的员工ID
+        """
+        from app.services.person_service import PersonService
+        
+        person_service = PersonService()
+        # 查找或创建人员
+        person_id = person_service.find_or_create_person(person)
+        
+        # 创建员工记录
+        employee_id = self.employee_dao.create(person_id, company_name, employee_number, 'active')
+        return employee_id
+    
+    def create_person(self, person: Person) -> int:
+        """
+        创建人员（用于初始化脚本）
+        
+        Args:
+            person: Person 对象
+            
+        Returns:
+            person_id: 新创建的人员ID
+        """
+        return self.person_dao.create(person)
+    
+    def get_unemployed_persons(self) -> List[Person]:
+        """获取未任职人员列表"""
+        return self.person_dao.get_unemployed_persons()
+    

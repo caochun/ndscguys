@@ -96,6 +96,127 @@ table.highlight tbody tr:hover {
     cursor: pointer;
 }
 
+/* 带薪时长点击样式 */
+.paid-hours-clickable {
+    cursor: pointer;
+    color: #1976d2;
+    text-decoration: underline;
+    transition: color 0.2s;
+}
+
+.paid-hours-clickable:hover {
+    color: #1565c0;
+    text-decoration: underline;
+}
+
+/* 带薪时长编辑浮动卡片（超轻量化） */
+.paid-hours-card {
+    position: fixed;
+    width: 320px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1001;
+    padding: 0;
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.paid-hours-card-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e0e0e0;
+    background: #f5f5f5;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.paid-hours-form {
+    padding: 16px;
+}
+
+.paid-hours-history {
+    padding: 12px 16px;
+    background: #fafafa;
+    border-bottom: 1px solid #e0e0e0;
+    max-height: 180px;
+    overflow-y: auto;
+    font-size: 12px;
+}
+
+.paid-hours-history-item {
+    padding: 6px 0;
+    border-bottom: 1px solid #e8e8e8;
+}
+
+.paid-hours-history-item:last-child {
+    border-bottom: none;
+}
+
+.paid-hours-history-item .value-change {
+    color: #1976d2;
+    font-weight: 500;
+    margin-right: 8px;
+}
+
+.paid-hours-history-item .time {
+    color: #999;
+    font-size: 11px;
+}
+
+.paid-hours-history-item .reason {
+    color: #666;
+    margin-top: 2px;
+    font-size: 11px;
+}
+
+.paid-hours-history-toggle {
+    padding: 8px 16px;
+    background: #f9f9f9;
+    border-bottom: 1px solid #e0e0e0;
+    cursor: pointer;
+    font-size: 12px;
+    color: #666;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.paid-hours-history-toggle:hover {
+    background: #f0f0f0;
+}
+
+.paid-hours-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
 table tbody td {
     padding: 12px 12px;
     font-size: 14px;

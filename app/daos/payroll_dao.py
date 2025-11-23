@@ -242,4 +242,12 @@ class PayrollDAO(BaseDAO):
         if row:
             return PayrollRecord.from_row(row)
         return None
+    
+    def clear_all(self):
+        """清空所有薪资批次数据（谨慎使用，仅用于测试）"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM payroll_items")
+        cursor.execute("DELETE FROM payroll_records")
+        conn.commit()
 

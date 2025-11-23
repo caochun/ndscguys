@@ -113,6 +113,55 @@
         </div>
     </div>
 
+    <!-- 带薪时长编辑浮动卡片（轻量化） -->
+    <div id="paidHoursCard" class="paid-hours-card" style="display: none;">
+        <div class="paid-hours-card-header">
+            <span style="font-size: 14px; font-weight: 500;">修改带薪时长</span>
+            <i class="material-icons tiny paid-hours-close" style="cursor: pointer; float: right;">close</i>
+        </div>
+        
+        <!-- 历史记录（折叠） -->
+        <div id="paidHoursHistory" class="paid-hours-history" style="display: none;">
+            <!-- 历史记录将动态插入这里 -->
+        </div>
+        <div id="paidHoursHistoryToggle" class="paid-hours-history-toggle" style="display: none;">
+            <i class="material-icons tiny">history</i> 查看历史
+        </div>
+        
+        <!-- 输入表单 -->
+        <form id="paidHoursForm" class="paid-hours-form">
+            <input type="hidden" id="paidHoursLeaveId">
+            <input type="hidden" id="paidHoursCurrentValue">
+            
+            <div style="margin-bottom: 12px;">
+                <input type="number" id="paidHoursNewValue" step="0.1" min="0" 
+                       placeholder="新带薪时长（小时）" 
+                       style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+                <textarea id="paidHoursChangeReason" 
+                          placeholder="修改原因（必填）" 
+                          rows="2"
+                          style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; resize: vertical;"></textarea>
+            </div>
+            
+            <div style="display: flex; gap: 8px;">
+                <button type="button" id="cancelPaidHoursBtn" 
+                        style="flex: 1; padding: 8px; border: 1px solid #ddd; background: #f5f5f5; border-radius: 4px; cursor: pointer;">
+                    取消
+                </button>
+                <button type="button" id="savePaidHoursBtn" 
+                        style="flex: 1; padding: 8px; border: none; background: #1976d2; color: white; border-radius: 4px; cursor: pointer;">
+                    保存
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- 遮罩层 -->
+    <div id="paidHoursOverlay" class="paid-hours-overlay" style="display: none;"></div>
+
     <!-- 请假记录详情/编辑对话框 -->
     <div id="leaveModal" class="modal modal-fixed-footer">
         <div class="modal-content">
