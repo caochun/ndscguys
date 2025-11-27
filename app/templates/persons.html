@@ -3,159 +3,193 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>人员管理 - 人事管理系统</title>
-    <!-- Materialize CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
-    <!-- Material Icons -->
+    <title>人员状态管理</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <style>
+        body {
+            background: #f5f6fa;
+        }
+        .person-card {
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(18,38,63,.08);
+        }
+        .person-card .card-content {
+            min-height: 160px;
+        }
+        .status-chip {
+            background: #e3f2fd;
+            color: #1565c0;
+            border-radius: 16px;
+            padding: 2px 12px;
+            font-size: 12px;
+        }
+        .modal {
+            border-radius: 12px;
+        }
+        .modal .modal-content {
+            padding: 24px;
+        }
+        .history-block {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+    </style>
 </head>
 <body>
-    <!-- 导航栏 -->
-    <nav class="blue darken-2">
-        <div class="nav-wrapper container">
-            <a href="{{ url_for('main.index') }}" class="brand-logo">人事管理系统</a>
-            <ul class="right hide-on-med-and-down">
-                <li><a href="{{ url_for('main.employees') }}"><i class="material-icons left">people</i>员工</a></li>
-                <li><a href="{{ url_for('main.persons') }}" class="active"><i class="material-icons left">person</i>人员</a></li>
-                <li><a href="{{ url_for('main.attendance') }}"><i class="material-icons left">access_time</i>考勤</a></li>
-                <li><a href="{{ url_for('main.leave') }}"><i class="material-icons left">event_busy</i>请假</a></li>
-                <li><a href="{{ url_for('main.salary') }}"><i class="material-icons left">attach_money</i>薪资</a></li>
-            </ul>
-            <ul class="sidenav" id="mobile-nav">
-                <li><a href="{{ url_for('main.employees') }}"><i class="material-icons left">people</i>员工</a></li>
-                <li><a href="{{ url_for('main.persons') }}" class="active"><i class="material-icons left">person</i>人员</a></li>
-                <li><a href="{{ url_for('main.attendance') }}"><i class="material-icons left">access_time</i>考勤</a></li>
-                <li><a href="{{ url_for('main.leave') }}"><i class="material-icons left">event_busy</i>请假</a></li>
-                <li><a href="{{ url_for('main.salary') }}"><i class="material-icons left">attach_money</i>薪资</a></li>
-            </ul>
-            <a href="#" data-target="mobile-nav" class="sidenav-trigger"><i class="material-icons">menu</i></a>
-        </div>
-    </nav>
+<nav class="blue darken-2">
+    <div class="nav-wrapper container">
+        <a href="#!" class="brand-logo">人员状态管理</a>
+        <a href="#" data-target="mobile-nav" class="sidenav-trigger"><i class="material-icons">menu</i></a>
+        <ul class="right hide-on-med-and-down">
+            <li><a id="openCreateModal"><i class="material-icons left">person_add</i>新增人员</a></li>
+        </ul>
+    </div>
+</nav>
 
-    <div class="container" style="margin-top: 20px;">
-        <div class="card">
-            <div class="card-content">
-                <div class="row" style="margin-bottom: 20px;">
-                    <div class="col s12">
-                        <button id="addPersonBtn" class="btn waves-effect waves-light blue"><i class="material-icons left">add</i>新增人员</button>
-                        <button id="editPersonBtn" class="btn waves-effect waves-light green"><i class="material-icons left">edit</i>编辑人员</button>
-                        <button id="refreshPersonsBtn" class="btn waves-effect waves-light grey"><i class="material-icons left">refresh</i>刷新</button>
+<ul class="sidenav" id="mobile-nav">
+    <li><a id="openCreateModalMobile"><i class="material-icons left">person_add</i>新增人员</a></li>
+</ul>
+
+<div class="container" style="margin-top: 32px;">
+    <div class="row" id="personCards">
+        <div class="col s12 center-align grey-text text-darken-1" style="margin-top: 40px;">
+            正在加载...
+        </div>
+    </div>
+</div>
+
+<!-- 创建人员模态框 -->
+<div id="createPersonModal" class="modal modal-fixed-footer">
+    <div class="modal-content">
+        <h5>创建人员</h5>
+        <form id="createPersonForm">
+            <div class="row">
+                <div class="input-field col s12 m6">
+                    <input id="name" name="name" type="text" required>
+                    <label for="name">姓名 *</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="id_card" name="id_card" type="text" required>
+                    <label for="id_card">身份证 *</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="birth_date" name="birth_date" type="date">
+                    <label for="birth_date" class="active">出生日期</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="gender" name="gender" type="text">
+                    <label for="gender">性别</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="phone" name="phone" type="text">
+                    <label for="phone">电话</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="email" name="email" type="email">
+                    <label for="email">邮箱</label>
+                </div>
+                <div class="input-field col s12">
+                    <input id="address" name="address" type="text">
+                    <label for="address">地址</label>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col s12">
+                    <h6 class="grey-text text-darken-1">岗位信息（可选）</h6>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="company_name" name="company_name" type="text">
+                    <label for="company_name">公司</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="employee_number" name="employee_number" type="text">
+                    <label for="employee_number">员工号</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="department" name="department" type="text">
+                    <label for="department">部门</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="position" name="position" type="text">
+                    <label for="position">职位</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="supervisor_employee_id" name="supervisor_employee_id" type="number">
+                    <label for="supervisor_employee_id">上级员工ID</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="hire_date" name="hire_date" type="date">
+                    <label for="hire_date" class="active">任职日期</label>
+                </div>
+                <div class="input-field col s12">
+                    <select id="employee_type" name="employee_type">
+                        <option value="" selected>请选择</option>
+                        <option value="正式员工">正式员工</option>
+                        <option value="试用期员工">试用期员工</option>
+                        <option value="实习生">实习生</option>
+                        <option value="其他">其他</option>
+                    </select>
+                    <label>员工类别</label>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-green btn-flat">取消</a>
+        <button type="submit" form="createPersonForm" class="waves-effect waves-light btn">创建</button>
+    </div>
+</div>
+
+<!-- 详情模态框 -->
+<div id="detailModal" class="modal modal-fixed-footer">
+    <div class="modal-content">
+        <div id="detailContent">
+            <h5>人员详情</h5>
+            <p class="grey-text">加载中...</p>
+        </div>
+        <div id="detailTabs" style="margin-top: 16px; display: none;">
+            <div class="row">
+                <div class="col s12">
+                    <ul class="tabs tabs-fixed-width">
+                        <li class="tab col s6"><a class="active" href="#basicTab">基础信息</a></li>
+                        <li class="tab col s6"><a href="#positionTab">岗位信息</a></li>
+                    </ul>
+                </div>
+                <div id="basicTab" class="col s12" style="padding-top: 20px;">
+                    <div id="basicInfoCard" class="card">
+                        <div class="card-content" id="basicInfoContent"></div>
+                    </div>
+                    <div id="basicHistoryCard" class="card">
+                        <div class="card-content">
+                            <span class="card-title" style="font-size:18px;">基础信息历史</span>
+                            <div id="basicHistoryContent"></div>
+                        </div>
                     </div>
                 </div>
-                
-                <!-- Tab导航 -->
-                <ul class="tabs tabs-fixed-width" id="personTabs">
-                    <li class="tab col s6"><a href="#unemployedTab" class="active">未任职</a></li>
-                    <li class="tab col s6"><a href="#employedTab">已任职</a></li>
-                </ul>
-                
-                <!-- 未任职Tab内容 -->
-                <div id="unemployedTab" class="col s12" style="padding-top: 20px;">
-                    <table id="unemployedPersonTable" class="striped highlight responsive-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>姓名</th>
-                                <th>出生日期</th>
-                                <th>性别</th>
-                                <th>手机</th>
-                                <th>邮箱</th>
-                                <th>家庭住址</th>
-                                <th>创建时间</th>
-                                <th>更新时间</th>
-                            </tr>
-                        </thead>
-                        <tbody id="unemployedPersonTableBody">
-                            <tr>
-                                <td colspan="9" class="center-align">加载中...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                
-                <!-- 已任职Tab内容 -->
-                <div id="employedTab" class="col s12" style="padding-top: 20px;">
-                    <table id="employedPersonTable" class="striped highlight responsive-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>姓名</th>
-                                <th>出生日期</th>
-                                <th>性别</th>
-                                <th>手机</th>
-                                <th>邮箱</th>
-                                <th>家庭住址</th>
-                                <th>创建时间</th>
-                                <th>更新时间</th>
-                            </tr>
-                        </thead>
-                        <tbody id="employedPersonTableBody">
-                            <tr>
-                                <td colspan="9" class="center-align">加载中...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div id="positionTab" class="col s12" style="padding-top: 20px;">
+                    <div id="positionInfoCard" class="card">
+                        <div class="card-content" id="positionInfoContent"></div>
+                    </div>
+                    <div id="positionHistoryCard" class="card">
+                        <div class="card-content">
+                            <span class="card-title" style="font-size:18px;">岗位信息历史</span>
+                            <div id="positionHistoryContent"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-
-        <!-- 状态栏 -->
-        <div id="statusBar" class="card-panel teal lighten-2 white-text" style="margin-top: 20px; padding: 10px 20px;">
-            <span id="statusText">就绪</span>
-        </div>
     </div>
-
-    <!-- 人员编辑对话框 -->
-    <div id="personModal" class="modal modal-fixed-footer">
-        <div class="modal-content">
-            <h4 id="personModalTitle">新增人员</h4>
-            <form id="personForm">
-                <input type="hidden" id="personId">
-                
-                <div class="row">
-                    <div class="input-field col s12 m6">
-                        <input type="text" id="personName" required>
-                        <label for="personName">姓名 *</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input type="date" id="personBirthDate" class="datepicker">
-                        <label for="personBirthDate">出生日期</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <select id="personGender">
-                            <option value="">请选择</option>
-                            <option value="男">男</option>
-                            <option value="女">女</option>
-                            <option value="其他">其他</option>
-                        </select>
-                        <label for="personGender">性别</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input type="tel" id="personPhone">
-                        <label for="personPhone">手机</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input type="email" id="personEmail">
-                        <label for="personEmail">邮箱</label>
-                    </div>
-                    <div class="input-field col s12">
-                        <input type="text" id="personAddress">
-                        <label for="personAddress">家庭住址</label>
-                    </div>
-                </div>
-            </form>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="modal-close waves-effect waves-green btn-flat" id="cancelPersonBtn">取消</button>
-            <button type="submit" form="personForm" class="waves-effect waves-light btn blue">保存</button>
-        </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-green btn-flat">关闭</a>
     </div>
+</div>
 
-    <!-- Materialize JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
-    <script src="{{ url_for('static', filename='js/persons.js') }}"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+<script src="{{ url_for('static', filename='js/persons.js') }}"></script>
 </body>
 </html>
 
