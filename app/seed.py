@@ -10,6 +10,8 @@ import json
 from typing import Optional
 
 from app.services.person_service import PersonService, generate_avatar
+from app.services.attendance_service import AttendanceService
+from app.services.leave_service import LeaveService
 
 
 def seed_initial_data(db_path: str, target_count: int = 30):
@@ -23,6 +25,8 @@ def seed_initial_data(db_path: str, target_count: int = 30):
         return
 
     service = PersonService(db_path)
+    attendance_service = AttendanceService(db_path)
+    leave_service = LeaveService(db_path)
 
     names = [
         "张伟", "王芳", "李娜", "刘洋", "陈磊", "杨静", "黄强", "徐敏", "周杰", "赵霞",
@@ -46,6 +50,52 @@ def seed_initial_data(db_path: str, target_count: int = 30):
         current = company_counters.setdefault(company, 1)
         company_counters[company] = current + 1
         return f"{prefix}{current:04d}"
+
+    def seed_attendance_for_person(person_id: int):
+        today = datetime.now().date()
+        for delta in range(1, 32):  # 至少覆盖近 30 天
+            date = (today - timedelta(days=delta)).strftime("%Y-%m-%d")
+            # 周末按较高概率标记为休息（缺勤），但仍记录
+            weekday = (today - timedelta(days=delta)).weekday()
+            if weekday >= 5:  # 周六周日
+                status = random.choice(["缺勤", "外勤"])
+                work_hours = 0 if status == "缺勤" else 6
+                overtime_hours = 0
+                check_in = None
+                check_out = None
+            else:
+                status = random.choices(
+                    population=["正常", "迟到", "早退", "外勤"],
+                    weights=[0.75, 0.1, 0.1, 0.05],
+                )[0]
+                check_in = "09:00" if status != "迟到" else "09:30"
+                check_out = "18:00" if status != "早退" else "17:00"
+                work_hours = 8 if status in {"正常", "外勤"} else 7.5
+                overtime_hours = random.choice([0, 0, 0, 1, 2])
+            attendance_service.create_attendance(
+                person_id=person_id,
+                date=date,
+                check_in_time=check_in,
+                check_out_time=check_out,
+                work_hours=work_hours,
+                overtime_hours=overtime_hours,
+                status=status,
+                note="自动生成",
+            )
+
+    def seed_leave_for_person(person_id: int):
+        leave_types = ["事假", "病假", "年假", "调休"]
+        today = datetime.now().date()
+        for delta in range(1, 32):
+            if random.random() < 0.1:  # 请假概率较低
+                date = (today - timedelta(days=delta)).strftime("%Y-%m-%d")
+                leave_service.create_leave(
+                    person_id=person_id,
+                    leave_date=date,
+                    leave_type=random.choice(leave_types),
+                    hours=random.choice([4, 8]),
+                    reason="示例请假记录",
+                )
 
     for idx, name in enumerate(names[:target_count]):
         basic = {
@@ -122,6 +172,8 @@ def seed_initial_data(db_path: str, target_count: int = 30):
             social_security_data,
             housing_fund_data,
         )
+        seed_attendance_for_person(person_id)
+        seed_leave_for_person(person_id)
         if position_data:
             person_ids_with_position.append(person_id)
 

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}人员状态管理{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+<nav class="blue darken-2">
+    <div class="nav-wrapper container">
+        <a href="{{ url_for('web.persons') }}" class="brand-logo">人事管理系统</a>
+        <a href="#" data-target="mobile-nav" class="sidenav-trigger"><i class="material-icons">menu</i></a>
+        <ul class="right hide-on-med-and-down">
+            <li class="{% if active_page == 'persons' %}active{% endif %}">
+                <a href="{{ url_for('web.persons') }}">人员</a>
+            </li>
+            <li class="{% if active_page == 'attendance' %}active{% endif %}">
+                <a href="{{ url_for('web.attendance') }}">考勤</a>
+            </li>
+            <li class="{% if active_page == 'leave' %}active{% endif %}">
+                <a href="{{ url_for('web.leave') }}">请假</a>
+            </li>
+        </ul>
+    </div>
+</nav>
+
+<ul class="sidenav" id="mobile-nav">
+    <li class="{% if active_page == 'persons' %}active{% endif %}">
+        <a href="{{ url_for('web.persons') }}">人员</a>
+    </li>
+    <li class="{% if active_page == 'attendance' %}active{% endif %}">
+        <a href="{{ url_for('web.attendance') }}">考勤</a>
+    </li>
+    <li class="{% if active_page == 'leave' %}active{% endif %}">
+        <a href="{{ url_for('web.leave') }}">请假</a>
+    </li>
+</ul>
+
+<main class="container" style="margin-top: 32px;">
+    {% block content %}{% endblock %}
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var elems = document.querySelectorAll('.sidenav');
+        M.Sidenav.init(elems);
+    });
+</script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>
+

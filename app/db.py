@@ -107,6 +107,53 @@ def init_db(db_path: str):
         """
     )
 
+    # 出勤记录表
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS attendance_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            person_id INTEGER NOT NULL,
+            date TEXT NOT NULL,
+            check_in_time TEXT,
+            check_out_time TEXT,
+            work_hours REAL DEFAULT 0.0,
+            overtime_hours REAL DEFAULT 0.0,
+            status TEXT NOT NULL DEFAULT '正常',
+            note TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (person_id) REFERENCES persons(id),
+            UNIQUE(person_id, date)
+        )
+        """
+    )
+
+    # 请假记录表
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS leave_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            person_id INTEGER NOT NULL,
+            leave_date TEXT NOT NULL,
+            leave_type TEXT NOT NULL,
+            hours REAL NOT NULL,
+            status TEXT NOT NULL DEFAULT '待审批',
+            approver_person_id INTEGER,
+            reason TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (person_id) REFERENCES persons(id),
+            FOREIGN KEY (approver_person_id) REFERENCES persons(id)
+        )
+        """
+    )
+
+    # 创建索引以优化查询
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_attendance_person_date ON attendance_records(person_id, date)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_leave_person_date ON leave_records(person_id, leave_date)"
+    )
+
     conn.commit()
     conn.close()
 

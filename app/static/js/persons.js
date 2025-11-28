@@ -3,17 +3,14 @@ document.addEventListener('DOMContentLoaded', function () {
     M.Modal.init(modals);
     const selects = document.querySelectorAll('select');
     M.FormSelect.init(selects);
-    const sidenav = document.querySelectorAll('.sidenav');
-    M.Sidenav.init(sidenav);
 
-    document.getElementById('openCreateModal').addEventListener('click', () => {
-        const instance = M.Modal.getInstance(document.getElementById('createPersonModal'));
-        instance.open();
-    });
-    document.getElementById('openCreateModalMobile').addEventListener('click', () => {
-        const instance = M.Modal.getInstance(document.getElementById('createPersonModal'));
-        instance.open();
-    });
+    const openCreateBtn = document.getElementById('openCreateModal');
+    if (openCreateBtn) {
+        openCreateBtn.addEventListener('click', () => {
+            const instance = M.Modal.getInstance(document.getElementById('createPersonModal'));
+            instance.open();
+        });
+    }
 
     document.getElementById('createPersonForm').addEventListener('submit', handleCreatePerson);
 
@@ -275,6 +272,58 @@ async function viewPerson(personId) {
         M.Tabs.init(tabs);
 
         const modal = M.Modal.getInstance(document.getElementById('detailModal'));
+        
+        // 懒加载：监听 tab 切换事件
+        let currentPersonId = personId;
+        let attendanceLoaded = false;
+        let leaveLoaded = false;
+        
+        // 使用 MutationObserver 监听 tab 内容区域的显示
+        const attendanceTab = document.getElementById('attendanceTab');
+        const leaveTab = document.getElementById('leaveTab');
+        
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                const target = mutation.target;
+                const isVisible = target.style.display !== 'none' && target.offsetParent !== null;
+                
+                if (target === attendanceTab && isVisible && !attendanceLoaded) {
+                    loadAttendanceSummary(currentPersonId);
+                    attendanceLoaded = true;
+                } else if (target === leaveTab && isVisible && !leaveLoaded) {
+                    loadLeaveList(currentPersonId);
+                    leaveLoaded = true;
+                }
+            });
+        });
+        
+        // 观察两个 tab 的 style 属性变化
+        if (attendanceTab) {
+            observer.observe(attendanceTab, { 
+                attributes: true, 
+                attributeFilter: ['style', 'class'],
+                attributeOldValue: false
+            });
+        }
+        if (leaveTab) {
+            observer.observe(leaveTab, { 
+                attributes: true, 
+                attributeFilter: ['style', 'class'],
+                attributeOldValue: false
+            });
+        }
+        
+        // 模态框关闭时断开观察
+        const originalOnCloseEnd = modal.options.onCloseEnd;
+        modal.options.onCloseEnd = function() {
+            observer.disconnect();
+            attendanceLoaded = false;
+            leaveLoaded = false;
+            if (originalOnCloseEnd) {
+                originalOnCloseEnd.call(this);
+            }
+        };
+        
         modal.open();
     } catch (err) {
         M.toast({html: '加载详情失败：' + err.message, classes: 'red'});
@@ -348,6 +397,94 @@ function renderInfoGrid(items, columns = 2) {
             </div>`
         )
         .join('');
+}
+
+async function loadAttendanceSummary(personId) {
+    const container = document.getElementById('attendanceSummaryContent');
+    container.innerHTML = '<p class="grey-text">加载中...</p>';
+    
+    try {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        const result = await fetchJSON(`/api/attendance/monthly-summary?person_id=${personId}&year=${year}&month=${month}`);
+        const summary = result.data;
+        
+        const statusItems = Object.entries(summary.status_count || {}).map(([status, count]) => ({
+            label: status,
+            value: `${count} 天`
+        }));
+        
+        container.innerHTML = renderInfoGrid(
+            [
+                { label: '统计月份', value: `${summary.year}年${summary.month}月` },
+                { label: '出勤天数', value: summary.total_days },
+                { label: '总工作时长', value: `${summary.total_work_hours.toFixed(1)} 小时` },
+                { label: '总加班时长', value: `${summary.total_overtime_hours.toFixed(1)} 小时` },
+                ...statusItems
+            ],
+            2
+        );
+    } catch (err) {
+        container.innerHTML = `<p class="red-text">加载失败：${err.message}</p>`;
+    }
+}
+
+async function loadLeaveList(personId) {
+    const container = document.getElementById('leaveListContent');
+    container.innerHTML = '<p class="grey-text">加载中...</p>';
+    
+    try {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+        const endDate = `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`;
+        
+        const result = await fetchJSON(`/api/leave?person_id=${personId}&start_date=${startDate}&end_date=${endDate}`);
+        const records = result.data;
+        
+        if (!records || records.length === 0) {
+            container.innerHTML = '<p class="grey-text">本月暂无请假记录</p>';
+            return;
+        }
+        
+        const rows = records.map(record => `
+            <tr>
+                <td>${record.leave_date}</td>
+                <td>${record.leave_type}</td>
+                <td>${record.hours} 小时</td>
+                <td><span class="badge ${getStatusBadgeClass(record.status)}">${record.status}</span></td>
+                <td>${record.reason || '-'}</td>
+            </tr>
+        `).join('');
+        
+        container.innerHTML = `
+            <table class="striped responsive-table">
+                <thead>
+                    <tr>
+                        <th>请假日期</th>
+                        <th>请假类型</th>
+                        <th>时长</th>
+                        <th>状态</th>
+                        <th>原因</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        `;
+    } catch (err) {
+        container.innerHTML = `<p class="red-text">加载失败：${err.message}</p>`;
+    }
+}
+
+function getStatusBadgeClass(status) {
+    const statusMap = {
+        '待审批': 'orange',
+        '已批准': 'green',
+        '已拒绝': 'red'
+    };
+    return statusMap[status] || 'grey';
 }
 
 function numberOrNull(value) {
