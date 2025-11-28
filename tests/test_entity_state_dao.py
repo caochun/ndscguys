@@ -10,7 +10,11 @@ if str(ROOT) not in sys.path:
 
 import pytest
 
-from app.daos.person_state_dao import PersonBasicStateDAO, PersonPositionStateDAO
+from app.daos.person_state_dao import (
+    PersonBasicStateDAO,
+    PersonPositionStateDAO,
+    PersonSalaryStateDAO,
+)
 from app.db import init_db
 
 
@@ -85,4 +89,29 @@ def test_get_at_returns_state_for_timestamp(tmp_path):
 
     no_state = dao.get_at(3, "2024-12-31T23:59:59")
     assert no_state is None
+
+
+def test_salary_state_append_and_history(tmp_path):
+    db_path = tmp_path / "salary.db"
+    init_db(str(db_path))
+    dao = PersonSalaryStateDAO(db_path=str(db_path))
+
+    dao.append(
+        entity_id=5,
+        data={"salary_type": "月薪制", "amount": 15000, "effective_date": "2025-01-01"},
+        ts="2025-01-01T09:00:00",
+    )
+    dao.append(
+        entity_id=5,
+        data={"salary_type": "年薪制", "amount": 200000, "effective_date": "2025-06-01"},
+        ts="2025-06-01T09:00:00",
+    )
+
+    latest = dao.get_latest(5)
+    assert latest.version == 2
+    assert latest.data["salary_type"] == "年薪制"
+
+    history = dao.list_states(5, limit=5)
+    assert len(history) == 2
+    assert history[0].version == 2
 

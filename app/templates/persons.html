@@ -135,6 +135,94 @@
                     <label>员工类别</label>
                 </div>
             </div>
+            <div class="row">
+                <div class="col s12">
+                    <h6 class="grey-text text-darken-1">薪资信息（可选）</h6>
+                </div>
+                <div class="input-field col s12 m6">
+                    <select id="salary_type" name="salary_type">
+                        <option value="" selected>请选择</option>
+                        <option value="年薪制">年薪制</option>
+                        <option value="月薪制">月薪制</option>
+                        <option value="日薪制度">日薪制度</option>
+                    </select>
+                    <label>薪资类型</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="salary_amount" name="salary_amount" type="number" step="0.01" min="0">
+                    <label for="salary_amount">薪资金额</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="salary_start_date" name="salary_start_date" type="date">
+                    <label for="salary_start_date" class="active">起薪日期</label>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col s12">
+                    <h6 class="grey-text text-darken-1">社保信息（可选）</h6>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="social_base_amount" name="social_base_amount" type="number" step="0.01" min="0">
+                    <label for="social_base_amount">社保基数</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="pension_company_rate" name="pension_company_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="pension_company_rate">养老保险公司比例</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="pension_personal_rate" name="pension_personal_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="pension_personal_rate">养老保险个人比例</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="unemployment_company_rate" name="unemployment_company_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="unemployment_company_rate">失业保险公司比例</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="unemployment_personal_rate" name="unemployment_personal_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="unemployment_personal_rate">失业保险个人比例</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="medical_company_rate" name="medical_company_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="medical_company_rate">医疗保险公司比例</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="medical_personal_rate" name="medical_personal_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="medical_personal_rate">医疗保险个人比例</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="maternity_company_rate" name="maternity_company_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="maternity_company_rate">生育保险公司比例</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="maternity_personal_rate" name="maternity_personal_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="maternity_personal_rate">生育保险个人比例</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="critical_illness_company_amount" name="critical_illness_company_amount" type="number" step="0.01" min="0">
+                    <label for="critical_illness_company_amount">大病险公司金额</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="critical_illness_personal_amount" name="critical_illness_personal_amount" type="number" step="0.01" min="0">
+                    <label for="critical_illness_personal_amount">大病险个人金额</label>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col s12">
+                    <h6 class="grey-text text-darken-1">公积金信息（可选）</h6>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="housing_base_amount" name="housing_base_amount" type="number" step="0.01" min="0">
+                    <label for="housing_base_amount">住房公积金基数</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="housing_company_rate" name="housing_company_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="housing_company_rate">住房公积金公司比例</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="housing_personal_rate" name="housing_personal_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="housing_personal_rate">住房公积金个人比例</label>
+                </div>
+            </div>
         </form>
     </div>
     <div class="modal-footer">
@@ -154,8 +242,11 @@
             <div class="row">
                 <div class="col s12">
                     <ul class="tabs tabs-fixed-width">
-                        <li class="tab col s6"><a class="active" href="#basicTab">基础信息</a></li>
-                        <li class="tab col s6"><a href="#positionTab">岗位信息</a></li>
+                        <li class="tab col s2"><a class="active" href="#basicTab">基础信息</a></li>
+                        <li class="tab col s2"><a href="#positionTab">岗位信息</a></li>
+                        <li class="tab col s2"><a href="#salaryTab">薪资信息</a></li>
+                        <li class="tab col s3"><a href="#socialTab">社保信息</a></li>
+                        <li class="tab col s3"><a href="#housingTab">公积金信息</a></li>
                     </ul>
                 </div>
                 <div id="basicTab" class="col s12" style="padding-top: 20px;">
@@ -177,6 +268,39 @@
                         <div class="card-content">
                             <span class="card-title" style="font-size:18px;">岗位信息历史</span>
                             <div id="positionHistoryContent"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="salaryTab" class="col s12" style="padding-top: 20px;">
+                    <div id="salaryInfoCard" class="card">
+                        <div class="card-content" id="salaryInfoContent"></div>
+                    </div>
+                    <div id="salaryHistoryCard" class="card">
+                        <div class="card-content">
+                            <span class="card-title" style="font-size:18px;">薪资信息历史</span>
+                            <div id="salaryHistoryContent"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="socialTab" class="col s12" style="padding-top: 20px;">
+                    <div id="socialInfoCard" class="card">
+                        <div class="card-content" id="socialInfoContent"></div>
+                    </div>
+                    <div id="socialHistoryCard" class="card">
+                        <div class="card-content">
+                            <span class="card-title" style="font-size:18px;">社保信息历史</span>
+                            <div id="socialHistoryContent"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="housingTab" class="col s12" style="padding-top: 20px;">
+                    <div id="housingInfoCard" class="card">
+                        <div class="card-content" id="housingInfoContent"></div>
+                    </div>
+                    <div id="housingHistoryCard" class="card">
+                        <div class="card-content">
+                            <span class="card-title" style="font-size:18px;">公积金信息历史</span>
+                            <div id="housingHistoryContent"></div>
                         </div>
                     </div>
                 </div>

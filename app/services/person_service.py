@@ -8,7 +8,20 @@ from typing import List, Dict, Any, Optional
 
 import sqlite3
 
-from app.daos.person_state_dao import PersonBasicStateDAO, PersonPositionStateDAO
+from app.daos.person_state_dao import (
+    PersonBasicStateDAO,
+    PersonPositionStateDAO,
+    PersonSalaryStateDAO,
+    PersonSocialSecurityStateDAO,
+    PersonHousingFundStateDAO,
+)
+from app.models.person_payloads import (
+    sanitize_basic_payload,
+    sanitize_position_payload,
+    sanitize_salary_payload,
+    sanitize_social_security_payload,
+    sanitize_housing_fund_payload,
+)
 from app.db import init_db
 
 
@@ -29,6 +42,9 @@ class PersonService:
         init_db(db_path)
         self.basic_dao = PersonBasicStateDAO(db_path=db_path)
         self.position_dao = PersonPositionStateDAO(db_path=db_path)
+        self.salary_dao = PersonSalaryStateDAO(db_path=db_path)
+        self.social_security_dao = PersonSocialSecurityStateDAO(db_path=db_path)
+        self.housing_fund_dao = PersonHousingFundStateDAO(db_path=db_path)
 
     def _get_connection(self) -> sqlite3.Connection:
         return self.basic_dao.get_connection()
@@ -67,19 +83,40 @@ class PersonService:
             )
         return result
 
-    def create_person(self, basic_data: dict, position_data: Optional[dict] = None) -> int:
+    def create_person(
+        self,
+        basic_data: dict,
+        position_data: Optional[dict] = None,
+        salary_data: Optional[dict] = None,
+        social_security_data: Optional[dict] = None,
+        housing_fund_data: Optional[dict] = None,
+    ) -> int:
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute("INSERT INTO persons DEFAULT VALUES")
         conn.commit()
         person_id = cursor.lastrowid
 
-        if not basic_data.get("avatar"):
-            basic_data["avatar"] = generate_avatar(basic_data.get("name"))
-        self.basic_dao.append(entity_id=person_id, data=basic_data)
+        cleaned_basic = sanitize_basic_payload(basic_data)
+        if not cleaned_basic.get("avatar"):
+            cleaned_basic["avatar"] = generate_avatar(cleaned_basic.get("name"))
+        self.basic_dao.append(entity_id=person_id, data=cleaned_basic)
 
-        if position_data:
-            self.position_dao.append(entity_id=person_id, data=position_data)
+        cleaned_position = sanitize_position_payload(position_data)
+        if cleaned_position:
+            self.position_dao.append(entity_id=person_id, data=cleaned_position)
+
+        cleaned_salary = sanitize_salary_payload(salary_data)
+        if cleaned_salary:
+            self.salary_dao.append(entity_id=person_id, data=cleaned_salary)
+
+        cleaned_social_security = sanitize_social_security_payload(social_security_data)
+        if cleaned_social_security:
+            self.social_security_dao.append(entity_id=person_id, data=cleaned_social_security)
+
+        cleaned_housing_fund = sanitize_housing_fund_payload(housing_fund_data)
+        if cleaned_housing_fund:
+            self.housing_fund_dao.append(entity_id=person_id, data=cleaned_housing_fund)
 
         return person_id
 
@@ -89,13 +126,22 @@ class PersonService:
             return None
 
         position = self.position_dao.get_latest(person_id)
+        salary = self.salary_dao.get_latest(person_id)
+        social_security = self.social_security_dao.get_latest(person_id)
+        housing_fund = self.housing_fund_dao.get_latest(person_id)
 
         details = {
             "person_id": person_id,
             "basic": basic.to_dict(),
             "position": position.to_dict() if position else None,
+            "salary": salary.to_dict() if salary else None,
+            "social_security": social_security.to_dict() if social_security else None,
+            "housing_fund": housing_fund.to_dict() if housing_fund else None,
             "basic_history": [state.to_dict() for state in self.basic_dao.list_states(person_id, limit=10)],
             "position_history": [state.to_dict() for state in self.position_dao.list_states(person_id, limit=10)],
+            "salary_history": [state.to_dict() for state in self.salary_dao.list_states(person_id, limit=10)],
+            "social_security_history": [state.to_dict() for state in self.social_security_dao.list_states(person_id, limit=10)],
+            "housing_fund_history": [state.to_dict() for state in self.housing_fund_dao.list_states(person_id, limit=10)],
         }
         return details
 

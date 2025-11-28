@@ -7,6 +7,7 @@ import random
 from datetime import datetime, timedelta
 import sqlite3
 import json
+from typing import Optional
 
 from app.services.person_service import PersonService, generate_avatar
 
@@ -59,19 +60,68 @@ def seed_initial_data(db_path: str, target_count: int = 30):
         }
 
         position_data = None
+        employee_type = None
         if len(person_ids_with_position) < total_positions:
             company_name = "SC高科技公司" if len(person_ids_with_position) < company_a_count else "SC能源科技公司"
             emp_no = next_employee_number(company_name)
+            employee_type = employee_types[idx % len(employee_types)]
+            is_department_head = random.random() < 0.1
+            position_title = positions[idx % len(positions)]
+            if is_department_head:
+                employee_type = "部分负责人"
+                position_title = f"{position_title}-负责人"
+
             position_data = {
                 "company_name": company_name,
                 "employee_number": emp_no,
                 "department": departments[idx % len(departments)],
-                "position": positions[idx % len(positions)],
+                "position": position_title,
                 "hire_date": (datetime(2022, 1, 1) + timedelta(days=idx * 30)).strftime("%Y-%m-%d"),
-                "employee_type": employee_types[idx % len(employee_types)],
+                "employee_type": employee_type,
             }
 
-        person_id = service.create_person(basic, position_data)
+        def generate_salary_payload(emp_type: Optional[str]) -> dict:
+            if emp_type == "实习生":
+                salary_type = "日薪制度"
+                amount = round(random.uniform(100, 200), 2)
+            else:
+                salary_type = "月薪制"
+                amount = round(random.uniform(9000, 12000), 2)
+            return {
+                "salary_type": salary_type,
+                "amount": amount,
+                "effective_date": (datetime(2021, 1, 1) + timedelta(days=idx * 60)).strftime("%Y-%m-%d"),
+            }
+
+        salary_data = generate_salary_payload(employee_type)
+
+        social_security_data = {
+            "base_amount": round(random.uniform(5000, 15000), 2),
+            "pension_company_rate": 0.16,
+            "pension_personal_rate": 0.08,
+            "unemployment_company_rate": 0.005,
+            "unemployment_personal_rate": 0.005,
+            "medical_company_rate": 0.1,
+            "medical_personal_rate": 0.02,
+            "maternity_company_rate": 0.008,
+            "maternity_personal_rate": 0.0,
+            "critical_illness_company_amount": round(random.uniform(30, 60), 2),
+            "critical_illness_personal_amount": round(random.uniform(5, 20), 2),
+        }
+
+        housing_fund_data = {
+            "base_amount": round(random.uniform(5000, 15000), 2),
+            "company_rate": 0.07,
+            "personal_rate": 0.07,
+        }
+
+        person_id = service.create_person(
+            basic,
+            position_data,
+            salary_data,
+            social_security_data,
+            housing_fund_data,
+        )
         if position_data:
             person_ids_with_position.append(person_id)
 

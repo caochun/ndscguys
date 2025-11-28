@@ -1,9 +1,9 @@
 """
-人员岗位信息状态
+人员薪资信息状态
 """
 from __future__ import annotations
 
 from .state import PersonState
 
-PersonPositionState = PersonState
+PersonSalaryState = PersonState
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 from flask import Blueprint, current_app, jsonify, request
 
 from app.services.person_service import PersonService
+from app.models.person_payloads import PayloadValidationError
 
 api_bp = Blueprint("api", __name__)
 
@@ -32,7 +33,19 @@ def create_person():
         return jsonify({"success": False, "error": "basic.name is required"}), 400
 
     position_data = payload.get("position")
-    person_id = service.create_person(basic_data, position_data)
+    salary_data = payload.get("salary")
+    social_security_data = payload.get("social_security")
+    housing_fund_data = payload.get("housing_fund")
+    try:
+        person_id = service.create_person(
+            basic_data,
+            position_data,
+            salary_data,
+            social_security_data,
+            housing_fund_data,
+        )
+    except PayloadValidationError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
     return jsonify({"success": True, "data": {"person_id": person_id}})
 
 

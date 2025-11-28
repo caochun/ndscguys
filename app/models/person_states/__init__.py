@@ -3,9 +3,17 @@
 """
 from .basic import PersonBasicState
 from .position import PersonPositionState
+from .salary import PersonSalaryState
+from .social_security import PersonSocialSecurityState
+from .housing_fund import PersonHousingFundState
+from .state import PersonState
 
 __all__ = [
     'PersonBasicState',
     'PersonPositionState',
+    'PersonSalaryState',
+    'PersonSocialSecurityState',
+    'PersonHousingFundState',
+    'PersonState',
 ]
 

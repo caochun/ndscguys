@@ -106,13 +106,48 @@ async function handleCreatePerson(e) {
         hire_date: formData.get('hire_date') || null,
         employee_type: formData.get('employee_type') || null,
     };
-    const hasPosition = Object.values(position).some(v => v);
+    const hasPosition = Object.values(position).some((v) => v);
+    const salaryAmountRaw = formData.get('salary_amount');
+    const salary = {
+        salary_type: formData.get('salary_type') || null,
+        amount: salaryAmountRaw ? Number(salaryAmountRaw) : null,
+        effective_date: formData.get('salary_start_date') || null,
+    };
+    const hasSalary =
+        (salary.salary_type && salary.salary_type.trim()) ||
+        salary.amount !== null ||
+        (salary.effective_date && salary.effective_date.trim());
+
+    const social = {
+        base_amount: numberOrNull(formData.get('social_base_amount')),
+        pension_company_rate: numberOrNull(formData.get('pension_company_rate')),
+        pension_personal_rate: numberOrNull(formData.get('pension_personal_rate')),
+        unemployment_company_rate: numberOrNull(formData.get('unemployment_company_rate')),
+        unemployment_personal_rate: numberOrNull(formData.get('unemployment_personal_rate')),
+        medical_company_rate: numberOrNull(formData.get('medical_company_rate')),
+        medical_personal_rate: numberOrNull(formData.get('medical_personal_rate')),
+        maternity_company_rate: numberOrNull(formData.get('maternity_company_rate')),
+        maternity_personal_rate: numberOrNull(formData.get('maternity_personal_rate')),
+        critical_illness_company_amount: numberOrNull(formData.get('critical_illness_company_amount')),
+        critical_illness_personal_amount: numberOrNull(formData.get('critical_illness_personal_amount')),
+    };
+    const hasSocial = Object.values(social).some((v) => v !== null);
+
+    const housing = {
+        base_amount: numberOrNull(formData.get('housing_base_amount')),
+        company_rate: numberOrNull(formData.get('housing_company_rate')),
+        personal_rate: numberOrNull(formData.get('housing_personal_rate')),
+    };
+    const hasHousing = Object.values(housing).some((v) => v !== null);
     try {
         await fetchJSON('/api/persons', {
             method: 'POST',
             body: JSON.stringify({
                 basic,
                 position: hasPosition ? position : null,
+                salary: hasSalary ? salary : null,
+                social_security: hasSocial ? social : null,
+                housing_fund: hasHousing ? housing : null,
             }),
         });
         M.toast({html: '创建成功', classes: 'green'});
@@ -134,9 +169,18 @@ async function viewPerson(personId) {
         const basicHistory = document.getElementById('basicHistoryContent');
         const positionInfo = document.getElementById('positionInfoContent');
         const positionHistory = document.getElementById('positionHistoryContent');
+        const salaryInfo = document.getElementById('salaryInfoContent');
+        const salaryHistory = document.getElementById('salaryHistoryContent');
+        const socialInfo = document.getElementById('socialInfoContent');
+        const socialHistory = document.getElementById('socialHistoryContent');
+        const housingInfo = document.getElementById('housingInfoContent');
+        const housingHistory = document.getElementById('housingHistoryContent');
 
         const basic = result.data.basic.data;
         const position = result.data.position ? result.data.position.data : null;
+        const salary = result.data.salary ? result.data.salary.data : null;
+        const social = result.data.social_security ? result.data.social_security.data : null;
+        const housing = result.data.housing_fund ? result.data.housing_fund.data : null;
         const avatar =
             basic.avatar ||
             `https://api.dicebear.com/7.x/micah/svg?backgroundColor=bde0fe&seed=${basic.name || 'user'}`;
@@ -182,6 +226,50 @@ async function viewPerson(personId) {
               )
             : '<p class="grey-text">暂无岗位信息</p>';
         positionHistory.innerHTML = renderHistoryTable(result.data.position_history, '岗位信息');
+
+        salaryInfo.innerHTML = salary
+            ? renderInfoGrid(
+                  [
+                      { label: '薪资类型', value: salary.salary_type },
+                      { label: '薪资金额', value: salary.amount },
+                      { label: '起薪日期', value: salary.effective_date },
+                  ],
+                  2
+              )
+            : '<p class="grey-text">暂无薪资信息</p>';
+        salaryHistory.innerHTML = renderHistoryTable(result.data.salary_history, '薪资信息');
+
+        socialInfo.innerHTML = social
+            ? renderInfoGrid(
+                  [
+                      { label: '社保基数', value: social.base_amount },
+                      { label: '养老公司比例', value: percentText(social.pension_company_rate) },
+                      { label: '养老个人比例', value: percentText(social.pension_personal_rate) },
+                      { label: '失业公司比例', value: percentText(social.unemployment_company_rate) },
+                      { label: '失业个人比例', value: percentText(social.unemployment_personal_rate) },
+                      { label: '医疗公司比例', value: percentText(social.medical_company_rate) },
+                      { label: '医疗个人比例', value: percentText(social.medical_personal_rate) },
+                      { label: '生育公司比例', value: percentText(social.maternity_company_rate) },
+                      { label: '生育个人比例', value: percentText(social.maternity_personal_rate) },
+                      { label: '大病险公司金额', value: social.critical_illness_company_amount },
+                      { label: '大病险个人金额', value: social.critical_illness_personal_amount },
+                  ],
+                  2
+              )
+            : '<p class="grey-text">暂无社保信息</p>';
+        socialHistory.innerHTML = renderHistoryTable(result.data.social_security_history, '社保信息');
+
+        housingInfo.innerHTML = housing
+            ? renderInfoGrid(
+                  [
+                      { label: '公积金基数', value: housing.base_amount },
+                      { label: '公司比例', value: percentText(housing.company_rate) },
+                      { label: '个人比例', value: percentText(housing.personal_rate) },
+                  ],
+                  2
+              )
+            : '<p class="grey-text">暂无公积金信息</p>';
+        housingHistory.innerHTML = renderHistoryTable(result.data.housing_fund_history, '公积金信息');
 
         const tabs = document.querySelectorAll('#detailTabs .tabs');
         M.Tabs.init(tabs);
@@ -260,5 +348,18 @@ function renderInfoGrid(items, columns = 2) {
             </div>`
         )
         .join('');
+}
+
+function numberOrNull(value) {
+    if (value === null || value === undefined || value === '') {
+        return null;
+    }
+    const n = Number(value);
+    return Number.isNaN(n) ? null : n;
+}
+
+function percentText(value) {
+    if (value === null || value === undefined || value === '') return '-';
+    return `${(Number(value) * 100).toFixed(2)}%`;
 }
 

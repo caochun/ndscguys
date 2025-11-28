@@ -59,6 +59,54 @@ def init_db(db_path: str):
         """
     )
 
+    # 薪资信息状态流
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS person_salary_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            person_id INTEGER NOT NULL,
+            version INTEGER NOT NULL,
+            ts TEXT NOT NULL,
+            data TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (person_id) REFERENCES persons(id),
+            UNIQUE(person_id, version)
+        )
+        """
+    )
+
+    # 社保信息状态流
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS person_social_security_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            person_id INTEGER NOT NULL,
+            version INTEGER NOT NULL,
+            ts TEXT NOT NULL,
+            data TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (person_id) REFERENCES persons(id),
+            UNIQUE(person_id, version)
+        )
+        """
+    )
+
+    # 公积金信息状态流
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS person_housing_fund_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            person_id INTEGER NOT NULL,
+            version INTEGER NOT NULL,
+            ts TEXT NOT NULL,
+            data TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (person_id) REFERENCES persons(id),
+            UNIQUE(person_id, version)
+        )
+        """
+    )
+
     conn.commit()
     conn.close()
 
