@@ -48,6 +48,7 @@ def create_person():
     salary_data = payload.get("salary")
     social_security_data = payload.get("social_security")
     housing_fund_data = payload.get("housing_fund")
+    assessment_data = payload.get("assessment")
     try:
         person_id = service.create_person(
             basic_data,
@@ -55,6 +56,7 @@ def create_person():
             salary_data,
             social_security_data,
             housing_fund_data,
+            assessment_data,
         )
     except PayloadValidationError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
@@ -67,6 +69,255 @@ def get_person(person_id: int):
     result = service.get_person(person_id)
     if not result:
         return jsonify({"success": False, "error": "person not found"}), 404
+    return jsonify({"success": True, "data": result})
+
+
+@api_bp.route("/persons/<int:person_id>/position", methods=["POST"])
+def append_position_change(person_id: int):
+    """追加一条岗位变动事件"""
+    service = get_person_service()
+    payload = request.get_json() or {}
+    # 允许直接传 position 字段或扁平字段
+    position_data = payload.get("position") or payload
+    try:
+        service.append_position_change(person_id, position_data)
+    except PayloadValidationError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    return jsonify({"success": True})
+
+
+@api_bp.route("/persons/<int:person_id>/salary", methods=["POST"])
+def append_salary_change(person_id: int):
+    """追加一条薪资变动事件"""
+    service = get_person_service()
+    payload = request.get_json() or {}
+    salary_data = payload.get("salary") or payload
+    try:
+        service.append_salary_change(person_id, salary_data)
+    except PayloadValidationError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    return jsonify({"success": True})
+
+
+@api_bp.route("/persons/<int:person_id>/social-security", methods=["POST"])
+def append_social_security_change(person_id: int):
+    """追加一条社保变动事件"""
+    service = get_person_service()
+    payload = request.get_json() or {}
+    social_data = payload.get("social_security") or payload
+    try:
+        service.append_social_security_change(person_id, social_data)
+    except PayloadValidationError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    return jsonify({"success": True})
+
+
+@api_bp.route("/persons/<int:person_id>/assessment", methods=["POST"])
+def append_assessment_change(person_id: int):
+    """追加一条考核状态（grade A-E）。"""
+    service = get_person_service()
+    payload = request.get_json() or {}
+    assessment_data = payload.get("assessment") or payload
+    try:
+        service.append_assessment_change(person_id, assessment_data)
+    except PayloadValidationError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    return jsonify({"success": True})
+
+
+@api_bp.route("/persons/<int:person_id>/housing-fund", methods=["POST"])
+def append_housing_fund_change(person_id: int):
+    """追加一条公积金变动事件"""
+    service = get_person_service()
+    payload = request.get_json() or {}
+    housing_data = payload.get("housing_fund") or payload
+    try:
+        service.append_housing_fund_change(person_id, housing_data)
+    except PayloadValidationError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    return jsonify({"success": True})
+
+
+@api_bp.route("/housing-fund/batch-preview", methods=["POST"])
+def housing_fund_batch_preview():
+    """公积金批量调整预览：创建批次和明细，但不写入状态流。"""
+    service = get_person_service()
+    payload = request.get_json() or {}
+    required_fields = [
+        "effective_date",
+        "min_base_amount",
+        "max_base_amount",
+        "default_company_rate",
+        "default_personal_rate",
+    ]
+    missing = [f for f in required_fields if f not in payload]
+    if missing:
+        return jsonify({"success": False, "error": f"missing fields: {', '.join(missing)}"}), 400
+
+    result = service.preview_housing_fund_batch(payload)
+    return jsonify({"success": True, "data": result})
+
+
+@api_bp.route("/housing-fund/batch-confirm/<int:batch_id>", methods=["POST"])
+def housing_fund_batch_confirm(batch_id: int):
+    """确认批量调整：更新批次明细中的 new_* 值。"""
+    service = get_person_service()
+    payload = request.get_json() or {}
+    items = payload.get("items") or []
+    if not items:
+        return jsonify({"success": False, "error": "items is required"}), 400
+    service.update_housing_fund_batch_items(batch_id, items)
+    return jsonify({"success": True})
+
+
+@api_bp.route("/housing-fund/batch-execute/<int:batch_id>", methods=["POST"])
+def housing_fund_batch_execute(batch_id: int):
+    """执行批量调整：为每个明细追加公积金状态流记录。"""
+    service = get_person_service()
+    result = service.execute_housing_fund_batch(batch_id)
+    return jsonify({"success": True, "data": result})
+
+
+@api_bp.route("/housing-fund/batches", methods=["GET"])
+def list_housing_fund_batches():
+    """列出最近的公积金批量调整批次。"""
+    service = get_person_service()
+    batches = service.housing_batch_dao.list_batches(limit=50)
+    return jsonify({"success": True, "data": batches})
+
+
+@api_bp.route("/housing-fund/batch-items/<int:batch_id>", methods=["GET"])
+def list_housing_fund_batch_items(batch_id: int):
+    """列出某个批次的调整明细。"""
+    service = get_person_service()
+    items = service.housing_batch_dao.list_items(batch_id)
+    return jsonify({"success": True, "data": items})
+
+
+# ---- 社保批量调整 ----
+
+@api_bp.route("/social-security/batch-preview", methods=["POST"])
+def social_security_batch_preview():
+    """社保批量调整预览：创建批次和明细，但不写入状态流。"""
+    service = get_person_service()
+    payload = request.get_json() or {}
+    required_fields = [
+        "effective_date",
+        "min_base_amount",
+        "max_base_amount",
+    ]
+    missing = [f for f in required_fields if f not in payload]
+    if missing:
+        return jsonify({"success": False, "error": f"missing fields: {', '.join(missing)}"}), 400
+
+    result = service.preview_social_security_batch(payload)
+    return jsonify({"success": True, "data": result})
+
+
+@api_bp.route("/social-security/batch-confirm/<int:batch_id>", methods=["POST"])
+def social_security_batch_confirm(batch_id: int):
+    """确认社保批量调整：更新批次明细中的 new_* 值。"""
+    service = get_person_service()
+    payload = request.get_json() or {}
+    items = payload.get("items") or []
+    if not items:
+        return jsonify({"success": False, "error": "items is required"}), 400
+    service.update_social_security_batch_items(batch_id, items)
+    return jsonify({"success": True})
+
+
+@api_bp.route("/social-security/batch-execute/<int:batch_id>", methods=["POST"])
+def social_security_batch_execute(batch_id: int):
+    """执行社保批量调整：为每个明细追加社保状态流记录。"""
+    service = get_person_service()
+    result = service.execute_social_security_batch(batch_id)
+    return jsonify({"success": True, "data": result})
+
+
+@api_bp.route("/social-security/batches", methods=["GET"])
+def list_social_security_batches():
+    """列出最近的社保批量调整批次。"""
+    service = get_person_service()
+    batches = service.social_batch_dao.list_batches(limit=50)
+    return jsonify({"success": True, "data": batches})
+
+
+@api_bp.route("/social-security/batch-items/<int:batch_id>", methods=["GET"])
+def list_social_security_batch_items(batch_id: int):
+    """列出某个社保批次的调整明细。"""
+    service = get_person_service()
+    items = service.social_batch_dao.list_items(batch_id)
+    return jsonify({"success": True, "data": items})
+
+
+# ---- 薪酬批量发放 ----
+
+
+@api_bp.route("/payroll/batch-preview", methods=["POST"])
+def payroll_batch_preview():
+    """薪酬批量发放预览：创建批次和明细，但不写入个人发薪状态流。"""
+    service = get_person_service()
+    payload = request.get_json() or {}
+    required_fields = ["batch_period"]
+    missing = [f for f in required_fields if f not in payload]
+    if missing:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": f"missing fields: {', '.join(missing)}",
+                }
+            ),
+            400,
+        )
+
+    result = service.preview_payroll_batch(payload)
+    return jsonify({"success": True, "data": result})
+
+
+@api_bp.route("/payroll/batches", methods=["GET"])
+def list_payroll_batches():
+    """列出最近的薪酬批量发放批次。"""
+    service = get_person_service()
+    batches = service.payroll_batch_dao.list_batches(limit=50)
+    return jsonify({"success": True, "data": batches})
+
+
+@api_bp.route("/payroll/batch-items/<int:batch_id>", methods=["GET"])
+def list_payroll_batch_items(batch_id: int):
+    """列出某个薪酬批次的发放明细。"""
+    service = get_person_service()
+    items = service.payroll_batch_dao.list_items(batch_id)
+    return jsonify({"success": True, "data": items})
+
+
+@api_bp.route("/payroll/batch-confirm/<int:batch_id>", methods=["POST"])
+def payroll_batch_confirm(batch_id: int):
+    """确认薪酬批量发放：更新明细中的 other_deduction 等字段。"""
+    service = get_person_service()
+    payload = request.get_json() or {}
+    items = payload.get("items") or []
+    if not items:
+        return jsonify({"success": False, "error": "items is required"}), 400
+    service.update_payroll_batch_items(batch_id, items)
+    return jsonify({"success": True})
+
+
+@api_bp.route("/payroll/batch-execute/<int:batch_id>", methods=["POST"])
+def payroll_batch_execute(batch_id: int):
+    """执行薪酬批量发放：当前仅将批次与明细标记为已执行。"""
+    service = get_person_service()
+    result = service.execute_payroll_batch(batch_id)
     return jsonify({"success": True, "data": result})
 
 

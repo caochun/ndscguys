@@ -23,6 +23,11 @@
             <li class="{% if active_page == 'leave' %}active{% endif %}">
                 <a href="{{ url_for('web.leave') }}">请假</a>
             </li>
+            <li class="{% if active_page in ['housing_batch', 'social_batch', 'payroll_batch'] %}active{% endif %}">
+                <a class="dropdown-trigger" href="#!" data-target="payroll-dropdown">
+                    薪酬<i class="material-icons right">arrow_drop_down</i>
+                </a>
+            </li>
         </ul>
     </div>
 </nav>
@@ -37,6 +42,27 @@
     <li class="{% if active_page == 'leave' %}active{% endif %}">
         <a href="{{ url_for('web.leave') }}">请假</a>
     </li>
+    <li class="divider" tabindex="-1"></li>
+    <li class="subheader">薪酬</li>
+    <li class="{% if active_page == 'housing_batch' %}active{% endif %}">
+        <a href="{{ url_for('web.housing_fund_batch') }}">公积金批量</a>
+    </li>
+    <li class="{% if active_page == 'social_batch' %}active{% endif %}">
+        <a href="{{ url_for('web.social_security_batch') }}">社保批量</a>
+    </li>
+</ul>
+
+<!-- 顶部导航：薪酬下拉菜单 -->
+<ul id="payroll-dropdown" class="dropdown-content">
+    <li class="{% if active_page == 'housing_batch' %}active{% endif %}">
+        <a href="{{ url_for('web.housing_fund_batch') }}">公积金批量</a>
+    </li>
+    <li class="{% if active_page == 'social_batch' %}active{% endif %}">
+        <a href="{{ url_for('web.social_security_batch') }}">社保批量</a>
+    </li>
+    <li class="{% if active_page == 'payroll_batch' %}active{% endif %}">
+        <a href="{{ url_for('web.payroll_batch') }}">薪酬批量发放</a>
+    </li>
 </ul>
 
 <main class="container" style="margin-top: 32px;">
@@ -48,6 +74,12 @@
     document.addEventListener('DOMContentLoaded', function () {
         var elems = document.querySelectorAll('.sidenav');
         M.Sidenav.init(elems);
+        var dropdowns = document.querySelectorAll('.dropdown-trigger');
+        M.Dropdown.init(dropdowns, {
+            constrainWidth: false,
+            coverTrigger: false,
+            alignment: 'right'
+        });
     });
 </script>
 {% block extra_scripts %}{% endblock %}

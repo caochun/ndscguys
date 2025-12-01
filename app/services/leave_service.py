@@ -94,3 +94,9 @@ class LeaveService:
         """拒绝请假"""
         return self.update_leave(record_id, status="已拒绝", approver_person_id=approver_person_id)
 
+    def list_leave_for_month(self, person_id: int, year: int, month: int) -> List[Dict[str, Any]]:
+        """按年月筛选请假记录，用于薪酬计算等场景。"""
+        start_date = f"{year:04d}-{month:02d}-01"
+        end_date = f"{year:04d}-{month:02d}-31"
+        return self.list_leave(person_id, start_date, end_date)
+

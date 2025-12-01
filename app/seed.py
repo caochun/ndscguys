@@ -126,7 +126,8 @@ def seed_initial_data(db_path: str, target_count: int = 30):
                 "employee_number": emp_no,
                 "department": departments[idx % len(departments)],
                 "position": position_title,
-                "hire_date": (datetime(2022, 1, 1) + timedelta(days=idx * 30)).strftime("%Y-%m-%d"),
+                "change_type": "入职",
+                "change_date": (datetime(2022, 1, 1) + timedelta(days=idx * 30)).strftime("%Y-%m-%d"),
                 "employee_type": employee_type,
             }
 
@@ -196,15 +197,42 @@ def seed_initial_data(db_path: str, target_count: int = 30):
         else:
             employee_number = next_employee_number(new_company)
 
+        # 若公司变更，则视为“转公司”；否则视为“转岗/调部门”
+        if current_company and current_company != new_company:
+            change_type = "转公司"
+        else:
+            change_type = "转岗"
+
         position_data = {
             "company_name": new_company,
             "employee_number": employee_number,
             "department": random.choice(departments),
             "position": random.choice(positions),
-            "hire_date": datetime.now().strftime("%Y-%m-%d"),
+            "change_type": change_type,
+            "change_date": datetime.now().strftime("%Y-%m-%d"),
             "employee_type": random.choice(employee_types),
         }
         service.position_dao.append(entity_id=pid, data=position_data)
+
+    # 20% of people with positions have termination events (离职)
+    if person_ids_with_position:
+        terminate_count = max(1, int(len(person_ids_with_position) * 0.2))
+        terminate_ids = random.sample(person_ids_with_position, terminate_count)
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        for pid in terminate_ids:
+            latest_position = service.position_dao.get_latest(pid)
+            latest_data = latest_position.data if latest_position else {}
+            terminate_position = {
+                "company_name": latest_data.get("company_name", "SC高科技公司"),
+                "employee_number": latest_data.get("employee_number"),
+                "department": latest_data.get("department"),
+                "position": latest_data.get("position"),
+                "employee_type": latest_data.get("employee_type"),
+                "change_type": "离职",
+                "change_date": today_str,
+                "change_reason": "示例数据：自动生成离职事件",
+            }
+            service.position_dao.append(entity_id=pid, data=terminate_position)
 
     # 20% of all persons have basic info changes (address/phone)
     basic_change_count = max(1, int(target_count * 0.2))

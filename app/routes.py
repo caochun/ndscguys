@@ -27,3 +27,18 @@ def attendance():
 def leave():
     return render_template("leave.html", active_page="leave")
 
+
+@web_bp.route("/housing-fund/batch")
+def housing_fund_batch():
+    return render_template("housing_fund_batch.html", active_page="housing_batch")
+
+
+@web_bp.route("/social-security/batch")
+def social_security_batch():
+    return render_template("social_security_batch.html", active_page="social_batch")
+
+
+@web_bp.route("/payroll/batch")
+def payroll_batch():
+    return render_template("payroll_batch.html", active_page="payroll_batch")
+

@@ -26,11 +26,20 @@ STRING_FIELDS_POSITION = {
     "employee_number",
     "department",
     "position",
-    "hire_date",
 }
 
 ALLOWED_EMPLOYEE_TYPES = {"正式员工", "试用期员工", "实习生", "部分负责人", "其他"}
+ALLOWED_POSITION_CHANGE_TYPES = {
+    "入职",
+    "转岗",
+    "调部门",
+    "转公司",
+    "停薪留职",
+    "返岗",
+    "离职",
+}
 ALLOWED_SALARY_TYPES = {"年薪制", "月薪制", "日薪制度"}
+ALLOWED_ASSESSMENT_GRADES = {"A", "B", "C", "D", "E"}
 
 SOCIAL_RATE_FIELDS = [
     "pension_company_rate",
@@ -110,18 +119,37 @@ def sanitize_position_payload(data: Optional[dict]) -> Optional[Dict[str, Any]]:
         if value is not None:
             cleaned[field] = value
 
+    # 员工类别
     employee_type = _normalize_string(data.get("employee_type"))
     if employee_type:
         if employee_type not in ALLOWED_EMPLOYEE_TYPES:
             raise PayloadValidationError("position.employee_type is invalid")
         cleaned["employee_type"] = employee_type
 
+    # 上级员工 ID
     supervisor_raw = data.get("supervisor_employee_id")
     if supervisor_raw not in (None, ""):
         try:
             cleaned["supervisor_employee_id"] = int(supervisor_raw)
         except (TypeError, ValueError) as exc:
             raise PayloadValidationError("position.supervisor_employee_id must be int") from exc
+
+    # 岗位变动事件类型（入职 / 转岗 / 调部门 / 转公司 / 停薪留职 / 返岗 / 离职）
+    change_type = _normalize_string(data.get("change_type"))
+    if change_type:
+        if change_type not in ALLOWED_POSITION_CHANGE_TYPES:
+            raise PayloadValidationError("position.change_type is invalid")
+        cleaned["change_type"] = change_type
+
+    # 变动日期（必然以 change_date 命名，不再兼容旧的 hire_date）
+    change_date = _normalize_string(data.get("change_date"))
+    if change_date:
+        cleaned["change_date"] = change_date
+
+    # 变动原因（可选）
+    change_reason = _normalize_string(data.get("change_reason"))
+    if change_reason:
+        cleaned["change_reason"] = change_reason
 
     return cleaned or None
 
@@ -196,5 +224,33 @@ def sanitize_housing_fund_payload(data: Optional[dict]) -> Optional[Dict[str, An
     if personal_rate is not None:
         cleaned["personal_rate"] = personal_rate
 
+    return cleaned or None
+
+
+def sanitize_assessment_payload(data: Optional[dict]) -> Optional[Dict[str, Any]]:
+    """考核状态 payload 清洗：grade 在 A-E 之间，可选考核日期和备注。"""
+    if data is None:
+        return None
+    if not isinstance(data, dict):
+        raise PayloadValidationError("assessment payload must be a dict")
+
+    cleaned: Dict[str, Any] = {}
+
+    grade = _normalize_string(data.get("grade"))
+    if grade:
+        if grade not in ALLOWED_ASSESSMENT_GRADES:
+            raise PayloadValidationError("assessment.grade is invalid")
+        cleaned["grade"] = grade
+
+    # 考核时间（业务含义上的“考核日期”，与状态流的 ts 字段互补）
+    assessment_date = _normalize_string(data.get("assessment_date"))
+    if assessment_date:
+        cleaned["assessment_date"] = assessment_date
+
+    note = _normalize_string(data.get("note"))
+    if note:
+        cleaned["note"] = note
+
+    # 至少要有 grade 才算一条有效状态
     return cleaned or None
 

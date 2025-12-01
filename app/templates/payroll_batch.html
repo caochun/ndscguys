@@ -1,0 +1,99 @@
+{% extends "layout.html" %}
+{% block title %}薪酬批量发放{% endblock %}
+
+{% block extra_head %}
+<style>
+    .batch-card {
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(18,38,63,.08);
+    }
+    .payroll-batch-modal {
+        max-height: 85vh;
+        width: 90vw;
+        border-radius: 12px;
+    }
+    .payroll-batch-modal .modal-content {
+        padding: 24px 24px 8px;
+    }
+    .payroll-batch-modal .modal-footer {
+        padding: 8px 24px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="section">
+    <h5>薪酬批量发放</h5>
+    <p class="grey-text text-darken-1">
+        按批次（通常为某个月）为符合条件的在职员工计算并发放薪酬，支持预览和人工微调。
+    </p>
+
+    <div class="card batch-card">
+        <div class="card-content">
+            <span class="card-title" style="font-size:18px;">发放参数</span>
+            <form id="payrollBatchForm">
+                <div class="row">
+                    <div class="input-field col s12 m4">
+                        <input id="batch_period" name="batch_period" type="text" placeholder="例如：2025-11">
+                        <label for="batch_period" class="active">批次（年月）</label>
+                    </div>
+                    <div class="input-field col s12 m4">
+                        <input id="payroll_effective_date" name="effective_date" type="date">
+                        <label for="payroll_effective_date" class="active">生效日期（可选）</label>
+                    </div>
+                    <div class="input-field col s12 m4">
+                        <input id="payroll_target_company" name="target_company" type="text">
+                        <label for="payroll_target_company">仅限公司（可选）</label>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="input-field col s12 m4">
+                        <input id="payroll_target_department" name="target_department" type="text">
+                        <label for="payroll_target_department">仅限部门（可选）</label>
+                    </div>
+                    <div class="input-field col s12 m4">
+                        <input id="payroll_target_employee_type" name="target_employee_type" type="text">
+                        <label for="payroll_target_employee_type">仅限员工类别（可选）</label>
+                    </div>
+                    <div class="input-field col s12 m4">
+                        <input id="payroll_note" name="note" type="text">
+                        <label for="payroll_note">备注（可选）</label>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="card-action right-align">
+            <button id="previewPayrollBatchBtn" class="btn waves-effect waves-light">
+                <i class="material-icons left">visibility</i>预览批量发放
+            </button>
+        </div>
+    </div>
+
+    <div class="card batch-card" style="margin-top:24px;">
+        <div class="card-content">
+            <span class="card-title" style="font-size:18px;">最近薪酬批次</span>
+            <div id="payrollBatchHistoryContainer" class="grey-text">加载中...</div>
+        </div>
+    </div>
+
+</div>
+
+<!-- 薪酬批量发放预览 / 详情模态框 -->
+<div id="payrollBatchPreviewModal" class="modal modal-fixed-footer payroll-batch-modal">
+    <div class="modal-content">
+        <h5 id="payrollBatchPreviewTitle">薪酬批量发放预览</h5>
+        <div id="payrollBatchPreviewSummary" class="grey-text" style="margin-bottom: 12px;"></div>
+        <div id="payrollBatchPreviewTableContainer" style="max-height: 420px; overflow-y: auto;"></div>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-green btn-flat">取消</a>
+        <button id="confirmPayrollBatchBtn" class="waves-effect waves-light btn">确认</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/payroll_batch.js') }}"></script>
+{% endblock %}
+
+

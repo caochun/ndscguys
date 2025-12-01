@@ -75,6 +75,22 @@ def init_db(db_path: str):
         """
     )
 
+    # 考核状态流
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS person_assessment_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            person_id INTEGER NOT NULL,
+            version INTEGER NOT NULL,
+            ts TEXT NOT NULL,
+            data TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (person_id) REFERENCES persons(id),
+            UNIQUE(person_id, version)
+        )
+        """
+    )
+
     # 社保信息状态流
     cursor.execute(
         """
@@ -103,6 +119,175 @@ def init_db(db_path: str):
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (person_id) REFERENCES persons(id),
             UNIQUE(person_id, version)
+        )
+        """
+    )
+
+    # 发薪记录状态流（每次批量发放会为每人追加一条记录）
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS person_payroll_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            person_id INTEGER NOT NULL,
+            version INTEGER NOT NULL,
+            ts TEXT NOT NULL,
+            data TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (person_id) REFERENCES persons(id),
+            UNIQUE(person_id, version)
+        )
+        """
+    )
+
+    # 公积金批量调整批次表
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS housing_fund_adjustment_batches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            effective_date TEXT NOT NULL,
+            min_base_amount REAL NOT NULL,
+            max_base_amount REAL NOT NULL,
+            default_company_rate REAL NOT NULL,
+            default_personal_rate REAL NOT NULL,
+            target_company TEXT,
+            target_department TEXT,
+            target_employee_type TEXT,
+            note TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            affected_count INTEGER DEFAULT 0
+        )
+        """
+    )
+
+    # 公积金批量调整明细表
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS housing_fund_batch_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            batch_id INTEGER NOT NULL,
+            person_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            current_base_amount REAL,
+            current_company_rate REAL,
+            current_personal_rate REAL,
+            new_base_amount REAL NOT NULL,
+            new_company_rate REAL NOT NULL,
+            new_personal_rate REAL NOT NULL,
+            applied INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (batch_id) REFERENCES housing_fund_adjustment_batches(id),
+            FOREIGN KEY (person_id) REFERENCES persons(id)
+        )
+        """
+    )
+
+    # 社保批量调整批次表
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS social_security_adjustment_batches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            effective_date TEXT NOT NULL,
+            min_base_amount REAL NOT NULL,
+            max_base_amount REAL NOT NULL,
+            -- 默认公司/个人比例，可作为兜底值
+            default_pension_company_rate REAL,
+            default_pension_personal_rate REAL,
+            default_unemployment_company_rate REAL,
+            default_unemployment_personal_rate REAL,
+            default_medical_company_rate REAL,
+            default_medical_personal_rate REAL,
+            default_maternity_company_rate REAL,
+            default_maternity_personal_rate REAL,
+            default_critical_illness_company_amount REAL,
+            default_critical_illness_personal_amount REAL,
+            target_company TEXT,
+            target_department TEXT,
+            target_employee_type TEXT,
+            note TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            affected_count INTEGER DEFAULT 0
+        )
+        """
+    )
+
+    # 社保批量调整明细表
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS social_security_batch_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            batch_id INTEGER NOT NULL,
+            person_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            current_base_amount REAL,
+            current_pension_company_rate REAL,
+            current_pension_personal_rate REAL,
+            current_unemployment_company_rate REAL,
+            current_unemployment_personal_rate REAL,
+            current_medical_company_rate REAL,
+            current_medical_personal_rate REAL,
+            current_maternity_company_rate REAL,
+            current_maternity_personal_rate REAL,
+            current_critical_illness_company_amount REAL,
+            current_critical_illness_personal_amount REAL,
+            new_base_amount REAL NOT NULL,
+            new_pension_company_rate REAL,
+            new_pension_personal_rate REAL,
+            new_unemployment_company_rate REAL,
+            new_unemployment_personal_rate REAL,
+            new_medical_company_rate REAL,
+            new_medical_personal_rate REAL,
+            new_maternity_company_rate REAL,
+            new_maternity_personal_rate REAL,
+            new_critical_illness_company_amount REAL,
+            new_critical_illness_personal_amount REAL,
+            applied INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (batch_id) REFERENCES social_security_adjustment_batches(id),
+            FOREIGN KEY (person_id) REFERENCES persons(id)
+        )
+        """
+    )
+
+    # 薪酬批量发放批次表
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS payroll_batches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            batch_period TEXT NOT NULL, -- 批次标识，一般为 YYYY-MM
+            effective_date TEXT,        -- 生效日期，可选
+            target_company TEXT,
+            target_department TEXT,
+            target_employee_type TEXT,
+            note TEXT,
+            status TEXT NOT NULL DEFAULT 'pending', -- pending, applied
+            affected_count INTEGER DEFAULT 0
+        )
+        """
+    )
+
+    # 薪酬批量发放明细表（预览/确认阶段存放每人一行的发放计划）
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS payroll_batch_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            batch_id INTEGER NOT NULL,
+            person_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            -- 组成部分：基数 + 绩效 + 各类扣减
+            salary_base_amount REAL,              -- 基础工资部分（主要针对月薪制）
+            salary_performance_base REAL,        -- 绩效基数部分（主要针对月薪制）
+            performance_factor REAL,             -- 绩效系数（由考核等级映射）
+            performance_amount REAL,             -- 实际绩效工资
+            gross_amount_before_deductions REAL, -- 扣除前应发（基数 + 绩效）
+            attendance_deduction REAL,           -- 考勤/请假扣款（>0 表示扣减）
+            social_personal_amount REAL,         -- 个人承担社保
+            housing_personal_amount REAL,        -- 个人承担公积金
+            other_deduction REAL,                -- 其他补扣（可人工调整）
+            net_amount_before_tax REAL,          -- 扣除后应发（未考虑个税）
+            applied INTEGER NOT NULL DEFAULT 0,  -- 是否已写入个人发薪记录
+            FOREIGN KEY (batch_id) REFERENCES payroll_batches(id),
+            FOREIGN KEY (person_id) REFERENCES persons(id)
         )
         """
     )

@@ -13,6 +13,27 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     document.getElementById('createPersonForm').addEventListener('submit', handleCreatePerson);
+    const positionAdjustForm = document.getElementById('positionAdjustForm');
+    if (positionAdjustForm) {
+        positionAdjustForm.addEventListener('submit', handlePositionAdjustSubmit);
+    }
+    const salaryAdjustForm = document.getElementById('salaryAdjustForm');
+    if (salaryAdjustForm) {
+        salaryAdjustForm.addEventListener('submit', handleSalaryAdjustSubmit);
+    }
+    const socialAdjustForm = document.getElementById('socialAdjustForm');
+    if (socialAdjustForm) {
+        socialAdjustForm.addEventListener('submit', handleSocialAdjustSubmit);
+    }
+    const housingAdjustForm = document.getElementById('housingAdjustForm');
+    if (housingAdjustForm) {
+        housingAdjustForm.addEventListener('submit', handleHousingAdjustSubmit);
+    }
+
+    const assessmentForm = document.getElementById('assessmentForm');
+    if (assessmentForm) {
+        assessmentForm.addEventListener('submit', handleAssessmentSubmit);
+    }
 
     loadPersons();
 });
@@ -47,11 +68,23 @@ async function loadPersons() {
 }
 
 function renderPersonCard(person) {
-    const initials = (person.name || '?').charAt(0);
     const avatar = person.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${person.name || 'user'}`;
+    const company = person.current_company || null;
+    let cardCompanyClass = 'company-none';
+    if (company) {
+        if (company === 'SC高科技公司') {
+            cardCompanyClass = 'company-scg';
+        } else if (company === 'SC能源科技公司') {
+            cardCompanyClass = 'company-sce';
+        } else {
+            cardCompanyClass = 'company-other';
+        }
+    }
+    const companyText = company ? company : '-';
+    const positionText = person.current_position ? person.current_position : '-';
     return `
         <div class="col s12 m6 l4">
-            <div class="card person-card">
+            <div class="card person-card ${cardCompanyClass}">
                 <div class="card-content">
                     <div class="row valign-wrapper" style="margin-bottom: 12px;">
                         <div class="col s3">
@@ -70,16 +103,383 @@ function renderPersonCard(person) {
                         <i class="material-icons tiny" style="vertical-align:middle;">phone</i>
                         <span style="vertical-align:middle;">${person.phone || '-'}</span>
                     </p>
-                    <div class="status-chip">基础信息版本 / ${person.ts}</div>
+                    <p class="grey-text text-darken-1" style="margin:4px 0;">
+                        <i class="material-icons tiny" style="vertical-align:middle;">business</i>
+                        <span style="vertical-align:middle;">当前公司：${companyText}</span>
+                    </p>
+                    <p class="grey-text text-darken-1" style="margin:2px 0 0 0;">
+                        <i class="material-icons tiny" style="vertical-align:middle;">work</i>
+                        <span style="vertical-align:middle;">职位：${positionText}</span>
+                    </p>
                 </div>
-                <div class="card-action right-align">
-                    <a class="blue-text" onclick="viewPerson(${person.person_id})">
-                        <i class="material-icons tiny left">visibility</i>详情
+                <div class="card-action" style="display:flex;align-items:center;justify-content:space-between;">
+                    <a class="blue-text" onclick="viewPerson(${person.person_id})" title="查看详情">
+                        <i class="material-icons tiny">visibility</i>
                     </a>
+                    <div>
+                        <a class="purple-text text-darken-1" style="margin-right:8px;" onclick="openAssessmentModal(${person.person_id})" title="考核记录">
+                            <i class="material-icons tiny">grade</i>
+                        </a>
+                        <a class="teal-text text-darken-1" style="margin-right:8px;" onclick="openSalaryAdjustModal(${person.person_id})" title="薪资调整">
+                            <i class="material-icons tiny">payments</i>
+                        </a>
+                        <a class="indigo-text text-darken-1" style="margin-right:8px;" onclick="openSocialAdjustModal(${person.person_id})" title="社保调整">
+                            <i class="material-icons tiny">shield</i>
+                        </a>
+                        <a class="green-text text-darken-2" style="margin-right:8px;" onclick="openHousingAdjustModal(${person.person_id})" title="公积金调整">
+                            <i class="material-icons tiny">savings</i>
+                        </a>
+                        <a class="orange-text text-darken-2" onclick="openPositionAdjustModal(${person.person_id})" title="任职调整">
+                            <i class="material-icons tiny">work_history</i>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
     `;
+}
+
+async function openPositionAdjustModal(personId) {
+    try {
+        const result = await fetchJSON(`/api/persons/${personId}`);
+        const position = result.data.position ? result.data.position.data : null;
+
+        document.getElementById('positionAdjustPersonId').value = personId;
+        const companyInput = document.getElementById('adj_company_name');
+        const empNoInput = document.getElementById('adj_employee_number');
+        const deptInput = document.getElementById('adj_department');
+        const posInput = document.getElementById('adj_position');
+        const changeTypeSelect = document.getElementById('adj_change_type');
+        const changeDateInput = document.getElementById('adj_change_date');
+        const empTypeSelect = document.getElementById('adj_employee_type');
+        const reasonInput = document.getElementById('adj_change_reason');
+
+        // 预填当前岗位信息
+        if (position) {
+            companyInput.value = position.company_name || '';
+            empNoInput.value = position.employee_number || '';
+            deptInput.value = position.department || '';
+            posInput.value = position.position || '';
+            // 默认变动事件：如果当前无岗位则视为入职，否则转岗
+            changeTypeSelect.value = '转岗';
+            empTypeSelect.value = position.employee_type || '';
+            reasonInput.value = '';
+        } else {
+            companyInput.value = '';
+            empNoInput.value = '';
+            deptInput.value = '';
+            posInput.value = '';
+            changeTypeSelect.value = '转岗';
+            empTypeSelect.value = '';
+            reasonInput.value = '';
+        }
+
+        // 变动日期默认今天
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        changeDateInput.value = `${yyyy}-${mm}-${dd}`;
+
+        M.updateTextFields();
+        const selects = document.querySelectorAll('#positionAdjustModal select');
+        M.FormSelect.init(selects);
+
+        const modal = M.Modal.getInstance(document.getElementById('positionAdjustModal'));
+        modal.open();
+    } catch (err) {
+        M.toast({html: '加载任职信息失败：' + err.message, classes: 'red'});
+    }
+}
+
+async function handlePositionAdjustSubmit(e) {
+    e.preventDefault();
+    const personId = document.getElementById('positionAdjustPersonId').value;
+    const formData = new FormData(e.target);
+    const payload = {
+        company_name: formData.get('company_name') || null,
+        employee_number: formData.get('employee_number') || null,
+        department: formData.get('department') || null,
+        position: formData.get('position') || null,
+        change_type: formData.get('change_type') || null,
+        change_date: formData.get('change_date') || null,
+        employee_type: formData.get('employee_type') || null,
+        change_reason: formData.get('change_reason') || null,
+    };
+    try {
+        await fetchJSON(`/api/persons/${personId}/position`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        M.toast({html: '任职调整已保存', classes: 'green'});
+        const modal = M.Modal.getInstance(document.getElementById('positionAdjustModal'));
+        modal.close();
+        loadPersons();
+    } catch (err) {
+        M.toast({html: '保存失败：' + err.message, classes: 'red'});
+    }
+}
+
+async function openSalaryAdjustModal(personId) {
+    try {
+        const result = await fetchJSON(`/api/persons/${personId}`);
+        const salary = result.data.salary ? result.data.salary.data : null;
+
+        document.getElementById('salaryAdjustPersonId').value = personId;
+        const typeSelect = document.getElementById('adj_salary_type');
+        const amountInput = document.getElementById('adj_salary_amount');
+        const effDateInput = document.getElementById('adj_salary_effective_date');
+
+        if (salary) {
+            typeSelect.value = salary.salary_type || '';
+            amountInput.value = salary.amount != null ? salary.amount : '';
+            effDateInput.value = salary.effective_date || '';
+        } else {
+            typeSelect.value = '';
+            amountInput.value = '';
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            effDateInput.value = `${yyyy}-${mm}-${dd}`;
+        }
+
+        M.updateTextFields();
+        const selects = document.querySelectorAll('#salaryAdjustModal select');
+        M.FormSelect.init(selects);
+
+        const modal = M.Modal.getInstance(document.getElementById('salaryAdjustModal'));
+        modal.open();
+    } catch (err) {
+        M.toast({html: '加载薪资信息失败：' + err.message, classes: 'red'});
+    }
+}
+
+async function handleSalaryAdjustSubmit(e) {
+    e.preventDefault();
+    const personId = document.getElementById('salaryAdjustPersonId').value;
+    const formData = new FormData(e.target);
+    const payload = {
+        salary_type: formData.get('salary_type') || null,
+        amount: formData.get('amount') ? Number(formData.get('amount')) : null,
+        effective_date: formData.get('effective_date') || null,
+    };
+    try {
+        await fetchJSON(`/api/persons/${personId}/salary`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        M.toast({html: '薪资调整已保存', classes: 'green'});
+        const modal = M.Modal.getInstance(document.getElementById('salaryAdjustModal'));
+        modal.close();
+        loadPersons();
+    } catch (err) {
+        M.toast({html: '保存失败：' + err.message, classes: 'red'});
+    }
+}
+
+async function openSocialAdjustModal(personId) {
+    try {
+        const result = await fetchJSON(`/api/persons/${personId}`);
+        const social = result.data.social_security ? result.data.social_security.data : null;
+
+        document.getElementById('socialAdjustPersonId').value = personId;
+        const baseInput = document.getElementById('adj_social_base_amount');
+        const pcr = document.getElementById('adj_pension_company_rate');
+        const ppr = document.getElementById('adj_pension_personal_rate');
+        const ucr = document.getElementById('adj_unemployment_company_rate');
+        const upr = document.getElementById('adj_unemployment_personal_rate');
+        const mcr = document.getElementById('adj_medical_company_rate');
+        const mpr = document.getElementById('adj_medical_personal_rate');
+        const macr = document.getElementById('adj_maternity_company_rate');
+        const mapr = document.getElementById('adj_maternity_personal_rate');
+        const cic = document.getElementById('adj_critical_illness_company_amount');
+        const cip = document.getElementById('adj_critical_illness_personal_amount');
+
+        const s = social || {};
+        baseInput.value = s.base_amount != null ? s.base_amount : '';
+        pcr.value = s.pension_company_rate != null ? s.pension_company_rate : '';
+        ppr.value = s.pension_personal_rate != null ? s.pension_personal_rate : '';
+        ucr.value = s.unemployment_company_rate != null ? s.unemployment_company_rate : '';
+        upr.value = s.unemployment_personal_rate != null ? s.unemployment_personal_rate : '';
+        mcr.value = s.medical_company_rate != null ? s.medical_company_rate : '';
+        mpr.value = s.medical_personal_rate != null ? s.medical_personal_rate : '';
+        macr.value = s.maternity_company_rate != null ? s.maternity_company_rate : '';
+        mapr.value = s.maternity_personal_rate != null ? s.maternity_personal_rate : '';
+        cic.value = s.critical_illness_company_amount != null ? s.critical_illness_company_amount : '';
+        cip.value = s.critical_illness_personal_amount != null ? s.critical_illness_personal_amount : '';
+
+        M.updateTextFields();
+        const modal = M.Modal.getInstance(document.getElementById('socialAdjustModal'));
+        modal.open();
+    } catch (err) {
+        M.toast({html: '加载社保信息失败：' + err.message, classes: 'red'});
+    }
+}
+
+async function handleSocialAdjustSubmit(e) {
+    e.preventDefault();
+    const personId = document.getElementById('socialAdjustPersonId').value;
+    const formData = new FormData(e.target);
+    const payload = {
+        base_amount: formData.get('base_amount') ? Number(formData.get('base_amount')) : null,
+        pension_company_rate: formData.get('pension_company_rate') ? Number(formData.get('pension_company_rate')) : null,
+        pension_personal_rate: formData.get('pension_personal_rate') ? Number(formData.get('pension_personal_rate')) : null,
+        unemployment_company_rate: formData.get('unemployment_company_rate') ? Number(formData.get('unemployment_company_rate')) : null,
+        unemployment_personal_rate: formData.get('unemployment_personal_rate') ? Number(formData.get('unemployment_personal_rate')) : null,
+        medical_company_rate: formData.get('medical_company_rate') ? Number(formData.get('medical_company_rate')) : null,
+        medical_personal_rate: formData.get('medical_personal_rate') ? Number(formData.get('medical_personal_rate')) : null,
+        maternity_company_rate: formData.get('maternity_company_rate') ? Number(formData.get('maternity_company_rate')) : null,
+        maternity_personal_rate: formData.get('maternity_personal_rate') ? Number(formData.get('maternity_personal_rate')) : null,
+        critical_illness_company_amount: formData.get('critical_illness_company_amount') ? Number(formData.get('critical_illness_company_amount')) : null,
+        critical_illness_personal_amount: formData.get('critical_illness_personal_amount') ? Number(formData.get('critical_illness_personal_amount')) : null,
+    };
+    try {
+        await fetchJSON(`/api/persons/${personId}/social-security`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        M.toast({html: '社保调整已保存', classes: 'green'});
+        const modal = M.Modal.getInstance(document.getElementById('socialAdjustModal'));
+        modal.close();
+        loadPersons();
+    } catch (err) {
+        M.toast({html: '保存失败：' + err.message, classes: 'red'});
+    }
+}
+
+async function openHousingAdjustModal(personId) {
+    try {
+        const result = await fetchJSON(`/api/persons/${personId}`);
+        const housing = result.data.housing_fund ? result.data.housing_fund.data : null;
+
+        document.getElementById('housingAdjustPersonId').value = personId;
+        const baseInput = document.getElementById('adj_housing_base_amount');
+        const cr = document.getElementById('adj_housing_company_rate');
+        const pr = document.getElementById('adj_housing_personal_rate');
+
+        const h = housing || {};
+        baseInput.value = h.base_amount != null ? h.base_amount : '';
+        cr.value = h.company_rate != null ? h.company_rate : '';
+        pr.value = h.personal_rate != null ? h.personal_rate : '';
+
+        M.updateTextFields();
+        const modal = M.Modal.getInstance(document.getElementById('housingAdjustModal'));
+        modal.open();
+    } catch (err) {
+        M.toast({html: '加载公积金信息失败：' + err.message, classes: 'red'});
+    }
+}
+
+async function handleHousingAdjustSubmit(e) {
+    e.preventDefault();
+    const personId = document.getElementById('housingAdjustPersonId').value;
+    const formData = new FormData(e.target);
+    const payload = {
+        base_amount: formData.get('base_amount') ? Number(formData.get('base_amount')) : null,
+        company_rate: formData.get('company_rate') ? Number(formData.get('company_rate')) : null,
+        personal_rate: formData.get('personal_rate') ? Number(formData.get('personal_rate')) : null,
+    };
+    try {
+        await fetchJSON(`/api/persons/${personId}/housing-fund`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        M.toast({html: '公积金调整已保存', classes: 'green'});
+        const modal = M.Modal.getInstance(document.getElementById('housingAdjustModal'));
+        modal.close();
+        loadPersons();
+    } catch (err) {
+        M.toast({html: '保存失败：' + err.message, classes: 'red'});
+    }
+}
+
+async function openAssessmentModal(personId) {
+    try {
+        const result = await fetchJSON(`/api/persons/${personId}`);
+        const assessment = result.data.assessment ? result.data.assessment.data : null;
+        const history = result.data.assessment_history || [];
+
+        document.getElementById('assessmentPersonId').value = personId;
+        const gradeSelect = document.getElementById('assessment_grade');
+        const dateInput = document.getElementById('assessment_date');
+        const noteInput = document.getElementById('assessment_note');
+
+        // 默认考核等级：若有最近一次，则预选其 grade
+        if (assessment && assessment.grade) {
+            gradeSelect.value = assessment.grade;
+        } else {
+            gradeSelect.value = '';
+        }
+
+        // 默认考核日期：若有最近一次，则用最近一次的 assessment_date，否则用今天
+        if (assessment && assessment.assessment_date) {
+            dateInput.value = assessment.assessment_date;
+        } else {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            dateInput.value = `${yyyy}-${mm}-${dd}`;
+        }
+
+        noteInput.value = '';
+
+        // 渲染最近一次考核概览
+        const latestContainer = document.getElementById('latestAssessmentContainer');
+        if (assessment) {
+            latestContainer.innerHTML = renderInfoGrid(
+                [
+                    {label: '最近等级', value: assessment.grade},
+                    {label: '考核日期', value: assessment.assessment_date},
+                    {label: '备注', value: assessment.note},
+                ],
+                3
+            );
+        } else {
+            latestContainer.innerHTML = '<p class="grey-text">暂无考核记录</p>';
+        }
+
+        // 渲染历史
+        const historyContainer = document.getElementById('assessmentHistoryContainer');
+        historyContainer.innerHTML = renderHistoryTable(history, '考核信息');
+
+        M.updateTextFields();
+        const selects = document.querySelectorAll('#assessmentModal select');
+        M.FormSelect.init(selects);
+
+        const modal = M.Modal.getInstance(document.getElementById('assessmentModal'));
+        modal.open();
+    } catch (err) {
+        M.toast({html: '加载考核信息失败：' + err.message, classes: 'red'});
+    }
+}
+
+async function handleAssessmentSubmit(e) {
+    e.preventDefault();
+    const personId = document.getElementById('assessmentPersonId').value;
+    const formData = new FormData(e.target);
+    const payload = {
+        grade: formData.get('grade') || null,
+        assessment_date: formData.get('assessment_date') || null,
+        note: formData.get('note') || null,
+    };
+    if (!payload.grade) {
+        M.toast({html: '请选择考核等级', classes: 'red'});
+        return;
+    }
+    try {
+        await fetchJSON(`/api/persons/${personId}/assessment`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        M.toast({html: '考核记录已保存', classes: 'green'});
+        const modal = M.Modal.getInstance(document.getElementById('assessmentModal'));
+        modal.close();
+        loadPersons();
+    } catch (err) {
+        M.toast({html: '保存失败：' + err.message, classes: 'red'});
+    }
 }
 
 async function handleCreatePerson(e) {
@@ -100,7 +500,8 @@ async function handleCreatePerson(e) {
         department: formData.get('department') || null,
         position: formData.get('position') || null,
         supervisor_employee_id: formData.get('supervisor_employee_id') || null,
-        hire_date: formData.get('hire_date') || null,
+        change_type: '入职',
+        change_date: formData.get('change_date') || null,
         employee_type: formData.get('employee_type') || null,
     };
     const hasPosition = Object.values(position).some((v) => v);
@@ -217,7 +618,8 @@ async function viewPerson(personId) {
                       { label: '部门', value: position.department },
                       { label: '职位', value: position.position },
                       { label: '员工类别', value: position.employee_type },
-                      { label: '任职日期', value: position.hire_date },
+                      { label: '变动事件', value: position.change_type },
+                      { label: '变动日期', value: position.change_date },
                   ],
                   2
               )

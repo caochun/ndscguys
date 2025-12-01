@@ -11,9 +11,54 @@
 - **测试保障**  
   - 新增 `tests/test_person_payloads.py`、`tests/test_person_service.py`，覆盖字段校验、服务流程与异常路径；`pytest` 全量通过共 12 项用例。
 
+## 新增能力（最近进展）
+
+- **岗位/薪资/社保/公积金/考核状态流完善**  
+  - 统一使用通用 `PersonState`，并通过 `PersonBasicState / PersonPositionState / PersonSalaryState / PersonSocialSecurityState / PersonHousingFundState / PersonAssessmentState` 语义别名表达不同维度。  
+  - `person_position_history` 改造为“变动事件流”（入职/转岗/转公司/停薪留职/离职），通过 `change_type + change_date` 推导当前是否在职。  
+  - 新增考核状态流 `person_assessment_history`，支持 A–E 等级与考核日期、备注。  
+
+- **批量调整：公积金与社保**  
+  - 设计并落地两阶段流程：**预览 → 确认 → 执行**。  
+  - 表结构：  
+    - 公积金：`housing_fund_adjustment_batches` + `housing_fund_batch_items`。  
+    - 社保：`social_security_adjustment_batches` + `social_security_batch_items`。  
+  - 模型层：`HousingFundBatch / HousingFundBatchItem / SocialSecurityBatch / SocialSecurityBatchItem` 作为 dataclass 领域对象；对应 DAO 负责批次与明细的 CRUD。  
+  - Service：`PersonService.preview_housing_fund_batch / execute_housing_fund_batch` 与社保同名方法，按照当前状态 + 默认规则生成新基数/比例，并在执行阶段为每人追加一条状态记录。  
+  - 前端页面：`housing_fund_batch.html`、`social_security_batch.html`，使用 Materialize modal 展示预览明细，支持在确认前调整单人数据。  
+
+- **考勤与请假子系统**  
+  - 新建考勤表 `attendance_records` 与请假表 `leave_records`，分别配套 `AttendanceDAO/Service` 与 `LeaveDAO/Service`。  
+  - Web 页面：`attendance.html`、`leave.html`，并在主导航添加入口。  
+  - 人员详情弹窗增加“考勤”“请假”标签页，采用懒加载（首点时通过 API 拉取：`/api/attendance/monthly-summary` 与 `/api/leave`）。  
+
+- **人员卡片优化与操作入口**  
+  - `persons` 页面卡片展示当前任职公司与职位，并按公司维度使用不同背景色，无任职公司使用浅灰色，保证高度一致。  
+  - 卡片 action 区加入多个图标按钮：  
+    - 任职调整（岗位事件追加）、薪资调整、社保调整、公积金调整、考核记录查看。  
+  - “考核记录”按钮弹出 modal，展示最近一次考核及历史列表。  
+
+- **薪酬批量发放与发薪事件流**  
+  - 新建薪酬批量发放批次与明细表：`payroll_batches` + `payroll_batch_items`。  
+  - 设计两阶段流程：参数填写 → “预览批量发放” → 在 modal 中查看/微调每人发放明细 → 确认 → 在“最近薪酬批次”列表中执行发放。  
+  - 计算规则（核心）：  
+    - 月薪制：以月薪为基数，根据员工类型拆分“基数部分 / 绩效部分”，绩效部分再按最近考核等级映射系数（A–E）后叠加；结合当月考勤（缺勤天数×日薪）、最新社保/公积金个人部分以及手工补扣，得到“应发（税前）”。  
+    - 日薪制：根据当月实际工作天数 × 日薪得到应发，不再拆基数/绩效，也不看考核；仍扣除个人社保、公积金和手工补扣。  
+  - 新增发薪状态流表 `person_payroll_history` 与 `PersonPayrollState`，`PersonPayrollStateDAO` 负责写入。执行批次发放时：  
+    - 遍历该批次的 `payroll_batch_items`，为每个未 `applied` 的人员追加一条发薪事件（包含批次信息与各薪资构成字段）。  
+    - 将明细标记为 `applied = 1`，批次状态更新为 `applied`，并记录影响人数。  
+  - 前端页面 `payroll_batch.html`：  
+    - 提供批次参数表单（批次年月 / 生效日期 / 公司 / 部门 / 员工类别 / 备注）、“预览批量发放”按钮。  
+    - 下方“最近薪酬批次”列表每行提供“详情”与“执行发放”按钮。  
+
+- **导航与信息架构**  
+  - 顶部导航新增“薪酬”下拉菜单，包含“公积金批量”“社保批量”“薪酬批量发放”三个子项，统一薪酬相关功能入口。  
+  - 所有页面统一继承 `layout.html`，使用 Materialize 的导航、下拉菜单和响应式布局。  
+
 ## 下一步建议
 
 1. 支持社保、公积金的编辑/版本追加 UI，以验证状态流的多版本价值。  
 2. 将 `datetime.utcnow()` 替换为时区感知时间，消除残留的 DeprecationWarning。  
-3. 若继续扩展薪资/考勤等状态，可沿用统一 `PersonState` + payload 校验模式，保持模块化。
+3. 若继续扩展薪资/考勤等状态，可沿用统一 `PersonState` + payload 校验模式，保持模块化。  
+4. 在薪酬发放事件流基础上，后续可以引入个税计算与正式的“工资条”查看页面，为每个发薪事件生成对员工可见的明细视图。
 

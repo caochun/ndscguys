@@ -47,12 +47,14 @@ def test_create_person_with_position_and_salary(tmp_service: PersonService):
             "company_rate": 0.07,
             "personal_rate": 0.07,
         },
+        assessment_data={"grade": "B", "note": "试用期表现良好"},
     )
     person = tmp_service.get_person(person_id)
     assert person["position"]["data"]["company_name"] == "ACME"
     assert person["salary"]["data"]["amount"] == 12000
     assert person["social_security"]["data"]["base_amount"] == 8000
     assert person["housing_fund"]["data"]["company_rate"] == 0.07
+    assert person["assessment"]["data"]["grade"] == "B"
 
 
 def test_create_person_invalid_payload_raises(tmp_service: PersonService):

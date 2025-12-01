@@ -10,14 +10,20 @@
         box-shadow: 0 4px 12px rgba(18,38,63,.08);
     }
     .person-card .card-content {
-        min-height: 160px;
+        min-height: 180px;
     }
-    .status-chip {
+    /* 不同公司背景色 */
+    .person-card.company-none {
+        background: #eeeeee;
+    }
+    .person-card.company-scg {
         background: #e3f2fd;
-        color: #1565c0;
-        border-radius: 16px;
-        padding: 2px 12px;
-        font-size: 12px;
+    }
+    .person-card.company-sce {
+        background: #e8f5e9;
+    }
+    .person-card.company-other {
+        background: #fff8e1;
     }
     .modal {
         border-radius: 12px;
@@ -122,8 +128,8 @@
                     <label for="supervisor_employee_id">上级员工ID</label>
                 </div>
                 <div class="input-field col s12 m6">
-                    <input id="hire_date" name="hire_date" type="date">
-                    <label for="hire_date" class="active">任职日期</label>
+                    <input id="change_date" name="change_date" type="date">
+                    <label for="change_date" class="active">变动日期</label>
                 </div>
                 <div class="input-field col s12">
                     <select id="employee_type" name="employee_type">
@@ -328,6 +334,227 @@
     </div>
     <div class="modal-footer">
         <a href="#!" class="modal-close waves-effect waves-green btn-flat">关闭</a>
+    </div>
+</div>
+
+<!-- 任职调整模态框 -->
+<div id="positionAdjustModal" class="modal modal-fixed-footer">
+    <div class="modal-content">
+        <h5>任职调整</h5>
+        <form id="positionAdjustForm">
+            <input type="hidden" id="positionAdjustPersonId" name="person_id">
+            <div class="row">
+                <div class="input-field col s12 m6">
+                    <input id="adj_company_name" name="company_name" type="text">
+                    <label for="adj_company_name">公司</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="adj_employee_number" name="employee_number" type="text">
+                    <label for="adj_employee_number">员工号</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="adj_department" name="department" type="text">
+                    <label for="adj_department">部门</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="adj_position" name="position" type="text">
+                    <label for="adj_position">职位</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <select id="adj_change_type" name="change_type">
+                        <option value="转岗" selected>转岗</option>
+                        <option value="调部门">调部门</option>
+                        <option value="转公司">转公司</option>
+                        <option value="停薪留职">停薪留职</option>
+                        <option value="返岗">返岗</option>
+                        <option value="离职">离职</option>
+                    </select>
+                    <label for="adj_change_type">变动事件</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="adj_change_date" name="change_date" type="date">
+                    <label for="adj_change_date" class="active">变动日期</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <select id="adj_employee_type" name="employee_type">
+                        <option value="" selected>不变</option>
+                        <option value="正式员工">正式员工</option>
+                        <option value="试用期员工">试用期员工</option>
+                        <option value="实习生">实习生</option>
+                        <option value="部分负责人">部分负责人</option>
+                        <option value="其他">其他</option>
+                    </select>
+                    <label for="adj_employee_type">员工类别</label>
+                </div>
+                <div class="input-field col s12">
+                    <textarea id="adj_change_reason" name="change_reason" class="materialize-textarea"></textarea>
+                    <label for="adj_change_reason">变动原因（可选）</label>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-green btn-flat">取消</a>
+        <button type="submit" form="positionAdjustForm" class="waves-effect waves-light btn">保存</button>
+    </div>
+</div>
+
+<!-- 薪资调整模态框 -->
+<div id="salaryAdjustModal" class="modal modal-fixed-footer">
+    <div class="modal-content">
+        <h5>薪资调整</h5>
+        <form id="salaryAdjustForm">
+            <input type="hidden" id="salaryAdjustPersonId" name="person_id">
+            <div class="row">
+                <div class="input-field col s12 m6">
+                    <select id="adj_salary_type" name="salary_type">
+                        <option value="" disabled selected>请选择</option>
+                        <option value="年薪制">年薪制</option>
+                        <option value="月薪制">月薪制</option>
+                        <option value="日薪制度">日薪制度</option>
+                    </select>
+                    <label for="adj_salary_type">薪资类型</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="adj_salary_amount" name="amount" type="number" step="0.01" min="0">
+                    <label for="adj_salary_amount">薪资金额</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="adj_salary_effective_date" name="effective_date" type="date">
+                    <label for="adj_salary_effective_date" class="active">生效日期</label>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-green btn-flat">取消</a>
+        <button type="submit" form="salaryAdjustForm" class="waves-effect waves-light btn">保存</button>
+    </div>
+</div>
+
+<!-- 社保调整模态框 -->
+<div id="socialAdjustModal" class="modal modal-fixed-footer">
+    <div class="modal-content">
+        <h5>社保调整</h5>
+        <form id="socialAdjustForm">
+            <input type="hidden" id="socialAdjustPersonId" name="person_id">
+            <div class="row">
+                <div class="input-field col s12 m6">
+                    <input id="adj_social_base_amount" name="base_amount" type="number" step="0.01" min="0">
+                    <label for="adj_social_base_amount">社保基数</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="adj_pension_company_rate" name="pension_company_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="adj_pension_company_rate">养老公司比例</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="adj_pension_personal_rate" name="pension_personal_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="adj_pension_personal_rate">养老个人比例</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="adj_unemployment_company_rate" name="unemployment_company_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="adj_unemployment_company_rate">失业公司比例</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="adj_unemployment_personal_rate" name="unemployment_personal_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="adj_unemployment_personal_rate">失业个人比例</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="adj_medical_company_rate" name="medical_company_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="adj_medical_company_rate">医疗公司比例</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="adj_medical_personal_rate" name="medical_personal_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="adj_medical_personal_rate">医疗个人比例</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="adj_maternity_company_rate" name="maternity_company_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="adj_maternity_company_rate">生育公司比例</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="adj_maternity_personal_rate" name="maternity_personal_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="adj_maternity_personal_rate">生育个人比例</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="adj_critical_illness_company_amount" name="critical_illness_company_amount" type="number" step="0.01" min="0">
+                    <label for="adj_critical_illness_company_amount">大病险公司金额</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="adj_critical_illness_personal_amount" name="critical_illness_personal_amount" type="number" step="0.01" min="0">
+                    <label for="adj_critical_illness_personal_amount">大病险个人金额</label>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-green btn-flat">取消</a>
+        <button type="submit" form="socialAdjustForm" class="waves-effect waves-light btn">保存</button>
+    </div>
+</div>
+
+<!-- 公积金调整模态框 -->
+<div id="housingAdjustModal" class="modal modal-fixed-footer">
+    <div class="modal-content">
+        <h5>公积金调整</h5>
+        <form id="housingAdjustForm">
+            <input type="hidden" id="housingAdjustPersonId" name="person_id">
+            <div class="row">
+                <div class="input-field col s12 m6">
+                    <input id="adj_housing_base_amount" name="base_amount" type="number" step="0.01" min="0">
+                    <label for="adj_housing_base_amount">公积金基数</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="adj_housing_company_rate" name="company_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="adj_housing_company_rate">公司比例</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="adj_housing_personal_rate" name="personal_rate" type="number" step="0.001" min="0" max="1">
+                    <label for="adj_housing_personal_rate">个人比例</label>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-green btn-flat">取消</a>
+        <button type="submit" form="housingAdjustForm" class="waves-effect waves-light btn">保存</button>
+    </div>
+</div>
+
+<!-- 考核记录模态框 -->
+<div id="assessmentModal" class="modal modal-fixed-footer">
+    <div class="modal-content">
+        <h5>考核记录</h5>
+        <form id="assessmentForm">
+            <input type="hidden" id="assessmentPersonId" name="person_id">
+            <div class="row">
+                <div class="input-field col s12 m4">
+                    <select id="assessment_grade" name="grade">
+                        <option value="" disabled selected>请选择</option>
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                        <option value="E">E</option>
+                    </select>
+                    <label for="assessment_grade">考核等级</label>
+                </div>
+                <div class="input-field col s12 m4">
+                    <input id="assessment_date" name="assessment_date" type="date">
+                    <label for="assessment_date" class="active">考核日期</label>
+                </div>
+                <div class="input-field col s12">
+                    <textarea id="assessment_note" name="note" class="materialize-textarea"></textarea>
+                    <label for="assessment_note">备注（可选）</label>
+                </div>
+            </div>
+        </form>
+        <div class="divider" style="margin: 12px 0;"></div>
+        <div id="latestAssessmentContainer" style="margin-bottom: 12px;"></div>
+        <div id="assessmentHistoryContainer"></div>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-green btn-flat">取消</a>
+        <button type="submit" form="assessmentForm" class="waves-effect waves-light btn">保存</button>
     </div>
 </div>
 

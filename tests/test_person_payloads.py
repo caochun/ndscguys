@@ -8,6 +8,7 @@ from app.models.person_payloads import (
     sanitize_salary_payload,
     sanitize_social_security_payload,
     sanitize_housing_fund_payload,
+    sanitize_assessment_payload,
     PayloadValidationError,
 )
 
@@ -27,17 +28,26 @@ def test_sanitize_position_payload_handles_employee_type_and_supervisor():
             "company_name": " ACME ",
             "employee_type": "正式员工",
             "supervisor_employee_id": "10",
+            "change_type": "入职",
+            "change_date": "2025-01-01",
+            "change_reason": "新入职",
         }
     )
     assert payload["company_name"] == "ACME"
     assert payload["employee_type"] == "正式员工"
     assert payload["supervisor_employee_id"] == 10
+    assert payload["change_type"] == "入职"
+    assert payload["change_date"] == "2025-01-01"
+    assert payload["change_reason"] == "新入职"
 
     with pytest.raises(PayloadValidationError):
         sanitize_position_payload({"employee_type": "invalid"})
 
     with pytest.raises(PayloadValidationError):
         sanitize_position_payload({"supervisor_employee_id": "abc"})
+
+    with pytest.raises(PayloadValidationError):
+        sanitize_position_payload({"change_type": "未知事件"})
 
 
 def test_sanitize_salary_payload_validates_amount_and_type():
@@ -80,4 +90,20 @@ def test_sanitize_housing_fund_payload_requires_valid_rates():
 
     with pytest.raises(PayloadValidationError):
         sanitize_housing_fund_payload({"company_rate": -0.1})
+
+
+def test_sanitize_assessment_payload_grade_required_and_limited():
+    # empty or None -> None
+    assert sanitize_assessment_payload(None) is None
+    assert sanitize_assessment_payload({}) is None
+
+    payload = sanitize_assessment_payload(
+        {"grade": "A", "assessment_date": "2025-01-01", "note": "优秀"}
+    )
+    assert payload["grade"] == "A"
+    assert payload["assessment_date"] == "2025-01-01"
+    assert payload["note"] == "优秀"
+
+    with pytest.raises(PayloadValidationError):
+        sanitize_assessment_payload({"grade": "X"})
 
