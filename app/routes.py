@@ -42,3 +42,13 @@ def social_security_batch():
 def payroll_batch():
     return render_template("payroll_batch.html", active_page="payroll_batch")
 
+
+@web_bp.route("/tax-deduction/batch")
+def tax_deduction_batch():
+    return render_template("tax_deduction_batch.html", active_page="tax_deduction_batch")
+
+
+@web_bp.route("/statistics")
+def statistics():
+    return render_template("statistics.html", active_page="statistics")
+

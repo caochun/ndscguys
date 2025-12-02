@@ -23,7 +23,10 @@
             <li class="{% if active_page == 'leave' %}active{% endif %}">
                 <a href="{{ url_for('web.leave') }}">请假</a>
             </li>
-            <li class="{% if active_page in ['housing_batch', 'social_batch', 'payroll_batch'] %}active{% endif %}">
+            <li class="{% if active_page == 'statistics' %}active{% endif %}">
+                <a href="{{ url_for('web.statistics') }}">统计</a>
+            </li>
+            <li class="{% if active_page in ['housing_batch', 'social_batch', 'payroll_batch', 'tax_deduction_batch'] %}active{% endif %}">
                 <a class="dropdown-trigger" href="#!" data-target="payroll-dropdown">
                     薪酬<i class="material-icons right">arrow_drop_down</i>
                 </a>
@@ -42,6 +45,9 @@
     <li class="{% if active_page == 'leave' %}active{% endif %}">
         <a href="{{ url_for('web.leave') }}">请假</a>
     </li>
+    <li class="{% if active_page == 'statistics' %}active{% endif %}">
+        <a href="{{ url_for('web.statistics') }}">统计</a>
+    </li>
     <li class="divider" tabindex="-1"></li>
     <li class="subheader">薪酬</li>
     <li class="{% if active_page == 'housing_batch' %}active{% endif %}">
@@ -49,6 +55,9 @@
     </li>
     <li class="{% if active_page == 'social_batch' %}active{% endif %}">
         <a href="{{ url_for('web.social_security_batch') }}">社保批量</a>
+    </li>
+    <li class="{% if active_page == 'tax_deduction_batch' %}active{% endif %}">
+        <a href="{{ url_for('web.tax_deduction_batch') }}">个税专项附加扣除</a>
     </li>
 </ul>
 
@@ -62,6 +71,9 @@
     </li>
     <li class="{% if active_page == 'payroll_batch' %}active{% endif %}">
         <a href="{{ url_for('web.payroll_batch') }}">薪酬批量发放</a>
+    </li>
+    <li class="{% if active_page == 'tax_deduction_batch' %}active{% endif %}">
+        <a href="{{ url_for('web.tax_deduction_batch') }}">个税专项附加扣除</a>
     </li>
 </ul>
 

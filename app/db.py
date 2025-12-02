@@ -139,6 +139,22 @@ def init_db(db_path: str):
         """
     )
 
+    # 个税专项附加扣除状态流
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS person_tax_deduction_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            person_id INTEGER NOT NULL,
+            version INTEGER NOT NULL,
+            ts TEXT NOT NULL,
+            data TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (person_id) REFERENCES persons(id),
+            UNIQUE(person_id, version)
+        )
+        """
+    )
+
     # 公积金批量调整批次表
     cursor.execute(
         """
@@ -287,6 +303,53 @@ def init_db(db_path: str):
             net_amount_before_tax REAL,          -- 扣除后应发（未考虑个税）
             applied INTEGER NOT NULL DEFAULT 0,  -- 是否已写入个人发薪记录
             FOREIGN KEY (batch_id) REFERENCES payroll_batches(id),
+            FOREIGN KEY (person_id) REFERENCES persons(id)
+        )
+        """
+    )
+
+    # 个税专项附加扣除批量调整批次表
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS tax_deduction_adjustment_batches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            effective_date TEXT NOT NULL,
+            effective_month TEXT NOT NULL,
+            target_company TEXT,
+            target_department TEXT,
+            target_employee_type TEXT,
+            note TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            affected_count INTEGER DEFAULT 0
+        )
+        """
+    )
+
+    # 个税专项附加扣除批量调整明细表
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS tax_deduction_batch_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            batch_id INTEGER NOT NULL,
+            person_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            -- 当前值
+            current_continuing_education REAL DEFAULT 0.0,
+            current_infant_care REAL DEFAULT 0.0,
+            current_children_education REAL DEFAULT 0.0,
+            current_housing_loan_interest REAL DEFAULT 0.0,
+            current_housing_rent REAL DEFAULT 0.0,
+            current_elderly_support REAL DEFAULT 0.0,
+            -- 新值
+            new_continuing_education REAL DEFAULT 0.0,
+            new_infant_care REAL DEFAULT 0.0,
+            new_children_education REAL DEFAULT 0.0,
+            new_housing_loan_interest REAL DEFAULT 0.0,
+            new_housing_rent REAL DEFAULT 0.0,
+            new_elderly_support REAL DEFAULT 0.0,
+            applied INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (batch_id) REFERENCES tax_deduction_adjustment_batches(id),
             FOREIGN KEY (person_id) REFERENCES persons(id)
         )
         """

@@ -391,3 +391,114 @@ class SocialSecurityBatchItem:
         }
 
 
+@dataclass
+class TaxDeductionBatch:
+    """个税专项附加扣除批量调整批次"""
+
+    id: Optional[int]
+    created_at: Optional[str]
+    effective_date: str
+    effective_month: str
+    target_company: Optional[str]
+    target_department: Optional[str]
+    target_employee_type: Optional[str]
+    note: Optional[str]
+    status: str
+    affected_count: int
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> "TaxDeductionBatch":
+        return cls(
+            id=row["id"],
+            created_at=row["created_at"],
+            effective_date=row["effective_date"],
+            effective_month=row["effective_month"],
+            target_company=row["target_company"],
+            target_department=row["target_department"],
+            target_employee_type=row["target_employee_type"],
+            note=row["note"],
+            status=row["status"],
+            affected_count=row["affected_count"],
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "created_at": self.created_at,
+            "effective_date": self.effective_date,
+            "effective_month": self.effective_month,
+            "target_company": self.target_company,
+            "target_department": self.target_department,
+            "target_employee_type": self.target_employee_type,
+            "note": self.note,
+            "status": self.status,
+            "affected_count": self.affected_count,
+        }
+
+
+@dataclass
+class TaxDeductionBatchItem:
+    """个税专项附加扣除批量调整明细"""
+
+    id: Optional[int]
+    batch_id: int
+    person_id: int
+    created_at: Optional[str]
+    current_continuing_education: float
+    current_infant_care: float
+    current_children_education: float
+    current_housing_loan_interest: float
+    current_housing_rent: float
+    current_elderly_support: float
+    new_continuing_education: float
+    new_infant_care: float
+    new_children_education: float
+    new_housing_loan_interest: float
+    new_housing_rent: float
+    new_elderly_support: float
+    applied: bool
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> "TaxDeductionBatchItem":
+        return cls(
+            id=row["id"],
+            batch_id=row["batch_id"],
+            person_id=row["person_id"],
+            created_at=row["created_at"],
+            current_continuing_education=row["current_continuing_education"] or 0.0,
+            current_infant_care=row["current_infant_care"] or 0.0,
+            current_children_education=row["current_children_education"] or 0.0,
+            current_housing_loan_interest=row["current_housing_loan_interest"] or 0.0,
+            current_housing_rent=row["current_housing_rent"] or 0.0,
+            current_elderly_support=row["current_elderly_support"] or 0.0,
+            new_continuing_education=row["new_continuing_education"] or 0.0,
+            new_infant_care=row["new_infant_care"] or 0.0,
+            new_children_education=row["new_children_education"] or 0.0,
+            new_housing_loan_interest=row["new_housing_loan_interest"] or 0.0,
+            new_housing_rent=row["new_housing_rent"] or 0.0,
+            new_elderly_support=row["new_elderly_support"] or 0.0,
+            applied=bool(row["applied"]),
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "batch_id": self.batch_id,
+            "person_id": self.person_id,
+            "created_at": self.created_at,
+            "current_continuing_education": self.current_continuing_education,
+            "current_infant_care": self.current_infant_care,
+            "current_children_education": self.current_children_education,
+            "current_housing_loan_interest": self.current_housing_loan_interest,
+            "current_housing_rent": self.current_housing_rent,
+            "current_elderly_support": self.current_elderly_support,
+            "new_continuing_education": self.new_continuing_education,
+            "new_infant_care": self.new_infant_care,
+            "new_children_education": self.new_children_education,
+            "new_housing_loan_interest": self.new_housing_loan_interest,
+            "new_housing_rent": self.new_housing_rent,
+            "new_elderly_support": self.new_elderly_support,
+            "applied": self.applied,
+        }
+
+

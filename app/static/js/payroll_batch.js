@@ -156,38 +156,68 @@ function openPayrollPreviewModal(data, editable) {
     summaryElem.textContent = `本次批次共扫描 ${total} 人，其中 ${affected} 人生成薪酬发放明细。`;
     titleElem.textContent = editable ? '薪酬批量发放预览' : `批次 #${data.batch_id} 详情`;
 
+    const formatNumber = (val) => {
+        if (val === null || val === undefined || val === '-') return '-';
+        return typeof val === 'number' ? val.toFixed(2) : val;
+    };
+
     const rows = items.map((item, index) => {
         const readOnlyAttr = editable ? '' : 'readonly';
+        const isDailySalary = item.salary_type === '日薪制度';
         return `
             <tr data-item-id="${item.id}">
                 <td>${index + 1}</td>
-                <td>${item.person_id}</td>
-                <td>${item.salary_base_amount ?? '-'}</td>
-                <td>${item.salary_performance_base ?? '-'}</td>
-                <td>${item.performance_factor ?? '-'}</td>
-                <td>${item.performance_amount ?? '-'}</td>
-                <td>${item.gross_amount_before_deductions ?? '-'}</td>
-                <td>${item.attendance_deduction ?? 0}</td>
-                <td>${item.social_personal_amount ?? 0}</td>
-                <td>${item.housing_personal_amount ?? 0}</td>
+                <td>${item.person_name || `ID:${item.person_id}`}</td>
+                <td>${item.salary_type || '-'}</td>
+                <td>${formatNumber(item.original_salary_amount)}</td>
+                <td>${item.employee_type || '-'}</td>
+                <td>${item.assessment_grade || '-'}</td>
+                <td>${formatNumber(item.expected_days)}</td>
+                <td>${formatNumber(item.actual_days)}</td>
+                <td>${formatNumber(item.absent_days !== undefined ? item.absent_days : (isDailySalary ? 0 : null))}</td>
+                <td>${formatNumber(item.social_base_amount)}</td>
+                <td>${formatNumber(item.housing_base_amount)}</td>
+                <td>${isDailySalary ? '-' : formatNumber(item.adjusted_salary_amount)}</td>
+                <td>${isDailySalary ? '-' : formatNumber(item.base_ratio)}</td>
+                <td>${isDailySalary ? '-' : formatNumber(item.perf_ratio)}</td>
+                <td>${isDailySalary ? '-' : formatNumber(item.performance_factor)}</td>
+                <td>${formatNumber(item.salary_base_amount)}</td>
+                <td>${formatNumber(item.salary_performance_base)}</td>
+                <td>${formatNumber(item.performance_amount)}</td>
+                <td>${formatNumber(item.gross_amount_before_deductions)}</td>
+                <td>${formatNumber(item.attendance_deduction)}</td>
+                <td>${formatNumber(item.social_personal_amount)}</td>
+                <td>${formatNumber(item.housing_personal_amount)}</td>
                 <td>
                     <input type="number" step="0.01" class="other-deduction browser-default"
-                           value="${item.other_deduction ?? 0}" ${readOnlyAttr}>
+                           value="${item.other_deduction ?? 0}" ${readOnlyAttr} style="width:80px;">
                 </td>
-                <td>${item.net_amount_before_tax ?? '-'}</td>
+                <td>${formatNumber(item.net_amount_before_tax)}</td>
             </tr>
         `;
     }).join('');
 
     tableContainer.innerHTML = `
-        <table class="striped responsive-table">
+        <table class="striped responsive-table payroll-batch-table" style="font-size: 12px;">
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>人员ID</th>
+                    <th>姓名</th>
+                    <th>薪资类型</th>
+                    <th>原始薪资</th>
+                    <th>员工类别</th>
+                    <th>考核等级</th>
+                    <th>预期天数</th>
+                    <th>实际天数</th>
+                    <th>缺勤天数</th>
+                    <th>社保基数</th>
+                    <th>公积金基数</th>
+                    <th>调整后薪资</th>
+                    <th>基数比例</th>
+                    <th>绩效比例</th>
+                    <th>绩效系数</th>
                     <th>基数部分</th>
                     <th>绩效基数</th>
-                    <th>绩效系数</th>
                     <th>绩效金额</th>
                     <th>扣前应发</th>
                     <th>考勤扣款</th>

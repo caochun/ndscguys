@@ -35,6 +35,11 @@ document.addEventListener('DOMContentLoaded', function () {
         assessmentForm.addEventListener('submit', handleAssessmentSubmit);
     }
 
+    const taxDeductionForm = document.getElementById('taxDeductionForm');
+    if (taxDeductionForm) {
+        taxDeductionForm.addEventListener('submit', handleTaxDeductionSubmit);
+    }
+
     loadPersons();
 });
 
@@ -129,6 +134,9 @@ function renderPersonCard(person) {
                         <a class="green-text text-darken-2" style="margin-right:8px;" onclick="openHousingAdjustModal(${person.person_id})" title="公积金调整">
                             <i class="material-icons tiny">savings</i>
                         </a>
+                        <a class="cyan-text text-darken-2" style="margin-right:8px;" onclick="openTaxDeductionModal(${person.person_id})" title="个税抵扣信息">
+                            <i class="material-icons tiny">receipt</i>
+                        </a>
                         <a class="orange-text text-darken-2" onclick="openPositionAdjustModal(${person.person_id})" title="任职调整">
                             <i class="material-icons tiny">work_history</i>
                         </a>
@@ -143,6 +151,7 @@ async function openPositionAdjustModal(personId) {
     try {
         const result = await fetchJSON(`/api/persons/${personId}`);
         const position = result.data.position ? result.data.position.data : null;
+        const history = result.data.position_history || [];
 
         document.getElementById('positionAdjustPersonId').value = personId;
         const companyInput = document.getElementById('adj_company_name');
@@ -181,6 +190,17 @@ async function openPositionAdjustModal(personId) {
         const dd = String(today.getDate()).padStart(2, '0');
         changeDateInput.value = `${yyyy}-${mm}-${dd}`;
 
+        // 渲染历史记录
+        const historyContainer = document.getElementById('positionHistoryContainer');
+        if (history && history.length > 0) {
+            historyContainer.innerHTML = `
+                <h6 class="grey-text text-darken-1" style="margin-top: 0;">岗位变动历史</h6>
+                ${renderHistoryTable(history, '岗位信息')}
+            `;
+        } else {
+            historyContainer.innerHTML = '<p class="grey-text">暂无岗位变动历史</p>';
+        }
+
         M.updateTextFields();
         const selects = document.querySelectorAll('#positionAdjustModal select');
         M.FormSelect.init(selects);
@@ -212,8 +232,18 @@ async function handlePositionAdjustSubmit(e) {
             body: JSON.stringify(payload),
         });
         M.toast({html: '任职调整已保存', classes: 'green'});
-        const modal = M.Modal.getInstance(document.getElementById('positionAdjustModal'));
-        modal.close();
+        // 重新加载历史记录
+        const result = await fetchJSON(`/api/persons/${personId}`);
+        const history = result.data.position_history || [];
+        const historyContainer = document.getElementById('positionHistoryContainer');
+        if (history && history.length > 0) {
+            historyContainer.innerHTML = `
+                <h6 class="grey-text text-darken-1" style="margin-top: 0;">岗位变动历史</h6>
+                ${renderHistoryTable(history, '岗位信息')}
+            `;
+        } else {
+            historyContainer.innerHTML = '<p class="grey-text">暂无岗位变动历史</p>';
+        }
         loadPersons();
     } catch (err) {
         M.toast({html: '保存失败：' + err.message, classes: 'red'});
@@ -224,6 +254,7 @@ async function openSalaryAdjustModal(personId) {
     try {
         const result = await fetchJSON(`/api/persons/${personId}`);
         const salary = result.data.salary ? result.data.salary.data : null;
+        const history = result.data.salary_history || [];
 
         document.getElementById('salaryAdjustPersonId').value = personId;
         const typeSelect = document.getElementById('adj_salary_type');
@@ -242,6 +273,17 @@ async function openSalaryAdjustModal(personId) {
             const mm = String(today.getMonth() + 1).padStart(2, '0');
             const dd = String(today.getDate()).padStart(2, '0');
             effDateInput.value = `${yyyy}-${mm}-${dd}`;
+        }
+
+        // 渲染历史记录
+        const historyContainer = document.getElementById('salaryHistoryContainer');
+        if (history && history.length > 0) {
+            historyContainer.innerHTML = `
+                <h6 class="grey-text text-darken-1" style="margin-top: 0;">薪资调整历史</h6>
+                ${renderHistoryTable(history, '薪资信息')}
+            `;
+        } else {
+            historyContainer.innerHTML = '<p class="grey-text">暂无薪资调整历史</p>';
         }
 
         M.updateTextFields();
@@ -270,8 +312,28 @@ async function handleSalaryAdjustSubmit(e) {
             body: JSON.stringify(payload),
         });
         M.toast({html: '薪资调整已保存', classes: 'green'});
-        const modal = M.Modal.getInstance(document.getElementById('salaryAdjustModal'));
-        modal.close();
+        // 重新加载历史记录
+        const result = await fetchJSON(`/api/persons/${personId}`);
+        const history = result.data.salary_history || [];
+        const historyContainer = document.getElementById('salaryHistoryContainer');
+        if (history && history.length > 0) {
+            historyContainer.innerHTML = `
+                <h6 class="grey-text text-darken-1" style="margin-top: 0;">薪资调整历史</h6>
+                ${renderHistoryTable(history, '薪资信息')}
+            `;
+        } else {
+            historyContainer.innerHTML = '<p class="grey-text">暂无薪资调整历史</p>';
+        }
+        // 更新表单中的当前值
+        const salary = result.data.salary ? result.data.salary.data : null;
+        if (salary) {
+            document.getElementById('adj_salary_type').value = salary.salary_type || '';
+            document.getElementById('adj_salary_amount').value = salary.amount != null ? salary.amount : '';
+            document.getElementById('adj_salary_effective_date').value = salary.effective_date || '';
+            M.updateTextFields();
+            const selects = document.querySelectorAll('#salaryAdjustModal select');
+            M.FormSelect.init(selects);
+        }
         loadPersons();
     } catch (err) {
         M.toast({html: '保存失败：' + err.message, classes: 'red'});
@@ -282,6 +344,7 @@ async function openSocialAdjustModal(personId) {
     try {
         const result = await fetchJSON(`/api/persons/${personId}`);
         const social = result.data.social_security ? result.data.social_security.data : null;
+        const history = result.data.social_security_history || [];
 
         document.getElementById('socialAdjustPersonId').value = personId;
         const baseInput = document.getElementById('adj_social_base_amount');
@@ -308,6 +371,17 @@ async function openSocialAdjustModal(personId) {
         mapr.value = s.maternity_personal_rate != null ? s.maternity_personal_rate : '';
         cic.value = s.critical_illness_company_amount != null ? s.critical_illness_company_amount : '';
         cip.value = s.critical_illness_personal_amount != null ? s.critical_illness_personal_amount : '';
+
+        // 渲染历史记录
+        const historyContainer = document.getElementById('socialHistoryContainer');
+        if (history && history.length > 0) {
+            historyContainer.innerHTML = `
+                <h6 class="grey-text text-darken-1" style="margin-top: 0;">社保调整历史</h6>
+                ${renderHistoryTable(history, '社保信息')}
+            `;
+        } else {
+            historyContainer.innerHTML = '<p class="grey-text">暂无社保调整历史</p>';
+        }
 
         M.updateTextFields();
         const modal = M.Modal.getInstance(document.getElementById('socialAdjustModal'));
@@ -340,8 +414,33 @@ async function handleSocialAdjustSubmit(e) {
             body: JSON.stringify(payload),
         });
         M.toast({html: '社保调整已保存', classes: 'green'});
-        const modal = M.Modal.getInstance(document.getElementById('socialAdjustModal'));
-        modal.close();
+        // 重新加载历史记录
+        const result = await fetchJSON(`/api/persons/${personId}`);
+        const history = result.data.social_security_history || [];
+        const historyContainer = document.getElementById('socialHistoryContainer');
+        if (history && history.length > 0) {
+            historyContainer.innerHTML = `
+                <h6 class="grey-text text-darken-1" style="margin-top: 0;">社保调整历史</h6>
+                ${renderHistoryTable(history, '社保信息')}
+            `;
+        } else {
+            historyContainer.innerHTML = '<p class="grey-text">暂无社保调整历史</p>';
+        }
+        // 更新表单中的当前值
+        const social = result.data.social_security ? result.data.social_security.data : null;
+        const s = social || {};
+        document.getElementById('adj_social_base_amount').value = s.base_amount != null ? s.base_amount : '';
+        document.getElementById('adj_pension_company_rate').value = s.pension_company_rate != null ? s.pension_company_rate : '';
+        document.getElementById('adj_pension_personal_rate').value = s.pension_personal_rate != null ? s.pension_personal_rate : '';
+        document.getElementById('adj_unemployment_company_rate').value = s.unemployment_company_rate != null ? s.unemployment_company_rate : '';
+        document.getElementById('adj_unemployment_personal_rate').value = s.unemployment_personal_rate != null ? s.unemployment_personal_rate : '';
+        document.getElementById('adj_medical_company_rate').value = s.medical_company_rate != null ? s.medical_company_rate : '';
+        document.getElementById('adj_medical_personal_rate').value = s.medical_personal_rate != null ? s.medical_personal_rate : '';
+        document.getElementById('adj_maternity_company_rate').value = s.maternity_company_rate != null ? s.maternity_company_rate : '';
+        document.getElementById('adj_maternity_personal_rate').value = s.maternity_personal_rate != null ? s.maternity_personal_rate : '';
+        document.getElementById('adj_critical_illness_company_amount').value = s.critical_illness_company_amount != null ? s.critical_illness_company_amount : '';
+        document.getElementById('adj_critical_illness_personal_amount').value = s.critical_illness_personal_amount != null ? s.critical_illness_personal_amount : '';
+        M.updateTextFields();
         loadPersons();
     } catch (err) {
         M.toast({html: '保存失败：' + err.message, classes: 'red'});
@@ -352,6 +451,7 @@ async function openHousingAdjustModal(personId) {
     try {
         const result = await fetchJSON(`/api/persons/${personId}`);
         const housing = result.data.housing_fund ? result.data.housing_fund.data : null;
+        const history = result.data.housing_fund_history || [];
 
         document.getElementById('housingAdjustPersonId').value = personId;
         const baseInput = document.getElementById('adj_housing_base_amount');
@@ -362,6 +462,17 @@ async function openHousingAdjustModal(personId) {
         baseInput.value = h.base_amount != null ? h.base_amount : '';
         cr.value = h.company_rate != null ? h.company_rate : '';
         pr.value = h.personal_rate != null ? h.personal_rate : '';
+
+        // 渲染历史记录
+        const historyContainer = document.getElementById('housingHistoryContainer');
+        if (history && history.length > 0) {
+            historyContainer.innerHTML = `
+                <h6 class="grey-text text-darken-1" style="margin-top: 0;">公积金调整历史</h6>
+                ${renderHistoryTable(history, '公积金信息')}
+            `;
+        } else {
+            historyContainer.innerHTML = '<p class="grey-text">暂无公积金调整历史</p>';
+        }
 
         M.updateTextFields();
         const modal = M.Modal.getInstance(document.getElementById('housingAdjustModal'));
@@ -386,8 +497,25 @@ async function handleHousingAdjustSubmit(e) {
             body: JSON.stringify(payload),
         });
         M.toast({html: '公积金调整已保存', classes: 'green'});
-        const modal = M.Modal.getInstance(document.getElementById('housingAdjustModal'));
-        modal.close();
+        // 重新加载历史记录
+        const result = await fetchJSON(`/api/persons/${personId}`);
+        const history = result.data.housing_fund_history || [];
+        const historyContainer = document.getElementById('housingHistoryContainer');
+        if (history && history.length > 0) {
+            historyContainer.innerHTML = `
+                <h6 class="grey-text text-darken-1" style="margin-top: 0;">公积金调整历史</h6>
+                ${renderHistoryTable(history, '公积金信息')}
+            `;
+        } else {
+            historyContainer.innerHTML = '<p class="grey-text">暂无公积金调整历史</p>';
+        }
+        // 更新表单中的当前值
+        const housing = result.data.housing_fund ? result.data.housing_fund.data : null;
+        const h = housing || {};
+        document.getElementById('adj_housing_base_amount').value = h.base_amount != null ? h.base_amount : '';
+        document.getElementById('adj_housing_company_rate').value = h.company_rate != null ? h.company_rate : '';
+        document.getElementById('adj_housing_personal_rate').value = h.personal_rate != null ? h.personal_rate : '';
+        M.updateTextFields();
         loadPersons();
     } catch (err) {
         M.toast({html: '保存失败：' + err.message, classes: 'red'});
@@ -900,5 +1028,92 @@ function numberOrNull(value) {
 function percentText(value) {
     if (value === null || value === undefined || value === '') return '-';
     return `${(Number(value) * 100).toFixed(2)}%`;
+}
+
+async function openTaxDeductionModal(personId) {
+    try {
+        const result = await fetchJSON(`/api/persons/${personId}`);
+        const taxDeduction = result.data.tax_deduction ? result.data.tax_deduction.data : null;
+        const history = result.data.tax_deduction_history || [];
+
+        document.getElementById('taxDeductionPersonId').value = personId;
+        const continuingEducationInput = document.getElementById('tax_continuing_education');
+        const infantCareInput = document.getElementById('tax_infant_care');
+        const childrenEducationInput = document.getElementById('tax_children_education');
+        const housingLoanInterestInput = document.getElementById('tax_housing_loan_interest');
+        const housingRentInput = document.getElementById('tax_housing_rent');
+        const elderlySupportInput = document.getElementById('tax_elderly_support');
+
+        const td = taxDeduction || {};
+        continuingEducationInput.value = td.continuing_education != null ? td.continuing_education : '';
+        infantCareInput.value = td.infant_care != null ? td.infant_care : '';
+        childrenEducationInput.value = td.children_education != null ? td.children_education : '';
+        housingLoanInterestInput.value = td.housing_loan_interest != null ? td.housing_loan_interest : '';
+        housingRentInput.value = td.housing_rent != null ? td.housing_rent : '';
+        elderlySupportInput.value = td.elderly_support != null ? td.elderly_support : '';
+
+        // 渲染历史记录
+        const historyContainer = document.getElementById('taxDeductionHistoryContainer');
+        if (history && history.length > 0) {
+            historyContainer.innerHTML = `
+                <h6 class="grey-text text-darken-1" style="margin-top: 0;">个税抵扣历史</h6>
+                ${renderHistoryTable(history, '个税抵扣信息')}
+            `;
+        } else {
+            historyContainer.innerHTML = '<p class="grey-text">暂无个税抵扣历史</p>';
+        }
+
+        M.updateTextFields();
+        const modal = M.Modal.getInstance(document.getElementById('taxDeductionModal'));
+        modal.open();
+    } catch (err) {
+        M.toast({html: '加载个税抵扣信息失败：' + err.message, classes: 'red'});
+    }
+}
+
+async function handleTaxDeductionSubmit(e) {
+    e.preventDefault();
+    const personId = document.getElementById('taxDeductionPersonId').value;
+    const formData = new FormData(e.target);
+    const payload = {
+        continuing_education: formData.get('continuing_education') ? Number(formData.get('continuing_education')) : null,
+        infant_care: formData.get('infant_care') ? Number(formData.get('infant_care')) : null,
+        children_education: formData.get('children_education') ? Number(formData.get('children_education')) : null,
+        housing_loan_interest: formData.get('housing_loan_interest') ? Number(formData.get('housing_loan_interest')) : null,
+        housing_rent: formData.get('housing_rent') ? Number(formData.get('housing_rent')) : null,
+        elderly_support: formData.get('elderly_support') ? Number(formData.get('elderly_support')) : null,
+    };
+    try {
+        await fetchJSON(`/api/persons/${personId}/tax-deduction`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        M.toast({html: '个税抵扣信息已保存', classes: 'green'});
+        // 重新加载历史记录
+        const result = await fetchJSON(`/api/persons/${personId}`);
+        const history = result.data.tax_deduction_history || [];
+        const historyContainer = document.getElementById('taxDeductionHistoryContainer');
+        if (history && history.length > 0) {
+            historyContainer.innerHTML = `
+                <h6 class="grey-text text-darken-1" style="margin-top: 0;">个税抵扣历史</h6>
+                ${renderHistoryTable(history, '个税抵扣信息')}
+            `;
+        } else {
+            historyContainer.innerHTML = '<p class="grey-text">暂无个税抵扣历史</p>';
+        }
+        // 更新表单中的当前值
+        const taxDeduction = result.data.tax_deduction ? result.data.tax_deduction.data : null;
+        const td = taxDeduction || {};
+        document.getElementById('tax_continuing_education').value = td.continuing_education != null ? td.continuing_education : '';
+        document.getElementById('tax_infant_care').value = td.infant_care != null ? td.infant_care : '';
+        document.getElementById('tax_children_education').value = td.children_education != null ? td.children_education : '';
+        document.getElementById('tax_housing_loan_interest').value = td.housing_loan_interest != null ? td.housing_loan_interest : '';
+        document.getElementById('tax_housing_rent').value = td.housing_rent != null ? td.housing_rent : '';
+        document.getElementById('tax_elderly_support').value = td.elderly_support != null ? td.elderly_support : '';
+        M.updateTextFields();
+        loadPersons();
+    } catch (err) {
+        M.toast({html: '保存失败：' + err.message, classes: 'red'});
+    }
 }
 

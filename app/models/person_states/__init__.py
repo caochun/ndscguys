@@ -8,6 +8,7 @@ from .social_security import PersonSocialSecurityState
 from .housing_fund import PersonHousingFundState
 from .assessment import PersonAssessmentState
 from .payroll import PersonPayrollState
+from .tax_deduction import PersonTaxDeductionState
 from .state import PersonState
 
 __all__ = [
@@ -18,6 +19,7 @@ __all__ = [
     'PersonHousingFundState',
     'PersonAssessmentState',
     'PersonPayrollState',
+    'PersonTaxDeductionState',
     'PersonState',
 ]
 

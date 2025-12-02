@@ -254,3 +254,30 @@ def sanitize_assessment_payload(data: Optional[dict]) -> Optional[Dict[str, Any]
     # 至少要有 grade 才算一条有效状态
     return cleaned or None
 
+
+def sanitize_tax_deduction_payload(data: Optional[dict]) -> Optional[Dict[str, Any]]:
+    """个税专项附加扣除 payload 清洗：6项扣除金额（元/月）。"""
+    if data is None:
+        return None
+    if not isinstance(data, dict):
+        raise PayloadValidationError("tax deduction payload must be a dict")
+
+    cleaned: Dict[str, Any] = {}
+
+    # 6项专项附加扣除
+    tax_deduction_fields = [
+        "continuing_education",
+        "infant_care",
+        "children_education",
+        "housing_loan_interest",
+        "housing_rent",
+        "elderly_support",
+    ]
+
+    for field in tax_deduction_fields:
+        amount = _normalize_amount_non_negative(data.get(field))
+        if amount is not None:
+            cleaned[field] = amount
+
+    return cleaned or None
+

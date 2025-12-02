@@ -148,6 +148,21 @@ def append_housing_fund_change(person_id: int):
     return jsonify({"success": True})
 
 
+@api_bp.route("/persons/<int:person_id>/tax-deduction", methods=["POST"])
+def append_tax_deduction_change(person_id: int):
+    """追加一条个税专项附加扣除变动事件"""
+    service = get_person_service()
+    payload = request.get_json() or {}
+    tax_deduction_data = payload.get("tax_deduction") or payload
+    try:
+        service.append_tax_deduction_change(person_id, tax_deduction_data)
+    except PayloadValidationError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    return jsonify({"success": True})
+
+
 @api_bp.route("/housing-fund/batch-preview", methods=["POST"])
 def housing_fund_batch_preview():
     """公积金批量调整预览：创建批次和明细，但不写入状态流。"""
@@ -260,6 +275,69 @@ def list_social_security_batch_items(batch_id: int):
     return jsonify({"success": True, "data": items})
 
 
+# ---- 个税专项附加扣除批量调整 ----
+
+@api_bp.route("/tax-deduction/batch-preview", methods=["POST"])
+def tax_deduction_batch_preview():
+    """个税专项附加扣除批量调整预览：创建批次和明细，但不写入状态流。"""
+    service = get_person_service()
+    payload = request.get_json() or {}
+    required_fields = ["effective_date", "effective_month"]
+    missing = [f for f in required_fields if f not in payload]
+    if missing:
+        return jsonify({"success": False, "error": f"missing fields: {', '.join(missing)}"}), 400
+
+    result = service.preview_tax_deduction_batch(payload)
+    return jsonify({"success": True, "data": result})
+
+
+@api_bp.route("/tax-deduction/batch-confirm/<int:batch_id>", methods=["POST"])
+def tax_deduction_batch_confirm(batch_id: int):
+    """确认个税专项附加扣除批量调整：更新批次明细中的 new_* 值。"""
+    service = get_person_service()
+    payload = request.get_json() or {}
+    items = payload.get("items") or []
+    if not items:
+        return jsonify({"success": False, "error": "items is required"}), 400
+    service.update_tax_deduction_batch_items(batch_id, items)
+    return jsonify({"success": True})
+
+
+@api_bp.route("/tax-deduction/batch-execute/<int:batch_id>", methods=["POST"])
+def tax_deduction_batch_execute(batch_id: int):
+    """执行个税专项附加扣除批量调整：为每个明细追加状态流记录。"""
+    service = get_person_service()
+    result = service.execute_tax_deduction_batch(batch_id)
+    return jsonify({"success": True, "data": result})
+
+
+@api_bp.route("/tax-deduction/batches", methods=["GET"])
+def list_tax_deduction_batches():
+    """列出最近的个税专项附加扣除批量调整批次。"""
+    service = get_person_service()
+    batches = service.tax_deduction_batch_dao.list_batches(limit=50)
+    return jsonify({"success": True, "data": batches})
+
+
+@api_bp.route("/tax-deduction/batch-items/<int:batch_id>", methods=["GET"])
+def list_tax_deduction_batch_items(batch_id: int):
+    """列出某个个税专项附加扣除批次的调整明细。"""
+    service = get_person_service()
+    items = service.tax_deduction_batch_dao.list_items(batch_id)
+    return jsonify({"success": True, "data": items})
+
+
+# ---- 统计信息 ----
+
+@api_bp.route("/statistics", methods=["GET"])
+def get_statistics():
+    """获取人员统计信息"""
+    service = get_person_service()
+    at_date = request.args.get("at_date")  # 可选，格式：YYYY-MM-DD
+    stats = service.get_statistics(at_date=at_date)
+    return jsonify({"success": True, "data": stats})
+
+
 # ---- 薪酬批量发放 ----
 
 
@@ -298,6 +376,40 @@ def list_payroll_batch_items(batch_id: int):
     """列出某个薪酬批次的发放明细。"""
     service = get_person_service()
     items = service.payroll_batch_dao.list_items(batch_id)
+    # 补充计算相关的元数据
+    batch = service.payroll_batch_dao.get_batch(batch_id)
+    if batch:
+        batch_period = batch.get("batch_period")
+        enriched_items = []
+        for item in items:
+            person_id = item.get("person_id")
+            # 获取员工姓名
+            basic_state = service.basic_dao.get_latest(person_id)
+            person_name = (basic_state.data or {}).get("name") if basic_state else None
+            item["person_name"] = person_name
+            # 重新计算以获取所有计算相关的属性（如果批次还未执行，这些信息应该已经在预览时存在）
+            # 但如果是从数据库读取的，需要重新计算
+            if batch_period:
+                calc = service._calculate_payroll_for_person(person_id, batch_period)
+                if calc:
+                    # 补充计算相关的属性
+                    item.update({
+                        "salary_type": calc.get("salary_type"),
+                        "original_salary_amount": calc.get("original_salary_amount"),
+                        "adjusted_salary_amount": calc.get("adjusted_salary_amount"),
+                        "employee_type": calc.get("employee_type"),
+                        "assessment_grade": calc.get("assessment_grade"),
+                        "base_ratio": calc.get("base_ratio"),
+                        "perf_ratio": calc.get("perf_ratio"),
+                        "expected_days": calc.get("expected_days"),
+                        "actual_days": calc.get("actual_days"),
+                        "absent_days": calc.get("absent_days"),
+                        "day_salary": calc.get("day_salary"),
+                        "social_base_amount": calc.get("social_base_amount"),
+                        "housing_base_amount": calc.get("housing_base_amount"),
+                    })
+            enriched_items.append(item)
+        items = enriched_items
     return jsonify({"success": True, "data": items})
 
 
