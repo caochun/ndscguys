@@ -18,6 +18,7 @@ from app.daos.person_state_dao import (
     PersonPayrollStateDAO,
     PersonTaxDeductionStateDAO,
 )
+from app.daos.person_project_state_dao import PersonProjectStateDAO
 from app.models.person_payloads import (
     sanitize_basic_payload,
     sanitize_position_payload,
@@ -26,6 +27,7 @@ from app.models.person_payloads import (
     sanitize_housing_fund_payload,
     sanitize_assessment_payload,
     sanitize_tax_deduction_payload,
+    sanitize_person_project_payload,
 )
 from app.db import init_db
 from app.daos.housing_fund_batch_dao import HousingFundBatchDAO
@@ -61,6 +63,7 @@ class PersonService:
         self.payroll_batch_dao = PayrollBatchDAO(db_path=db_path)
         self.tax_deduction_dao = PersonTaxDeductionStateDAO(db_path=db_path)
         self.tax_deduction_batch_dao = TaxDeductionBatchDAO(db_path=db_path)
+        self.person_project_dao = PersonProjectStateDAO(db_path=db_path)
 
     def _get_connection(self) -> sqlite3.Connection:
         return self.basic_dao.get_connection()
@@ -1077,6 +1080,9 @@ class PersonService:
         payroll = self.payroll_dao.get_latest(person_id)
         tax_deduction = self.tax_deduction_dao.get_latest(person_id)
 
+        # 获取人员参与的项目列表
+        person_projects = self.get_person_projects(person_id)
+
         details = {
             "person_id": person_id,
             "basic": basic.to_dict(),
@@ -1087,6 +1093,7 @@ class PersonService:
             "assessment": assessment.to_dict() if assessment else None,
             "payroll": payroll.to_dict() if payroll else None,
             "tax_deduction": tax_deduction.to_dict() if tax_deduction else None,
+            "projects": person_projects,
             "basic_history": [state.to_dict() for state in self.basic_dao.list_states(person_id, limit=10)],
             "position_history": [state.to_dict() for state in self.position_dao.list_states(person_id, limit=10)],
             "salary_history": [state.to_dict() for state in self.salary_dao.list_states(person_id, limit=10)],
@@ -1506,4 +1513,55 @@ class PersonService:
             "social_security_base": social_base_ranges,
             "housing_fund_base": housing_base_ranges,
         }
+
+    def append_person_project_change(
+        self, person_id: int, project_id: int, project_data: dict
+    ) -> int:
+        """追加人员参与项目信息变更"""
+        cleaned_data = sanitize_person_project_payload(project_data)
+        if not cleaned_data:
+            raise ValueError("person project payload is required")
+        # 确保 project_id 一致
+        cleaned_data["project_id"] = project_id
+        return self.person_project_dao.append(person_id, project_id, cleaned_data)
+
+    def get_person_projects(self, person_id: int) -> List[Dict[str, Any]]:
+        """获取人员参与的所有项目（最新状态）"""
+        states = self.person_project_dao.list_by_person(person_id)
+        return [
+            {
+                "project_id": state.project_id,
+                "version": state.version,
+                "ts": state.ts,
+                "data": state.data,
+            }
+            for state in states
+        ]
+
+    def get_project_persons(self, project_id: int) -> List[Dict[str, Any]]:
+        """获取项目参与的所有人员（最新状态）"""
+        states = self.person_project_dao.list_by_project(project_id)
+        return [
+            {
+                "person_id": state.person_id,
+                "version": state.version,
+                "ts": state.ts,
+                "data": state.data,
+            }
+            for state in states
+        ]
+
+    def get_person_project_history(
+        self, person_id: int, project_id: int
+    ) -> List[Dict[str, Any]]:
+        """获取人员参与项目的历史记录"""
+        states = self.person_project_dao.list_states(person_id, project_id, limit=100)
+        return [
+            {
+                "version": state.version,
+                "ts": state.ts,
+                "data": state.data,
+            }
+            for state in states
+        ]
 

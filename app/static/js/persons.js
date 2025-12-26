@@ -621,6 +621,11 @@ async function handleCreatePerson(e) {
         phone: formData.get('phone') || null,
         email: formData.get('email') || null,
         address: formData.get('address') || null,
+        graduation_school: formData.get('graduation_school') || null,
+        major: formData.get('major') || null,
+        education_level: formData.get('education_level') || null,
+        graduation_date: formData.get('graduation_date') || null,
+        first_work_date: formData.get('first_work_date') || null,
     };
     const position = {
         company_name: formData.get('company_name') || null,
@@ -733,6 +738,11 @@ async function viewPerson(personId) {
                 { label: '地址', value: basic.address },
                 { label: '出生日期', value: basic.birth_date },
                 { label: '性别', value: basic.gender },
+                { label: '毕业院校', value: basic.graduation_school },
+                { label: '专业', value: basic.major },
+                { label: '学历类型', value: basic.education_level },
+                { label: '毕业时间', value: basic.graduation_date },
+                { label: '首次参加工作时间', value: basic.first_work_date },
             ],
             3
         );

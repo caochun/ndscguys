@@ -27,6 +27,16 @@ def init_db(db_path: str):
         """
     )
 
+    # 项目注册表（仅用于生成 project_id）
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
     # 基础信息状态流
     cursor.execute(
         """
@@ -394,12 +404,52 @@ def init_db(db_path: str):
         """
     )
 
+    # 项目基础信息状态流
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS project_basic_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            version INTEGER NOT NULL,
+            ts TEXT NOT NULL,
+            data TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id),
+            UNIQUE(project_id, version)
+        )
+        """
+    )
+
+    # 人员参与项目状态流
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS person_project_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            person_id INTEGER NOT NULL,
+            project_id INTEGER NOT NULL,
+            version INTEGER NOT NULL,
+            ts TEXT NOT NULL,
+            data TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (person_id) REFERENCES persons(id),
+            FOREIGN KEY (project_id) REFERENCES projects(id),
+            UNIQUE(person_id, project_id, version)
+        )
+        """
+    )
+
     # 创建索引以优化查询
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_attendance_person_date ON attendance_records(person_id, date)"
     )
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_leave_person_date ON leave_records(person_id, leave_date)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_person_project ON person_project_history(person_id, project_id)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_project_basic ON project_basic_history(project_id)"
     )
 
     conn.commit()
@@ -409,6 +459,13 @@ def init_db(db_path: str):
 def create_person(conn: sqlite3.Connection) -> int:
     cursor = conn.cursor()
     cursor.execute("INSERT INTO persons DEFAULT VALUES")
+    conn.commit()
+    return cursor.lastrowid
+
+
+def create_project(conn: sqlite3.Connection) -> int:
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO projects DEFAULT VALUES")
     conn.commit()
     return cursor.lastrowid
 

@@ -8,6 +8,7 @@ from flask import Blueprint, current_app, jsonify, request
 from app.services.person_service import PersonService
 from app.services.attendance_service import AttendanceService
 from app.services.leave_service import LeaveService
+from app.services.project_service import ProjectService
 from app.models.person_payloads import PayloadValidationError
 
 api_bp = Blueprint("api", __name__)
@@ -26,6 +27,11 @@ def get_attendance_service() -> AttendanceService:
 def get_leave_service() -> LeaveService:
     db_path = current_app.config["DATABASE_PATH"]
     return LeaveService(db_path)
+
+
+def get_project_service() -> ProjectService:
+    db_path = current_app.config["DATABASE_PATH"]
+    return ProjectService(db_path)
 
 
 @api_bp.route("/persons", methods=["GET"])
@@ -598,4 +604,93 @@ def delete_leave(record_id: int):
     if not deleted:
         return jsonify({"success": False, "error": "leave record not found"}), 404
     return jsonify({"success": True})
+
+
+# ========== 项目相关 API ==========
+
+@api_bp.route("/projects", methods=["GET"])
+def list_projects():
+    service = get_project_service()
+    projects = service.list_projects()
+    return jsonify({"success": True, "data": projects})
+
+
+@api_bp.route("/projects", methods=["POST"])
+def create_project():
+    service = get_project_service()
+    payload = request.get_json() or {}
+    project_data = payload.get("project") or payload
+    try:
+        project_id = service.create_project(project_data)
+    except PayloadValidationError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    return jsonify({"success": True, "data": {"project_id": project_id}})
+
+
+@api_bp.route("/projects/<int:project_id>", methods=["GET"])
+def get_project(project_id: int):
+    service = get_project_service()
+    result = service.get_project(project_id)
+    if not result:
+        return jsonify({"success": False, "error": "project not found"}), 404
+    return jsonify({"success": True, "data": result})
+
+
+@api_bp.route("/projects/<int:project_id>", methods=["POST"])
+def append_project_change(project_id: int):
+    """追加一条项目信息变更"""
+    service = get_project_service()
+    payload = request.get_json() or {}
+    project_data = payload.get("project") or payload
+    try:
+        service.append_project_change(project_id, project_data)
+    except PayloadValidationError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    return jsonify({"success": True})
+
+
+@api_bp.route("/projects/<int:project_id>/persons", methods=["GET"])
+def get_project_persons(project_id: int):
+    """获取项目参与的所有人员"""
+    service = get_person_service()
+    persons = service.get_project_persons(project_id)
+    return jsonify({"success": True, "data": persons})
+
+
+# ========== 人员参与项目相关 API ==========
+
+@api_bp.route("/persons/<int:person_id>/projects", methods=["GET"])
+def get_person_projects(person_id: int):
+    """获取人员参与的所有项目"""
+    service = get_person_service()
+    projects = service.get_person_projects(person_id)
+    return jsonify({"success": True, "data": projects})
+
+
+@api_bp.route("/persons/<int:person_id>/projects", methods=["POST"])
+def append_person_project_change(person_id: int):
+    """追加一条人员参与项目信息变更"""
+    service = get_person_service()
+    payload = request.get_json() or {}
+    project_data = payload.get("project") or payload
+    try:
+        project_id = project_data.get("project_id")
+        if not project_id:
+            return jsonify({"success": False, "error": "project_id is required"}), 400
+        service.append_person_project_change(person_id, project_id, project_data)
+    except PayloadValidationError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    return jsonify({"success": True})
+
+
+@api_bp.route("/persons/<int:person_id>/projects/<int:project_id>/history", methods=["GET"])
+def get_person_project_history(person_id: int, project_id: int):
+    """获取人员参与项目的历史记录"""
+    service = get_person_service()
+    history = service.get_person_project_history(person_id, project_id)
+    return jsonify({"success": True, "data": history})
 
