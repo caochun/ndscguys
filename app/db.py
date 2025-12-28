@@ -452,6 +452,27 @@ def init_db(db_path: str):
         "CREATE INDEX IF NOT EXISTS idx_project_basic ON project_basic_history(project_id)"
     )
 
+    # 薪资计算规则表（DSL配置）
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS payroll_calculation_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            version TEXT NOT NULL,
+            dsl_config TEXT NOT NULL,
+            is_active INTEGER DEFAULT 0,
+            effective_date TEXT,
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_payroll_rules_active ON payroll_calculation_rules(is_active)"
+    )
+
     conn.commit()
     conn.close()
 

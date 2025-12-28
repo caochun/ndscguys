@@ -64,9 +64,37 @@ class PersonService:
         self.tax_deduction_dao = PersonTaxDeductionStateDAO(db_path=db_path)
         self.tax_deduction_batch_dao = TaxDeductionBatchDAO(db_path=db_path)
         self.person_project_dao = PersonProjectStateDAO(db_path=db_path)
+        
+        # 加载 DSL 配置
+        self.dsl_interpreter = self._load_dsl_config()
 
     def _get_connection(self) -> sqlite3.Connection:
         return self.basic_dao.get_connection()
+    
+    def _load_dsl_config(self) -> Optional[Dict[str, Any]]:
+        """从数据库加载激活的 DSL 配置，只返回 configs 部分"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT dsl_config FROM payroll_calculation_rules
+            WHERE is_active = 1
+            ORDER BY updated_at DESC
+            LIMIT 1
+            """
+        )
+        row = cursor.fetchone()
+        if row:
+            try:
+                import yaml
+                dsl_config = yaml.safe_load(row[0])
+                # 只返回 configs 部分
+                return dsl_config.get("configs", {})
+            except Exception as e:
+                # 如果加载失败，记录错误但继续使用原有逻辑
+                print(f"Failed to load DSL config: {e}")
+                return None
+        return None
 
     def list_persons(self) -> List[Dict[str, Any]]:
         conn = self._get_connection()
@@ -526,7 +554,7 @@ class PersonService:
         batch_period: str,
     ) -> Optional[Dict[str, Any]]:
         """
-        根据当前各状态，计算某人的本期薪酬构成。
+        原有的硬编码计算逻辑（作为后备）
         - 月薪制：
           * 试用期员工：月薪 × 80% → 基数 + 绩效（按考核系数） – 补扣 – 个人社保/公积金
           * 其他员工：基数 + 绩效（按考核系数） – 补扣 – 个人社保/公积金
@@ -559,29 +587,40 @@ class PersonService:
         assessment_data = assessment_state.data if assessment_state else {}
         grade = (assessment_data or {}).get("grade")
 
-        # 定义绩效系数
-        grade_factor_map = {
-            "A": 1.2,
-            "B": 1.0,
-            "C": 0.8,
-            "D": 0.5,
-            "E": 0.0,
-        }
-        performance_factor = grade_factor_map.get(grade, 1.0)
+        # 从 DSL 配置获取绩效系数，如果没有则使用默认值
+        if self.dsl_interpreter:
+            perf_factors = self.dsl_interpreter.get("performance_factors", {})
+            performance_factor = perf_factors.get(grade, perf_factors.get("default", 1.0))
+        else:
+            # 默认绩效系数
+            grade_factor_map = {
+                "A": 1.2,
+                "B": 1.0,
+                "C": 0.8,
+                "D": 0.5,
+                "E": 0.0,
+            }
+            performance_factor = grade_factor_map.get(grade, 1.0)
 
         # 员工类别 & 拆分基数/绩效比例
         position_state = self.position_dao.get_latest(person_id)
         position_data = position_state.data if position_state else {}
         employee_type = position_data.get("employee_type")
 
-        # 默认拆分比例（可后续抽到配置）
-        split_config = {
-            "正式员工": (0.7, 0.3),
-            "试用员工": (0.8, 0.2),
-            "实习员工": (1.0, 0.0),
-            "部分负责人": (0.6, 0.4),
-        }
-        base_ratio, perf_ratio = split_config.get(employee_type, (0.7, 0.3))
+        # 从 DSL 配置获取拆分比例，如果没有则使用默认值
+        if self.dsl_interpreter:
+            split_ratios = self.dsl_interpreter.get("split_ratios", {})
+            split_ratio = split_ratios.get(employee_type, split_ratios.get("default", [0.7, 0.3]))
+            base_ratio, perf_ratio = split_ratio[0], split_ratio[1]
+        else:
+            # 默认拆分比例
+            split_config = {
+                "正式员工": (0.7, 0.3),
+                "试用员工": (0.8, 0.2),
+                "实习员工": (1.0, 0.0),
+                "部分负责人": (0.6, 0.4),
+            }
+            base_ratio, perf_ratio = split_config.get(employee_type, (0.7, 0.3))
 
         # 考勤/请假补扣：复用考勤服务
         from app.services.attendance_service import AttendanceService
@@ -593,8 +632,11 @@ class PersonService:
         summary = attendance_service.get_monthly_summary(
             person_id, year_i, month_i
         )
-        # 简化：expected_days 从 summary 中取，取不到则默认 22
-        expected_days = summary.get("expected_days") or 22
+        # 从 DSL 配置获取默认工作天数，如果没有则使用默认值 22
+        default_work_days = 22
+        if self.dsl_interpreter:
+            default_work_days = self.dsl_interpreter.get("default_work_days", 22)
+        expected_days = summary.get("expected_days") or default_work_days
         actual_days = summary.get("actual_days") or expected_days
 
         # 统计当月请假（目前只用于日薪实发天数；月薪部分仍用 expected_days/actual_days 推扣）
@@ -680,9 +722,12 @@ class PersonService:
         monthly_amount = amount
         original_monthly_amount = amount  # 保存原始月薪
         
-        # 试用期员工先按比例打折（例如80%）
+        # 试用期员工先按比例打折，从 DSL 配置获取折扣
         if employee_type in ("试用期员工", "试用员工"):
-            monthly_amount = monthly_amount * 0.8
+            discount = 0.8  # 默认值
+            if self.dsl_interpreter:
+                discount = self.dsl_interpreter.get("probation_discount", 0.8)
+            monthly_amount = monthly_amount * discount
 
         salary_base_amount = monthly_amount * base_ratio
         salary_performance_base = monthly_amount * perf_ratio
@@ -690,7 +735,10 @@ class PersonService:
 
         # 简单考勤扣款：缺勤天数 × 日薪
         # 注意：日薪基于打折后的月薪计算
-        day_salary = monthly_amount / float(expected_days or 22)
+        default_work_days = 22
+        if self.dsl_interpreter:
+            default_work_days = self.dsl_interpreter.get("default_work_days", 22)
+        day_salary = monthly_amount / float(expected_days or default_work_days)
         absent_days = max(0, (expected_days or 0) - (actual_days or 0))
         attendance_deduction = day_salary * absent_days
 
@@ -1004,20 +1052,49 @@ class PersonService:
                 continue
             original = existing_items[item_id]
             other_deduction = f_or_0(payload.get("other_deduction"))
-
+            
+            # 如果修改了考核等级和绩效系数，需要重新计算绩效相关字段
+            assessment_grade = payload.get("assessment_grade")
+            performance_factor = payload.get("performance_factor")
+            
+            # 计算扣前应发金额
             gross = f_or_0(original.get("gross_amount_before_deductions"))
+            
+            if assessment_grade is not None and performance_factor is not None:
+                # 重新计算绩效金额和扣前应发
+                salary_performance_base = f_or_0(original.get("salary_performance_base", 0))
+                salary_base_amount = f_or_0(original.get("salary_base_amount", 0))
+                
+                new_performance_amount = salary_performance_base * float(performance_factor)
+                gross = salary_base_amount + new_performance_amount
+            
             attendance = f_or_0(original.get("attendance_deduction"))
             social = f_or_0(original.get("social_personal_amount"))
             housing = f_or_0(original.get("housing_personal_amount"))
 
             net_amount_before_tax = gross - attendance - social - housing - other_deduction
 
+            # 构建更新数据
+            update_data = {
+                "other_deduction": other_deduction,
+                "net_amount_before_tax": net_amount_before_tax,
+            }
+            
+            # 如果修改了考核等级和绩效系数，更新相关字段
+            if assessment_grade is not None and performance_factor is not None:
+                salary_performance_base = f_or_0(original.get("salary_performance_base", 0))
+                salary_base_amount = f_or_0(original.get("salary_base_amount", 0))
+                new_performance_amount = salary_performance_base * float(performance_factor)
+                update_data.update({
+                    "assessment_grade": assessment_grade,
+                    "performance_factor": float(performance_factor),
+                    "performance_amount": new_performance_amount,
+                    "gross_amount_before_deductions": salary_base_amount + new_performance_amount,
+                })
+
             self.payroll_batch_dao.update_item(
                 item_id=item_id,
-                new_data={
-                    "other_deduction": other_deduction,
-                    "net_amount_before_tax": net_amount_before_tax,
-                },
+                new_data=update_data,
             )
 
     def execute_payroll_batch(self, batch_id: int) -> Dict[str, Any]:

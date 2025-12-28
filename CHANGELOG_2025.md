@@ -1,147 +1,126 @@
-# 项目变更日志 - 2025年
+# 项目进展记录 - 2025年
 
-## 2025-01-XX - 项目管理功能完善与代码重构
+## 2025-01-XX - 薪酬批量发放预览表格优化与DSL系统简化
 
-### 新增功能
+### 一、DSL系统简化
 
-#### 1. 项目管理页面
-- **前端页面**：创建了 `projects.html` 项目管理页面
-  - 项目列表以卡片形式展示，显示合同名称、甲方单位、项目经理、起止时间
-  - 支持创建新项目（模态框表单）
-  - 项目详情模态框包含三个标签页：
-    - **基本信息**：可编辑项目信息（合同名称、起止时间、甲方信息等）
-    - **参与人员**：显示项目参与人员列表，支持添加新人员，项目经理以蓝色高亮显示
-    - **历史记录**：显示项目信息变更历史
-  - 添加参与人员模态框，支持设置入项岗位、评定等级、单价、流程状态等信息
+#### 1.1 简化配置结构
+- **变更**：将复杂的DSL系统简化为仅保留配置映射部分
+- **移除**：删除了复杂的 `rules` 和 `calculations` 定义
+- **保留**：只保留 `configs` 部分，包含：
+  - `performance_factors`: 绩效系数映射
+  - `split_ratios`: 基数/绩效拆分比例
+  - `probation_discount`: 试用期折扣
+  - `default_work_days`: 默认工作天数
+- **优势**：更简单、更安全，用户只需修改配置参数，计算逻辑由系统固定
 
-- **前端逻辑**：创建了 `projects.js` 实现完整的项目管理交互
-  - 项目列表加载与渲染
-  - 项目创建、编辑、详情查看
-  - 参与人员管理（添加、查看历史）
-  - 项目历史记录展示
+#### 1.2 代码调整
+- 修改 `PersonService._load_dsl_config()` 方法，只返回 `configs` 部分
+- 修改 `PersonService._calculate_payroll_for_person()` 方法，从配置中读取参数但使用固定计算逻辑
+- 更新 API 验证逻辑，只验证 `configs` 部分
+- 更新前端编辑器，简化默认模板
 
-- **导航菜单**：在 `layout.html` 中添加了"项目"导航菜单项
+#### 1.3 文件清理
+- 删除了 `DSL_README.md` 和 `DSL_IMPLEMENTATION.md` 文档文件
 
-- **路由配置**：在 `routes.py` 中添加了 `/projects` 路由
+### 二、薪酬批量发放预览表格优化
 
-#### 2. 项目种子数据
-- 在 `seed.py` 中添加了 `seed_projects()` 函数
-- 自动创建 6 个示例项目，每个项目分配 3-8 名参与人员
-- 确保每个项目至少有一个人员被设置为"项目经理"
-- 为部分项目添加信息变更历史记录
+#### 2.1 两层表头设计
+- **实现**：将单层表头改为两层表头结构
+- **第一层（分组标题）**：
+  - 基础信息（5列）
+  - 考勤信息（1列）
+  - 社保公积金基数（2列）
+  - 月薪制计算参数（2列）
+  - 薪资构成（4列）
+  - 扣款项（4列）
+  - 应发（税前）（1列）
+- **第二层（具体列名）**：显示每个分组下的具体列名
+- **样式**：
+  - 第一层：蓝色背景（#2196F3），白色文字，加粗
+  - 第二层：浅蓝色背景（#42A5F5），白色文字
 
-### 架构优化
+#### 2.2 列合并优化
+- **考勤信息**：将"预期天数"、"实际天数"、"缺勤天数"三列合并为一列
+  - 显示格式：`22/20/2`（预期/实际/缺勤）
+  - 表头两层：第一层显示"考勤信息"，第二层显示"预期/实际/缺勤"
+- **基数/绩效比例**：将"基数比例"和"绩效比例"合并为一列
+  - 显示格式：`0.7/0.3`（基数比例/绩效比例）
+- **考核等级与绩效系数**：将"考核等级"和"绩效系数"合并为一列
+  - 显示格式：`B(1.0)`（考核等级(绩效系数)）
+  - 列名简化为"考核"
 
-#### 1. 项目相关逻辑分离
-- **创建新模块**：`app/models/project_payloads.py`
-  - 将项目相关的 payload 校验逻辑从 `person_payloads.py` 中分离出来
-  - 包含 `sanitize_project_payload()` 和 `sanitize_person_project_payload()` 两个函数
-  - 从 `person_payloads.py` 导入共享的工具函数和异常类
+#### 2.3 列位置调整
+- **调整后薪资**：从"月薪制计算参数"组移动到"基础信息"组
+  - 位置：在"原始薪资"之后，"员工类别"之前
+- **考核等级**：从"基础信息"组移动到"月薪制计算参数"组
+  - 与"绩效系数"合并显示
 
-- **更新引用**：
-  - `app/services/project_service.py` - 改为从 `project_payloads` 导入
-  - `app/services/person_service.py` - 改为从 `project_payloads` 导入 `sanitize_person_project_payload`
+#### 2.4 表格列数优化
+- **优化前**：24列
+- **优化后**：20列
+- **表格宽度**：从 2000px 调整为 1800px
 
-- **设计优势**：
-  - 职责更清晰：`person_payloads.py` 只处理人员相关，`project_payloads.py` 只处理项目相关
-  - 模块一致性：与 `project_states/` 目录结构对应
-  - 更易维护：项目相关校验逻辑独立，便于扩展
+### 三、考核等级下拉选择功能
 
-#### 2. 项目设计思路调整
-- **移除 `our_project_manager` 字段**：
-  - 从 `project_basic_history` 中移除了"我方项目经理"字段
-  - 项目作为独立实体，只包含项目本身的信息（合同、甲方、时间等）
-  - 人员参与项目的过程作为事件记录在 `person_project_history` 中
-  - 项目经理信息通过 `person_project_history` 中的 `project_position` 字段来记录
+#### 3.1 API端点
+- **新增**：`GET /api/payroll/config/performance-factors`
+- **功能**：获取绩效系数配置（从激活的DSL规则或默认配置）
+- **返回**：绩效系数映射字典，例如 `{A: 1.2, B: 1.0, C: 0.8, D: 0.5, E: 0.0}`
 
-- **服务层增强**：
-  - 在 `ProjectService` 中添加了 `get_current_project_manager()` 方法
-  - 从 `person_project_history` 中查询当前项目经理（角色为"项目经理"的最新记录）
-  - `list_projects()` 和 `get_project()` 方法返回数据中包含 `current_manager` 字段
+#### 3.2 前端功能
+- **下拉列表**：在预览模式下，"考核"列显示下拉选择框
+- **选项格式**：`A(1.2)`, `B(1.0)` 等，显示考核等级和对应绩效系数
+- **自动计算**：选择考核等级后，自动：
+  - 更新绩效系数
+  - 重新计算绩效金额 = 绩效基数 × 绩效系数
+  - 重新计算扣前应发 = 基数部分 + 绩效金额
+  - 重新计算应发（税前）= 扣前应发 - 考勤扣款 - 个人社保 - 个人公积金 - 其他补扣
+- **数据保存**：确认时保存考核等级和绩效系数的修改
 
-- **前端优化**：
-  - 项目卡片和详情中从 `current_manager` 获取项目经理信息
-  - 参与人员列表中，项目经理以蓝色高亮显示，并添加左侧边框
+#### 3.3 后端支持
+- **更新方法**：修改 `PersonService.update_payroll_batch_items()` 方法
+- **支持字段**：
+  - `assessment_grade`: 考核等级
+  - `performance_factor`: 绩效系数
+  - `performance_amount`: 绩效金额（自动计算）
+  - `gross_amount_before_deductions`: 扣前应发（自动计算）
+  - `net_amount_before_tax`: 应发（税前）（自动计算）
 
-### Bug 修复
+#### 3.4 用户体验
+- **实时反馈**：选择考核等级后立即更新相关金额
+- **视觉提示**：下拉列表显示格式清晰（等级(系数)）
+- **数据来源**：从DSL配置读取，确保与系统规则一致
 
-#### 1. 模态框标签重叠问题
-- **问题**：Materialize CSS 的标签在模态框打开时与输入框重叠，需要点击输入框后标签才会动画移动到上方
+### 四、技术细节
 
-- **修复方案**：
-  - 移除了所有不必要的 `class="active"` 标签（特别是日期字段）
-  - 调整了所有打开模态框并填充数据的函数：
-    - 先打开模态框
-    - 延迟 100ms 后调用 `M.updateTextFields()` 更新标签位置
-  - 表单重置后也调用 `M.updateTextFields()`
+#### 4.1 文件修改清单
+- `app/services/person_service.py`: DSL配置加载和薪资计算逻辑
+- `app/api.py`: 新增绩效系数配置API端点
+- `app/static/js/payroll_batch.js`: 表格渲染和考核等级选择功能
+- `app/templates/payroll_batch.html`: 表格样式优化
+- `config/payroll_rules.yaml`: 简化的DSL配置文件
 
-- **修复的模态框**：
-  - 项目相关：创建项目、编辑项目、添加参与人员
-  - 人员相关：创建人员、任职调整、薪资调整、社保调整、公积金调整、考核记录、个税抵扣
-  - 考勤相关：新增考勤
-  - 请假相关：新增请假
+#### 4.2 数据库字段
+- `payroll_batch_items` 表支持更新：
+  - `assessment_grade`
+  - `performance_factor`
+  - `performance_amount`
+  - `gross_amount_before_deductions`
+  - `net_amount_before_tax`
 
-### 技术细节
+### 五、改进效果
 
-#### 1. 项目状态管理
-- 项目基础信息存储在 `project_basic_history` 表中
-- 人员参与项目信息存储在 `person_project_history` 表中（复合键：`person_id` + `project_id`）
-- 支持项目信息变更的历史追溯
-- 支持人员参与项目的历史追溯
+1. **表格更清晰**：两层表头结构，信息分组明确
+2. **空间更节省**：从24列减少到20列，表格宽度减少200px
+3. **操作更便捷**：考核等级可通过下拉选择，自动计算相关金额
+4. **配置更简单**：DSL系统只保留配置映射，降低使用门槛
+5. **维护更容易**：计算逻辑固定，只需调整配置参数
 
-#### 2. 项目经理查询逻辑
-```python
-def get_current_project_manager(self, project_id: int) -> Optional[Dict[str, Any]]:
-    """从 person_project_history 中查询当前项目经理"""
-    # 查找角色为"项目经理"的最新记录
-    # 返回人员ID、姓名、角色、时间戳等信息
-```
+### 六、后续优化建议
 
-#### 3. 前端标签动画处理
-```javascript
-// 先打开模态框
-modal.open();
-
-// 延迟更新标签位置
-setTimeout(() => {
-    M.updateTextFields();
-}, 100);
-```
-
-### 文件变更清单
-
-#### 新增文件
-- `app/models/project_payloads.py` - 项目相关 payload 校验
-- `app/templates/projects.html` - 项目管理页面模板
-- `app/static/js/projects.js` - 项目管理前端逻辑
-
-#### 修改文件
-- `app/templates/layout.html` - 添加项目导航菜单
-- `app/routes.py` - 添加项目页面路由
-- `app/models/person_payloads.py` - 移除项目相关函数
-- `app/services/project_service.py` - 更新导入，添加项目经理查询方法
-- `app/services/person_service.py` - 更新导入
-- `app/seed.py` - 添加项目种子数据生成
-- `app/templates/persons.html` - 移除不必要的 `class="active"` 标签
-- `app/templates/projects.html` - 移除不必要的 `class="active"` 标签
-- `app/templates/attendance.html` - 移除不必要的 `class="active"` 标签
-- `app/templates/leave.html` - 移除不必要的 `class="active"` 标签
-- `app/static/js/persons.js` - 修复模态框标签动画，调整 `M.updateTextFields()` 调用时机
-- `app/static/js/projects.js` - 修复模态框标签动画，添加项目经理显示逻辑
-- `app/static/js/attendance.js` - 修复表单重置后的标签更新
-- `app/static/js/leave.js` - 修复表单重置后的标签更新
-
-### 设计理念
-
-1. **职责分离**：项目相关逻辑独立成模块，与人员相关逻辑分离
-2. **事件溯源**：人员参与项目作为事件记录，支持历史追溯
-3. **数据一致性**：项目经理信息统一在 `person_project_history` 中，避免数据冗余
-4. **用户体验**：修复所有模态框的标签显示问题，提升交互体验
-
-### 下一步建议
-
-1. 考虑添加项目状态管理（进行中、已完成、暂停等）
-2. 支持项目参与人员的角色变更（如从"前端开发"变更为"技术负责人"）
-3. 添加项目统计功能（按项目统计参与人员、按人员统计参与项目等）
-4. 优化项目经理查询性能（如果数据量大，可以考虑缓存）
-
+1. 考虑添加更多可编辑字段的下拉选择（如员工类别、薪资类型等）
+2. 优化表格响应式设计，在小屏幕上自动调整列宽
+3. 添加批量修改考核等级的功能
+4. 考虑添加考核等级变更历史记录
+5. 优化表格性能，支持大量数据的分页或虚拟滚动

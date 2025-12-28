@@ -694,3 +694,391 @@ def get_person_project_history(person_id: int, project_id: int):
     history = service.get_person_project_history(person_id, project_id)
     return jsonify({"success": True, "data": history})
 
+
+# ========== 薪资计算 DSL 管理 API ==========
+
+@api_bp.route("/payroll/dsl-rules", methods=["GET"])
+def list_payroll_dsl_rules():
+    """列出所有薪资计算规则"""
+    import sqlite3
+    from flask import current_app
+    
+    db_path = current_app.config["DATABASE_PATH"]
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute(
+        """
+        SELECT id, name, version, is_active, effective_date, description, 
+               created_at, updated_at
+        FROM payroll_calculation_rules
+        ORDER BY updated_at DESC
+        """
+    )
+    rows = cursor.fetchall()
+    rules = [dict(row) for row in rows]
+    conn.close()
+    
+    return jsonify({"success": True, "data": rules})
+
+
+@api_bp.route("/payroll/dsl-rules/<int:rule_id>", methods=["GET"])
+def get_payroll_dsl_rule(rule_id: int):
+    """获取指定规则详情"""
+    import sqlite3
+    from flask import current_app
+    
+    db_path = current_app.config["DATABASE_PATH"]
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute(
+        """
+        SELECT id, name, version, dsl_config, is_active, effective_date, 
+               description, created_at, updated_at
+        FROM payroll_calculation_rules
+        WHERE id = ?
+        """,
+        (rule_id,)
+    )
+    row = cursor.fetchone()
+    conn.close()
+    
+    if not row:
+        return jsonify({"success": False, "error": "Rule not found"}), 404
+    
+    rule = dict(row)
+    return jsonify({"success": True, "data": rule})
+
+
+@api_bp.route("/payroll/dsl-rules", methods=["POST"])
+def create_payroll_dsl_rule():
+    """创建新的薪资计算规则"""
+    import sqlite3
+    from flask import current_app
+    
+    payload = request.get_json() or {}
+    name = payload.get("name")
+    version = payload.get("version", "1.0")
+    dsl_config = payload.get("dsl_config")
+    description = payload.get("description", "")
+    effective_date = payload.get("effective_date")
+    is_active = payload.get("is_active", 0)
+    
+    if not name or not dsl_config:
+        return jsonify({"success": False, "error": "name and dsl_config are required"}), 400
+    
+    # 验证 DSL 配置（只需要验证 configs 部分）
+    try:
+        import yaml
+        if isinstance(dsl_config, str):
+            config_dict = yaml.safe_load(dsl_config)
+        else:
+            config_dict = dsl_config
+        
+        # 验证配置结构
+        if "configs" not in config_dict:
+            return jsonify({"success": False, "error": "Missing 'configs' section"}), 400
+        
+        configs = config_dict.get("configs", {})
+        required_keys = ["performance_factors", "split_ratios", "probation_discount", "default_work_days"]
+        missing_keys = [key for key in required_keys if key not in configs]
+        if missing_keys:
+            return jsonify({"success": False, "error": f"Missing required config keys: {', '.join(missing_keys)}"}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Invalid DSL config: {str(e)}"}), 400
+    
+    db_path = current_app.config["DATABASE_PATH"]
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # 如果设置为激活，先取消其他规则的激活状态
+    if is_active:
+        cursor.execute(
+            "UPDATE payroll_calculation_rules SET is_active = 0 WHERE is_active = 1"
+        )
+    
+    # 如果 dsl_config 是字典，转换为 YAML 字符串
+    if isinstance(dsl_config, dict):
+        import yaml
+        dsl_config = yaml.dump(dsl_config, allow_unicode=True)
+    
+    cursor.execute(
+        """
+        INSERT INTO payroll_calculation_rules 
+        (name, version, dsl_config, is_active, effective_date, description)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (name, version, dsl_config, is_active, effective_date, description)
+    )
+    rule_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"success": True, "data": {"rule_id": rule_id}})
+
+
+@api_bp.route("/payroll/dsl-rules/<int:rule_id>", methods=["PUT"])
+def update_payroll_dsl_rule(rule_id: int):
+    """更新薪资计算规则"""
+    import sqlite3
+    from flask import current_app
+    
+    payload = request.get_json() or {}
+    
+    db_path = current_app.config["DATABASE_PATH"]
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # 检查规则是否存在
+    cursor.execute("SELECT id FROM payroll_calculation_rules WHERE id = ?", (rule_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return jsonify({"success": False, "error": "Rule not found"}), 404
+    
+    # 构建更新语句
+    updates = []
+    values = []
+    
+    if "name" in payload:
+        updates.append("name = ?")
+        values.append(payload["name"])
+    
+    if "version" in payload:
+        updates.append("version = ?")
+        values.append(payload["version"])
+    
+    if "dsl_config" in payload:
+        dsl_config = payload["dsl_config"]
+        # 验证 DSL 配置（只需要验证 configs 部分）
+        try:
+            import yaml
+            if isinstance(dsl_config, str):
+                config_dict = yaml.safe_load(dsl_config)
+            else:
+                config_dict = dsl_config
+            
+            # 验证配置结构
+            if "configs" not in config_dict:
+                conn.close()
+                return jsonify({"success": False, "error": "Missing 'configs' section"}), 400
+            
+            configs = config_dict.get("configs", {})
+            required_keys = ["performance_factors", "split_ratios", "probation_discount", "default_work_days"]
+            missing_keys = [key for key in required_keys if key not in configs]
+            if missing_keys:
+                conn.close()
+                return jsonify({"success": False, "error": f"Missing required config keys: {', '.join(missing_keys)}"}), 400
+        except Exception as e:
+            conn.close()
+            return jsonify({"success": False, "error": f"Invalid DSL config: {str(e)}"}), 400
+        
+        # 转换为 YAML 字符串
+        if isinstance(dsl_config, dict):
+            import yaml
+            dsl_config = yaml.dump(dsl_config, allow_unicode=True)
+        
+        updates.append("dsl_config = ?")
+        values.append(dsl_config)
+    
+    if "description" in payload:
+        updates.append("description = ?")
+        values.append(payload.get("description", ""))
+    
+    if "effective_date" in payload:
+        updates.append("effective_date = ?")
+        values.append(payload.get("effective_date"))
+    
+    if "is_active" in payload:
+        is_active = payload["is_active"]
+        updates.append("is_active = ?")
+        values.append(is_active)
+        
+        # 如果设置为激活，取消其他规则的激活状态
+        if is_active:
+            cursor.execute(
+                "UPDATE payroll_calculation_rules SET is_active = 0 WHERE is_active = 1 AND id != ?",
+                (rule_id,)
+            )
+    
+    if updates:
+        updates.append("updated_at = CURRENT_TIMESTAMP")
+        values.append(rule_id)
+        
+        cursor.execute(
+            f"UPDATE payroll_calculation_rules SET {', '.join(updates)} WHERE id = ?",
+            values
+        )
+        conn.commit()
+    
+    conn.close()
+    return jsonify({"success": True})
+
+
+@api_bp.route("/payroll/dsl-rules/<int:rule_id>/activate", methods=["POST"])
+def activate_payroll_dsl_rule(rule_id: int):
+    """激活指定的薪资计算规则"""
+    import sqlite3
+    from flask import current_app
+    
+    db_path = current_app.config["DATABASE_PATH"]
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # 检查规则是否存在
+    cursor.execute("SELECT id FROM payroll_calculation_rules WHERE id = ?", (rule_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return jsonify({"success": False, "error": "Rule not found"}), 404
+    
+    # 取消其他规则的激活状态
+    cursor.execute(
+        "UPDATE payroll_calculation_rules SET is_active = 0 WHERE is_active = 1"
+    )
+    
+    # 激活指定规则
+    cursor.execute(
+        "UPDATE payroll_calculation_rules SET is_active = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (rule_id,)
+    )
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"success": True})
+
+
+@api_bp.route("/payroll/dsl-rules/<int:rule_id>", methods=["DELETE"])
+def delete_payroll_dsl_rule(rule_id: int):
+    """删除薪资计算规则"""
+    import sqlite3
+    from flask import current_app
+    
+    db_path = current_app.config["DATABASE_PATH"]
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    cursor.execute("DELETE FROM payroll_calculation_rules WHERE id = ?", (rule_id,))
+    deleted = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    
+    if not deleted:
+        return jsonify({"success": False, "error": "Rule not found"}), 404
+    
+    return jsonify({"success": True})
+
+
+@api_bp.route("/payroll/dsl-rules/validate", methods=["POST"])
+def validate_payroll_dsl_rule():
+    """验证 DSL 配置语法"""
+    payload = request.get_json() or {}
+    dsl_config = payload.get("dsl_config")
+    
+    if not dsl_config:
+        return jsonify({"success": False, "error": "dsl_config is required"}), 400
+    
+    try:
+        import yaml
+        
+        if isinstance(dsl_config, str):
+            config_dict = yaml.safe_load(dsl_config)
+        else:
+            config_dict = dsl_config
+        
+        # 验证配置结构（只需要有 configs 部分）
+        if "configs" not in config_dict:
+            return jsonify({
+                "success": False,
+                "error": "Missing 'configs' section",
+                "data": {"valid": False}
+            }), 400
+        
+        # 验证必要的配置项
+        configs = config_dict.get("configs", {})
+        required_keys = ["performance_factors", "split_ratios", "probation_discount", "default_work_days"]
+        missing_keys = [key for key in required_keys if key not in configs]
+        if missing_keys:
+            return jsonify({
+                "success": False,
+                "error": f"Missing required config keys: {', '.join(missing_keys)}",
+                "data": {"valid": False}
+            }), 400
+        
+        return jsonify({
+            "success": True,
+            "data": {
+                "valid": True,
+                "name": config_dict.get("name", ""),
+                "version": config_dict.get("version", ""),
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "data": {"valid": False}
+        }), 400
+
+
+@api_bp.route("/payroll/config/performance-factors", methods=["GET"])
+def get_performance_factors():
+    """获取绩效系数配置（从激活的DSL规则或默认配置）"""
+    service = get_person_service()
+    
+    # 从 DSL 配置获取
+    if service.dsl_interpreter:
+        perf_factors = service.dsl_interpreter.get("performance_factors", {})
+    else:
+        # 默认值
+        perf_factors = {
+            "A": 1.2,
+            "B": 1.0,
+            "C": 0.8,
+            "D": 0.5,
+            "E": 0.0,
+            "default": 1.0,
+        }
+    
+    # 只返回 key-value 映射，排除 default
+    factors = {k: v for k, v in perf_factors.items() if k != "default"}
+    
+    return jsonify({"success": True, "data": factors})
+
+
+@api_bp.route("/payroll/dsl-rules/default", methods=["GET"])
+def get_default_payroll_dsl_rule():
+    """获取默认的 DSL 配置（从 config/payroll_rules.yaml）"""
+    from pathlib import Path
+    import yaml
+    
+    try:
+        config_path = Path(__file__).parent.parent / "config" / "payroll_rules.yaml"
+        
+        if not config_path.exists():
+            return jsonify({
+                "success": False,
+                "error": "Default config file not found"
+            }), 404
+        
+        with open(config_path, 'r', encoding='utf-8') as f:
+            dsl_content = f.read()
+        
+        # 解析 YAML 以获取元数据
+        config_dict = yaml.safe_load(dsl_content)
+        
+        return jsonify({
+            "success": True,
+            "data": {
+                "dsl_config": dsl_content,
+                "name": config_dict.get("name", "默认薪资计算规则"),
+                "version": config_dict.get("version", "1.0"),
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"Failed to load default config: {str(e)}"
+        }), 500
+

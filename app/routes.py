@@ -57,3 +57,8 @@ def statistics():
 def projects():
     return render_template("projects.html", active_page="projects")
 
+
+@web_bp.route("/payroll/dsl-editor")
+def payroll_dsl_editor():
+    return render_template("payroll_dsl_editor.html", active_page="payroll_dsl_editor")
+

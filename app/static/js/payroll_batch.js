@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     initDefaultBatchPeriod();
     loadPayrollBatchHistory();
+    loadPerformanceFactors(); // 加载绩效系数配置
 });
 
 function initDefaultBatchPeriod() {
@@ -143,6 +144,19 @@ async function executePayrollBatch(batchId) {
     }
 }
 
+async function loadPerformanceFactors() {
+    try {
+        const result = await fetchJSON('/api/payroll/config/performance-factors');
+        if (result.success) {
+            performanceFactors = result.data;
+        }
+    } catch (err) {
+        console.error('Failed to load performance factors:', err);
+        // 使用默认值
+        performanceFactors = { A: 1.2, B: 1.0, C: 0.8, D: 0.5, E: 0.0 };
+    }
+}
+
 function openPayrollPreviewModal(data, editable) {
     const modalElem = document.getElementById('payrollBatchPreviewModal');
     const titleElem = document.getElementById('payrollBatchPreviewTitle');
@@ -170,17 +184,22 @@ function openPayrollPreviewModal(data, editable) {
                 <td>${item.person_name || `ID:${item.person_id}`}</td>
                 <td>${item.salary_type || '-'}</td>
                 <td>${formatNumber(item.original_salary_amount)}</td>
+                <td>${isDailySalary ? '-' : formatNumber(item.adjusted_salary_amount)}</td>
                 <td>${item.employee_type || '-'}</td>
-                <td>${item.assessment_grade || '-'}</td>
-                <td>${formatNumber(item.expected_days)}</td>
-                <td>${formatNumber(item.actual_days)}</td>
-                <td>${formatNumber(item.absent_days !== undefined ? item.absent_days : (isDailySalary ? 0 : null))}</td>
+                <td>${formatNumber(item.expected_days)}/${formatNumber(item.actual_days)}/${formatNumber(item.absent_days !== undefined ? item.absent_days : (isDailySalary ? 0 : '-'))}</td>
                 <td>${formatNumber(item.social_base_amount)}</td>
                 <td>${formatNumber(item.housing_base_amount)}</td>
-                <td>${isDailySalary ? '-' : formatNumber(item.adjusted_salary_amount)}</td>
-                <td>${isDailySalary ? '-' : formatNumber(item.base_ratio)}</td>
-                <td>${isDailySalary ? '-' : formatNumber(item.perf_ratio)}</td>
-                <td>${isDailySalary ? '-' : formatNumber(item.performance_factor)}</td>
+                <td>${isDailySalary ? '-' : `${formatNumber(item.base_ratio)}/${formatNumber(item.perf_ratio)}`}</td>
+                <td>
+                    ${isDailySalary ? '-' : (editable ? `
+                        <select class="assessment-grade-select browser-default" data-item-id="${item.id}" style="width:80px; font-size:12px;">
+                            <option value="">-</option>
+                            ${Object.keys(performanceFactors).map(grade => 
+                                `<option value="${grade}" ${item.assessment_grade === grade ? 'selected' : ''}>${grade}(${performanceFactors[grade]})</option>`
+                            ).join('')}
+                        </select>
+                    ` : `${item.assessment_grade || '-'}(${formatNumber(item.performance_factor)})`)}
+                </td>
                 <td>${formatNumber(item.salary_base_amount)}</td>
                 <td>${formatNumber(item.salary_performance_base)}</td>
                 <td>${formatNumber(item.performance_amount)}</td>
@@ -200,22 +219,27 @@ function openPayrollPreviewModal(data, editable) {
     tableContainer.innerHTML = `
         <table class="striped responsive-table payroll-batch-table" style="font-size: 12px;">
             <thead>
-                <tr>
-                    <th>#</th>
+                <tr class="header-group-row">
+                    <th rowspan="2">#</th>
+                    <th colspan="5">基础信息</th>
+                    <th colspan="1">考勤信息</th>
+                    <th colspan="2">社保公积金基数</th>
+                    <th colspan="2">月薪制计算参数</th>
+                    <th colspan="4">薪资构成</th>
+                    <th colspan="4">扣款项</th>
+                    <th rowspan="2">应发（税前）</th>
+                </tr>
+                <tr class="header-detail-row">
                     <th>姓名</th>
                     <th>薪资类型</th>
                     <th>原始薪资</th>
+                    <th>调整后薪资</th>
                     <th>员工类别</th>
-                    <th>考核等级</th>
-                    <th>预期天数</th>
-                    <th>实际天数</th>
-                    <th>缺勤天数</th>
+                    <th>预期/实际/缺勤</th>
                     <th>社保基数</th>
                     <th>公积金基数</th>
-                    <th>调整后薪资</th>
-                    <th>基数比例</th>
-                    <th>绩效比例</th>
-                    <th>绩效系数</th>
+                    <th>基数/绩效比例</th>
+                    <th>考核</th>
                     <th>基数部分</th>
                     <th>绩效基数</th>
                     <th>绩效金额</th>
@@ -224,7 +248,6 @@ function openPayrollPreviewModal(data, editable) {
                     <th>个人社保</th>
                     <th>个人公积金</th>
                     <th>其他补扣</th>
-                    <th>应发（税前）</th>
                 </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -234,6 +257,15 @@ function openPayrollPreviewModal(data, editable) {
     const confirmBtn = document.getElementById('confirmPayrollBatchBtn');
     confirmBtn.dataset.batchId = data.batch_id;
     confirmBtn.onclick = editable ? confirmPayrollCurrentPreview : () => M.Modal.getInstance(modalElem).close();
+
+    // 如果是可编辑模式，绑定考核等级下拉列表的change事件
+    if (editable) {
+        tableContainer.querySelectorAll('.assessment-grade-select').forEach(select => {
+            select.addEventListener('change', function() {
+                updateAssessmentGrade(this);
+            });
+        });
+    }
 
     const modalInstance = M.Modal.getInstance(modalElem);
     const modal = modalInstance || M.Modal.init(modalElem, {
@@ -246,6 +278,45 @@ function openPayrollPreviewModal(data, editable) {
     modal.open();
 }
 
+function updateAssessmentGrade(selectElement) {
+    const itemId = Number(selectElement.dataset.itemId);
+    const selectedGrade = selectElement.value;
+    const row = selectElement.closest('tr');
+    
+    if (!selectedGrade || !performanceFactors[selectedGrade]) {
+        return;
+    }
+    
+    const performanceFactor = performanceFactors[selectedGrade];
+    
+    // 获取当前行的所有单元格（索引从1开始）
+    const cells = row.querySelectorAll('td');
+    
+    // 列索引：基数部分(11), 绩效基数(12), 绩效金额(13), 扣前应发(14)
+    // 考勤扣款(15), 个人社保(16), 个人公积金(17), 其他补扣(18), 应发税前(19)
+    const salaryBaseAmount = parseFloat(cells[10].textContent) || 0;  // 基数部分
+    const salaryPerformanceBase = parseFloat(cells[11].textContent) || 0;  // 绩效基数
+    
+    if (salaryPerformanceBase > 0) {
+        const newPerformanceAmount = salaryPerformanceBase * performanceFactor;
+        const grossAmount = salaryBaseAmount + newPerformanceAmount;
+        
+        // 更新表格中的绩效金额和扣前应发
+        cells[12].textContent = newPerformanceAmount.toFixed(2);  // 绩效金额
+        cells[13].textContent = grossAmount.toFixed(2);  // 扣前应发
+        
+        // 重新计算应发（税前）
+        const attendanceDeduction = parseFloat(cells[14].textContent) || 0;  // 考勤扣款
+        const socialPersonal = parseFloat(cells[15].textContent) || 0;  // 个人社保
+        const housingPersonal = parseFloat(cells[16].textContent) || 0;  // 个人公积金
+        const otherDeductionInput = row.querySelector('.other-deduction');
+        const otherDeduction = parseFloat(otherDeductionInput ? otherDeductionInput.value : 0) || 0;
+        
+        const netAmount = grossAmount - attendanceDeduction - socialPersonal - housingPersonal - otherDeduction;
+        cells[18].textContent = netAmount.toFixed(2);  // 应发（税前）
+    }
+}
+
 async function confirmPayrollCurrentPreview() {
     const btn = document.getElementById('confirmPayrollBatchBtn');
     const batchId = Number(btn.dataset.batchId);
@@ -254,10 +325,22 @@ async function confirmPayrollCurrentPreview() {
     const items = Array.from(rows).map((row) => {
         const id = Number(row.dataset.itemId);
         const otherDeduction = Number(row.querySelector('.other-deduction').value || 0);
-        return {
+        const assessmentSelect = row.querySelector('.assessment-grade-select');
+        const assessmentGrade = assessmentSelect ? assessmentSelect.value : null;
+        const performanceFactor = assessmentGrade && performanceFactors[assessmentGrade] ? performanceFactors[assessmentGrade] : null;
+        
+        const item = {
             id,
             other_deduction: otherDeduction,
         };
+        
+        // 如果修改了考核等级，需要重新计算并更新
+        if (assessmentGrade && performanceFactor !== null) {
+            item.assessment_grade = assessmentGrade;
+            item.performance_factor = performanceFactor;
+        }
+        
+        return item;
     });
     btn.disabled = true;
     try {

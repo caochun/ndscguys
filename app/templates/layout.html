@@ -29,7 +29,7 @@
             <li class="{% if active_page == 'projects' %}active{% endif %}">
                 <a href="{{ url_for('web.projects') }}">项目</a>
             </li>
-            <li class="{% if active_page in ['housing_batch', 'social_batch', 'payroll_batch', 'tax_deduction_batch'] %}active{% endif %}">
+            <li class="{% if active_page in ['housing_batch', 'social_batch', 'payroll_batch', 'tax_deduction_batch', 'payroll_dsl_editor'] %}active{% endif %}">
                 <a class="dropdown-trigger" href="#!" data-target="payroll-dropdown">
                     薪酬<i class="material-icons right">arrow_drop_down</i>
                 </a>
@@ -65,6 +65,9 @@
     <li class="{% if active_page == 'tax_deduction_batch' %}active{% endif %}">
         <a href="{{ url_for('web.tax_deduction_batch') }}">个税专项附加扣除</a>
     </li>
+    <li class="{% if active_page == 'payroll_dsl_editor' %}active{% endif %}">
+        <a href="{{ url_for('web.payroll_dsl_editor') }}">薪资计算规则</a>
+    </li>
 </ul>
 
 <!-- 顶部导航：薪酬下拉菜单 -->
@@ -80,6 +83,10 @@
     </li>
     <li class="{% if active_page == 'tax_deduction_batch' %}active{% endif %}">
         <a href="{{ url_for('web.tax_deduction_batch') }}">个税专项附加扣除</a>
+    </li>
+    <li class="divider"></li>
+    <li class="{% if active_page == 'payroll_dsl_editor' %}active{% endif %}">
+        <a href="{{ url_for('web.payroll_dsl_editor') }}">薪资计算规则</a>
     </li>
 </ul>
 
