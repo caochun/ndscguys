@@ -12,6 +12,7 @@ from typing import Optional
 from app.services.person_service import PersonService, generate_avatar
 from app.services.attendance_service import AttendanceService
 from app.services.leave_service import LeaveService
+from app.services.project_service import ProjectService
 
 
 def seed_initial_data(db_path: str, target_count: int = 30):
@@ -27,6 +28,7 @@ def seed_initial_data(db_path: str, target_count: int = 30):
     service = PersonService(db_path)
     attendance_service = AttendanceService(db_path)
     leave_service = LeaveService(db_path)
+    project_service = ProjectService(db_path)
 
     names = [
         "张伟", "王芳", "李娜", "刘洋", "陈磊", "杨静", "黄强", "徐敏", "周杰", "赵霞",
@@ -257,4 +259,129 @@ def seed_initial_data(db_path: str, target_count: int = 30):
         data["address"] = f"更新地址 {random.randint(1, 100)} 号"
         service.basic_dao.append(entity_id=pid, data=data)
     conn.close()
+
+    # 创建项目数据
+    seed_projects(project_service, service, person_ids_with_position)
+
+
+def seed_projects(project_service: ProjectService, person_service: PersonService, person_ids: list):
+    """创建项目种子数据"""
+    projects_data = [
+        {
+            "contract_name": "智慧城市管理系统开发",
+            "start_date": "2024-01-15",
+            "end_date": "2024-12-31",
+            "client_company": "某市政府信息中心",
+            "client_department": "信息化建设部",
+            "client_project_manager": "王主任",
+        },
+        {
+            "contract_name": "企业ERP系统升级改造",
+            "start_date": "2024-03-01",
+            "end_date": "2024-09-30",
+            "client_company": "某大型制造企业",
+            "client_department": "IT部门",
+            "client_project_manager": "李经理",
+        },
+        {
+            "contract_name": "移动办公平台建设",
+            "start_date": "2024-02-10",
+            "end_date": "2024-08-31",
+            "client_company": "某科技公司",
+            "client_department": "产品研发部",
+            "client_project_manager": "陈总监",
+        },
+        {
+            "contract_name": "数据中台架构设计",
+            "start_date": "2024-04-01",
+            "end_date": "2024-10-31",
+            "client_company": "某金融机构",
+            "client_department": "科技部",
+            "client_project_manager": "赵总",
+        },
+        {
+            "contract_name": "AI智能客服系统",
+            "start_date": "2024-05-15",
+            "end_date": "2024-11-30",
+            "client_company": "某电商平台",
+            "client_department": "技术中心",
+            "client_project_manager": "周经理",
+        },
+        {
+            "contract_name": "云原生微服务改造",
+            "start_date": "2024-06-01",
+            "end_date": "2024-12-31",
+            "client_company": "某互联网公司",
+            "client_department": "架构组",
+            "client_project_manager": "吴总监",
+        },
+    ]
+
+    project_ids = []
+    for project_data in projects_data:
+        project_id = project_service.create_project(project_data)
+        project_ids.append(project_id)
+
+    # 为每个项目分配参与人员（每个项目 3-8 人）
+    # 确保每个项目至少有一个项目经理
+    project_positions = ["项目经理", "技术负责人", "前端开发", "后端开发", "测试工程师", "UI设计师", "产品经理", "运维工程师"]
+    manager_names = ["张伟", "刘洋", "杨静", "黄强", "徐敏", "周杰"]
+    assessment_levels = ["高级", "中级", "初级"]
+    process_statuses = ["进行中", "待启动", "已完成", "暂停"]
+
+    for idx, project_id in enumerate(project_ids):
+        # 随机选择 3-8 个人员参与项目
+        num_persons = random.randint(3, min(8, len(person_ids)))
+        selected_person_ids = random.sample(person_ids, num_persons)
+        
+        # 第一个人员设置为项目经理
+        manager_person_id = selected_person_ids[0]
+        manager_name = manager_names[idx % len(manager_names)]
+        
+        for i, person_id in enumerate(selected_person_ids):
+            # 随机生成参与项目的时间（项目开始时间前后 30 天内）
+            project_data = project_service.get_project(project_id)
+            if project_data and project_data.get("basic", {}).get("data", {}).get("start_date"):
+                start_date = project_data["basic"]["data"]["start_date"]
+                start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+                material_date = (start_dt + timedelta(days=random.randint(-30, 30))).strftime("%Y-%m-%d")
+            else:
+                material_date = datetime.now().strftime("%Y-%m-%d")
+            
+            # 第一个人员设置为项目经理，其他随机分配
+            if i == 0:
+                position = "项目经理"
+            else:
+                position = random.choice([p for p in project_positions if p != "项目经理"])
+            
+            person_project_data = {
+                "project_id": project_id,
+                "project_position": position,
+                "material_submit_date": material_date,
+                "assessment_level": random.choice(assessment_levels),
+                "unit_price": round(random.uniform(500, 2000), 2),
+                "process_status": random.choice(process_statuses),
+            }
+            
+            try:
+                person_service.append_person_project_change(person_id, project_id, person_project_data)
+            except Exception as e:
+                # 如果添加失败（可能因为重复），跳过
+                pass
+
+    # 为部分项目添加信息变更历史（模拟项目信息更新）
+    if project_ids:
+        update_count = max(1, int(len(project_ids) * 0.3))
+        update_project_ids = random.sample(project_ids, update_count)
+        
+        for project_id in update_project_ids:
+            project_data = project_service.get_project(project_id)
+            if project_data and project_data.get("basic", {}).get("data"):
+                current_data = project_data["basic"]["data"].copy()
+                # 延长项目结束日期
+                if current_data.get("end_date"):
+                    end_dt = datetime.strptime(current_data["end_date"], "%Y-%m-%d")
+                    current_data["end_date"] = (end_dt + timedelta(days=random.randint(30, 90))).strftime("%Y-%m-%d")
+                
+                project_service.append_project_change(project_id, current_data)
 

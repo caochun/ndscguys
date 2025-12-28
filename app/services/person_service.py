@@ -27,8 +27,8 @@ from app.models.person_payloads import (
     sanitize_housing_fund_payload,
     sanitize_assessment_payload,
     sanitize_tax_deduction_payload,
-    sanitize_person_project_payload,
 )
+from app.models.project_payloads import sanitize_person_project_payload
 from app.db import init_db
 from app.daos.housing_fund_batch_dao import HousingFundBatchDAO
 from app.daos.social_security_batch_dao import SocialSecurityBatchDAO

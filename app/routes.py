@@ -52,3 +52,8 @@ def tax_deduction_batch():
 def statistics():
     return render_template("statistics.html", active_page="statistics")
 
+
+@web_bp.route("/projects")
+def projects():
+    return render_template("projects.html", active_page="projects")
+

@@ -139,6 +139,7 @@ async function handleCreateLeave(e) {
         });
         M.toast({html: '新增请假成功', classes: 'green'});
         e.target.reset();
+        M.updateTextFields();
         M.Modal.getInstance(document.getElementById('leaveModal')).close();
         fetchLeaveRecords();
     } catch (err) {

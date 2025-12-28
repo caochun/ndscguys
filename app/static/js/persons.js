@@ -201,12 +201,15 @@ async function openPositionAdjustModal(personId) {
             historyContainer.innerHTML = '<p class="grey-text">暂无岗位变动历史</p>';
         }
 
-        M.updateTextFields();
-        const selects = document.querySelectorAll('#positionAdjustModal select');
-        M.FormSelect.init(selects);
-
         const modal = M.Modal.getInstance(document.getElementById('positionAdjustModal'));
         modal.open();
+        
+        // 等待模态框打开后再更新标签
+        setTimeout(() => {
+            M.updateTextFields();
+            const selects = document.querySelectorAll('#positionAdjustModal select');
+            M.FormSelect.init(selects);
+        }, 100);
     } catch (err) {
         M.toast({html: '加载任职信息失败：' + err.message, classes: 'red'});
     }
@@ -286,12 +289,15 @@ async function openSalaryAdjustModal(personId) {
             historyContainer.innerHTML = '<p class="grey-text">暂无薪资调整历史</p>';
         }
 
-        M.updateTextFields();
-        const selects = document.querySelectorAll('#salaryAdjustModal select');
-        M.FormSelect.init(selects);
-
         const modal = M.Modal.getInstance(document.getElementById('salaryAdjustModal'));
         modal.open();
+        
+        // 等待模态框打开后再更新标签
+        setTimeout(() => {
+            M.updateTextFields();
+            const selects = document.querySelectorAll('#salaryAdjustModal select');
+            M.FormSelect.init(selects);
+        }, 100);
     } catch (err) {
         M.toast({html: '加载薪资信息失败：' + err.message, classes: 'red'});
     }
@@ -383,9 +389,13 @@ async function openSocialAdjustModal(personId) {
             historyContainer.innerHTML = '<p class="grey-text">暂无社保调整历史</p>';
         }
 
-        M.updateTextFields();
         const modal = M.Modal.getInstance(document.getElementById('socialAdjustModal'));
         modal.open();
+        
+        // 等待模态框打开后再更新标签
+        setTimeout(() => {
+            M.updateTextFields();
+        }, 100);
     } catch (err) {
         M.toast({html: '加载社保信息失败：' + err.message, classes: 'red'});
     }
@@ -474,9 +484,13 @@ async function openHousingAdjustModal(personId) {
             historyContainer.innerHTML = '<p class="grey-text">暂无公积金调整历史</p>';
         }
 
-        M.updateTextFields();
         const modal = M.Modal.getInstance(document.getElementById('housingAdjustModal'));
         modal.open();
+        
+        // 等待模态框打开后再更新标签
+        setTimeout(() => {
+            M.updateTextFields();
+        }, 100);
     } catch (err) {
         M.toast({html: '加载公积金信息失败：' + err.message, classes: 'red'});
     }
@@ -572,12 +586,15 @@ async function openAssessmentModal(personId) {
         const historyContainer = document.getElementById('assessmentHistoryContainer');
         historyContainer.innerHTML = renderHistoryTable(history, '考核信息');
 
-        M.updateTextFields();
-        const selects = document.querySelectorAll('#assessmentModal select');
-        M.FormSelect.init(selects);
-
         const modal = M.Modal.getInstance(document.getElementById('assessmentModal'));
         modal.open();
+        
+        // 等待模态框打开后再更新标签
+        setTimeout(() => {
+            M.updateTextFields();
+            const selects = document.querySelectorAll('#assessmentModal select');
+            M.FormSelect.init(selects);
+        }, 100);
     } catch (err) {
         M.toast({html: '加载考核信息失败：' + err.message, classes: 'red'});
     }
@@ -683,6 +700,9 @@ async function handleCreatePerson(e) {
         });
         M.toast({html: '创建成功', classes: 'green'});
         e.target.reset();
+        M.updateTextFields();
+        const selects = document.querySelectorAll('#createPersonModal select');
+        M.FormSelect.init(selects);
         const modal = M.Modal.getInstance(document.getElementById('createPersonModal'));
         modal.close();
         loadPersons();
@@ -1073,9 +1093,13 @@ async function openTaxDeductionModal(personId) {
             historyContainer.innerHTML = '<p class="grey-text">暂无个税抵扣历史</p>';
         }
 
-        M.updateTextFields();
         const modal = M.Modal.getInstance(document.getElementById('taxDeductionModal'));
         modal.open();
+        
+        // 等待模态框打开后再更新标签
+        setTimeout(() => {
+            M.updateTextFields();
+        }, 100);
     } catch (err) {
         M.toast({html: '加载个税抵扣信息失败：' + err.message, classes: 'red'});
     }

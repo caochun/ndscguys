@@ -153,6 +153,7 @@ async function handleCreateAttendance(e) {
         });
         M.toast({html: '新增考勤成功', classes: 'green'});
         e.target.reset();
+        M.updateTextFields();
         M.Modal.getInstance(document.getElementById('attendanceModal')).close();
         fetchAttendanceRecords();
     } catch (err) {
