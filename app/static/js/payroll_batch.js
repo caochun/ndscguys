@@ -331,7 +331,7 @@ function openPayrollPreviewModal(data, editable, customTitle = null) {
                 <td>${isDailySalary ? '-' : formatNumber(item.adjusted_salary_amount)}</td>
                 <td>
                     ${isDailySalary ? '-' : (editable ? `
-                        <select class="assessment-grade-select browser-default" data-item-id="${itemId}" style="width:55px; font-size:11px; padding:2px 4px;">
+                        <select class="assessment-grade-select browser-default" data-item-id="${itemId}" style="width:45px; font-size:10px; padding:2px 2px;">
                             <option value="">-</option>
                             ${Object.keys(performanceFactors).map(grade => 
                                 `<option value="${grade}" ${item.assessment_grade === grade ? 'selected' : ''}>${grade}(${performanceFactors[grade]})</option>`
@@ -357,7 +357,7 @@ function openPayrollPreviewModal(data, editable, customTitle = null) {
     }).join('');
 
     tableContainer.innerHTML = `
-        <table class="striped responsive-table payroll-batch-table" style="font-size: 11px;">
+        <table class="striped responsive-table payroll-batch-table" style="font-size: 12px;">
             <thead>
                 <tr class="header-group-row">
                     <th rowspan="2">#</th>
