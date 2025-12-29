@@ -419,16 +419,33 @@ def list_payroll_batch_items(batch_id: int):
     return jsonify({"success": True, "data": items})
 
 
-@api_bp.route("/payroll/batch-confirm/<int:batch_id>", methods=["POST"])
-def payroll_batch_confirm(batch_id: int):
-    """确认薪酬批量发放：更新明细中的 other_deduction 等字段。"""
+@api_bp.route("/payroll/batch-confirm", methods=["POST"])
+def payroll_batch_confirm():
+    """确认薪酬批量发放：创建批次和明细到数据库。"""
     service = get_person_service()
     payload = request.get_json() or {}
+    
+    # 批次参数
+    batch_params = {
+        "batch_period": payload.get("batch_period"),
+        "effective_date": payload.get("effective_date"),
+        "target_company": payload.get("target_company"),
+        "target_department": payload.get("target_department"),
+        "target_employee_type": payload.get("target_employee_type"),
+        "note": payload.get("note"),
+    }
+    
+    if not batch_params["batch_period"]:
+        return jsonify({"success": False, "error": "batch_period is required"}), 400
+    
+    # 明细数据
     items = payload.get("items") or []
     if not items:
         return jsonify({"success": False, "error": "items is required"}), 400
-    service.update_payroll_batch_items(batch_id, items)
-    return jsonify({"success": True})
+    
+    # 创建批次和明细
+    result = service.confirm_payroll_batch(batch_params, items)
+    return jsonify({"success": True, "data": result})
 
 
 @api_bp.route("/payroll/batch-execute/<int:batch_id>", methods=["POST"])

@@ -120,7 +120,7 @@ def seed_initial_data(db_path: str, target_count: int = 30):
             is_department_head = random.random() < 0.1
             position_title = positions[idx % len(positions)]
             if is_department_head:
-                employee_type = "部分负责人"
+                employee_type = "部门负责人"
                 position_title = f"{position_title}-负责人"
 
             position_data = {
@@ -134,12 +134,14 @@ def seed_initial_data(db_path: str, target_count: int = 30):
             }
 
         def generate_salary_payload(emp_type: Optional[str]) -> dict:
+            # 只有实习生是日薪制，其他所有员工类型都是月薪制
             if emp_type == "实习生":
-                salary_type = "日薪制度"
-                amount = round(random.uniform(100, 200), 2)
+                salary_type = "日薪制"
+                amount = round(random.uniform(100, 200), 2)  # 日薪：100-200元/天
             else:
+                # 所有非实习生（正式员工、试用期员工、部门负责人、其他）都是月薪制
                 salary_type = "月薪制"
-                amount = round(random.uniform(9000, 12000), 2)
+                amount = round(random.uniform(9000, 12000), 2)  # 月薪：9000-12000元/月
             return {
                 "salary_type": salary_type,
                 "amount": amount,

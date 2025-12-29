@@ -14,20 +14,89 @@
     }
     .payroll-batch-modal .modal-content {
         padding: 24px 24px 8px;
+        /* 移除 overflow-x，让表格容器自己处理滚动 */
     }
     .payroll-batch-modal .modal-footer {
         padding: 8px 24px;
     }
-    .payroll-batch-modal .modal-content {
-        overflow-x: auto;
+    #payrollBatchPreviewTableContainer {
+        max-height: calc(85vh - 200px);
+        min-height: 300px;
+        overflow: auto;
+        /* 同时支持横向和纵向滚动 */
     }
     .payroll-batch-table {
-        min-width: 1800px;
+        min-width: 1500px;
     }
     .payroll-batch-table th,
     .payroll-batch-table td {
-        padding: 8px 6px;
+        padding: 6px 4px;
         white-space: nowrap;
+        font-size: 11px;
+    }
+    /* 优化列宽 - 序号列 */
+    .payroll-batch-table th:nth-child(1),
+    .payroll-batch-table td:nth-child(1) {
+        width: 35px;
+        min-width: 35px;
+        max-width: 35px;
+        text-align: center;
+    }
+    /* 姓名列 */
+    .payroll-batch-table th:nth-child(2),
+    .payroll-batch-table td:nth-child(2) {
+        width: 75px;
+        min-width: 75px;
+    }
+    /* 员工类别列 */
+    .payroll-batch-table th:nth-child(3),
+    .payroll-batch-table td:nth-child(3) {
+        width: 65px;
+        min-width: 65px;
+    }
+    /* 薪资类型列 */
+    .payroll-batch-table th:nth-child(4),
+    .payroll-batch-table td:nth-child(4) {
+        width: 65px;
+        min-width: 65px;
+    }
+    /* 原始薪资列 */
+    .payroll-batch-table th:nth-child(5),
+    .payroll-batch-table td:nth-child(5) {
+        width: 85px;
+        min-width: 85px;
+    }
+    /* 调整后薪资列 */
+    .payroll-batch-table th:nth-child(6),
+    .payroll-batch-table td:nth-child(6) {
+        width: 85px;
+        min-width: 85px;
+    }
+    /* 考核列 - 减小宽度 */
+    .payroll-batch-table th:nth-child(7),
+    .payroll-batch-table td:nth-child(7) {
+        width: 55px;
+        min-width: 55px;
+        max-width: 55px;
+        text-align: center;
+    }
+    /* 出勤/缺勤列 */
+    .payroll-batch-table th:nth-child(8),
+    .payroll-batch-table td:nth-child(8) {
+        width: 80px;
+        min-width: 80px;
+    }
+    /* 考勤扣款列 */
+    .payroll-batch-table th:nth-child(9),
+    .payroll-batch-table td:nth-child(9) {
+        width: 80px;
+        min-width: 80px;
+    }
+    /* 金额列统一宽度 */
+    .payroll-batch-table th:nth-child(n+10),
+    .payroll-batch-table td:nth-child(n+10) {
+        width: 85px;
+        min-width: 85px;
     }
     .payroll-batch-table .header-group-row th {
         background-color: #2196F3;
@@ -35,6 +104,8 @@
         font-weight: bold;
         text-align: center;
         border: 1px solid #1976D2;
+        padding: 4px 2px;
+        font-size: 11px;
     }
     .payroll-batch-table .header-detail-row th {
         background-color: #42A5F5;
@@ -42,6 +113,64 @@
         font-weight: normal;
         text-align: center;
         border: 1px solid #1976D2;
+        padding: 4px 2px;
+        font-size: 11px;
+    }
+    /* 考核等级下拉选择框样式优化 */
+    .assessment-grade-select {
+        border: 1px solid #9e9e9e;
+        border-radius: 4px;
+        padding: 2px 4px;
+        background-color: white;
+        font-size: 11px;
+        height: 28px;
+        line-height: 28px;
+        transition: border-color 0.3s;
+    }
+    .assessment-grade-select:focus {
+        border-color: #2196F3;
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+    }
+    /* 其他补扣输入框样式优化 */
+    .other-deduction {
+        border: 1px solid #9e9e9e;
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 12px;
+        height: 32px;
+        transition: border-color 0.3s;
+    }
+    .other-deduction:focus {
+        border-color: #2196F3;
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+    }
+    /* 批量发放按钮样式优化 */
+    .payroll-batch-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        margin-top: 16px;
+    }
+    .btn-employee {
+        background-color: #2196F3;
+    }
+    .btn-employee:hover {
+        background-color: #1976D2;
+    }
+    .btn-intern {
+        background-color: #FF9800;
+    }
+    .btn-intern:hover {
+        background-color: #F57C00;
+    }
+    .payroll-param-section {
+        margin-bottom: 20px;
+    }
+    .payroll-param-section:last-child {
+        margin-bottom: 0;
     }
 </style>
 {% endblock %}
@@ -55,42 +184,47 @@
 
     <div class="card batch-card">
         <div class="card-content">
-            <span class="card-title" style="font-size:18px;">发放参数</span>
+            <span class="card-title" style="font-size:18px; margin-bottom: 24px;">发放参数</span>
             <form id="payrollBatchForm">
-                <div class="row">
-                    <div class="input-field col s12 m4">
-                        <input id="batch_period" name="batch_period" type="text" placeholder="例如：2025-11">
-                        <label for="batch_period" class="active">批次（年月）</label>
-                    </div>
-                    <div class="input-field col s12 m4">
-                        <input id="payroll_effective_date" name="effective_date" type="date">
-                        <label for="payroll_effective_date" class="active">生效日期（可选）</label>
-                    </div>
-                    <div class="input-field col s12 m4">
-                        <input id="payroll_target_company" name="target_company" type="text">
-                        <label for="payroll_target_company">仅限公司（可选）</label>
+                <div class="payroll-param-section">
+                    <div class="row">
+                        <div class="input-field col s12 m6 l4">
+                            <input id="batch_period" name="batch_period" type="text" placeholder="例如：2025-11" required>
+                            <label for="batch_period" class="active">批次（年月）<span class="red-text">*</span></label>
+                        </div>
+                        <div class="input-field col s12 m6 l4">
+                            <input id="payroll_effective_date" name="effective_date" type="date">
+                            <label for="payroll_effective_date" class="active">生效日期（可选）</label>
+                        </div>
+                        <div class="input-field col s12 m6 l4">
+                            <input id="payroll_target_company" name="target_company" type="text">
+                            <label for="payroll_target_company">仅限公司（可选）</label>
+                        </div>
                     </div>
                 </div>
-                <div class="row">
-                    <div class="input-field col s12 m4">
-                        <input id="payroll_target_department" name="target_department" type="text">
-                        <label for="payroll_target_department">仅限部门（可选）</label>
-                    </div>
-                    <div class="input-field col s12 m4">
-                        <input id="payroll_target_employee_type" name="target_employee_type" type="text">
-                        <label for="payroll_target_employee_type">仅限员工类别（可选）</label>
-                    </div>
-                    <div class="input-field col s12 m4">
-                        <input id="payroll_note" name="note" type="text">
-                        <label for="payroll_note">备注（可选）</label>
+                <div class="payroll-param-section">
+                    <div class="row">
+                        <div class="input-field col s12 m6 l4">
+                            <input id="payroll_target_department" name="target_department" type="text">
+                            <label for="payroll_target_department">仅限部门（可选）</label>
+                        </div>
+                        <div class="input-field col s12 m6 l8">
+                            <input id="payroll_note" name="note" type="text">
+                            <label for="payroll_note">备注（可选）</label>
+                        </div>
                     </div>
                 </div>
             </form>
         </div>
-        <div class="card-action right-align">
-            <button id="previewPayrollBatchBtn" class="btn waves-effect waves-light">
-                <i class="material-icons left">visibility</i>预览批量发放
-            </button>
+        <div class="card-action">
+            <div class="payroll-batch-actions">
+                <button id="previewPayrollBatchBtn" class="btn btn-employee waves-effect waves-light">
+                    <i class="material-icons left">people</i>员工批量发放
+                </button>
+                <button id="previewPayrollBatchInternBtn" class="btn btn-intern waves-effect waves-light">
+                    <i class="material-icons left">school</i>实习生批量发放
+                </button>
+            </div>
         </div>
     </div>
 
@@ -108,7 +242,7 @@
     <div class="modal-content">
         <h5 id="payrollBatchPreviewTitle">薪酬批量发放预览</h5>
         <div id="payrollBatchPreviewSummary" class="grey-text" style="margin-bottom: 12px;"></div>
-        <div id="payrollBatchPreviewTableContainer" style="max-height: 420px; overflow-y: auto;"></div>
+        <div id="payrollBatchPreviewTableContainer"></div>
     </div>
     <div class="modal-footer">
         <a href="#!" class="modal-close waves-effect waves-green btn-flat">取消</a>

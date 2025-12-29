@@ -20,7 +20,7 @@ class LeaveRecord:
     approver_person_id: Optional[int]
     reason: Optional[str]
     created_at: Optional[str] = None
-
+    
     @classmethod
     def from_row(cls, row) -> "LeaveRecord":
         created_at = row["created_at"] if "created_at" in row.keys() else None

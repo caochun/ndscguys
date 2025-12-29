@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalElem = document.getElementById('attendanceModal');
     if (modalElem) {
         M.Modal.init(modalElem);
-    }
+            }
     const selects = document.querySelectorAll('select');
     M.FormSelect.init(selects);
 
@@ -130,8 +130,8 @@ function renderAttendanceTable(records) {
         </tr>`
         })
         .join('');
-}
-
+    }
+    
 async function handleCreateAttendance(e) {
     e.preventDefault();
     const formData = new FormData(e.target);
@@ -145,12 +145,12 @@ async function handleCreateAttendance(e) {
         status: formData.get('status') || '正常',
         note: formData.get('note') || null,
     };
-
+    
     try {
         await fetchJSON('/api/attendance', {
-            method: 'POST',
+                method: 'POST',
             body: JSON.stringify(payload),
-        });
+            });
         M.toast({html: '新增考勤成功', classes: 'green'});
         e.target.reset();
         M.updateTextFields();

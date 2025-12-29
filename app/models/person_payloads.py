@@ -33,7 +33,7 @@ STRING_FIELDS_POSITION = {
     "position",
 }
 
-ALLOWED_EMPLOYEE_TYPES = {"正式员工", "试用期员工", "实习生", "部分负责人", "其他"}
+ALLOWED_EMPLOYEE_TYPES = {"正式员工", "试用期员工", "实习生", "部门负责人", "其他"}
 ALLOWED_POSITION_CHANGE_TYPES = {
     "入职",
     "转岗",
@@ -43,7 +43,7 @@ ALLOWED_POSITION_CHANGE_TYPES = {
     "返岗",
     "离职",
 }
-ALLOWED_SALARY_TYPES = {"年薪制", "月薪制", "日薪制度"}
+ALLOWED_SALARY_TYPES = {"年薪制", "月薪制", "日薪制"}
 ALLOWED_ASSESSMENT_GRADES = {"A", "B", "C", "D", "E"}
 
 SOCIAL_RATE_FIELDS = [

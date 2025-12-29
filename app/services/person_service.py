@@ -565,7 +565,7 @@ class PersonService:
             return None
         salary_data = salary_state.data or {}
 
-        salary_type = salary_data.get("salary_type")  # 月薪制 / 日薪制度 / 年薪制
+        salary_type = salary_data.get("salary_type")  # 月薪制 / 日薪制 / 年薪制
         try:
             amount = float(salary_data.get("amount"))
         except (TypeError, ValueError):
@@ -618,7 +618,7 @@ class PersonService:
                 "正式员工": (0.7, 0.3),
                 "试用员工": (0.8, 0.2),
                 "实习员工": (1.0, 0.0),
-                "部分负责人": (0.6, 0.4),
+                "部门负责人": (0.6, 0.4),
             }
             base_ratio, perf_ratio = split_config.get(employee_type, (0.7, 0.3))
 
@@ -683,7 +683,7 @@ class PersonService:
         housing_personal_amount = housing_base * housing_personal_rate
 
         # 日薪制：只按实际工作天数 × 日薪
-        if salary_type == "日薪制度":
+        if salary_type == "日薪制":
             # 简化：实际工作天数 = summary.actual_days
             actual_work_days = actual_days or 0
             gross_amount = amount * actual_work_days
@@ -953,7 +953,7 @@ class PersonService:
         薪酬批量发放预览：
         - 根据过滤条件找到当前在职人员
         - 按 batch_period（通常为 YYYY-MM）计算本期应发金额
-        - 创建 payroll_batches + payroll_batch_items
+        - 不写入数据库，只返回计算结果
         """
         batch_period = params["batch_period"]
         effective_date = params.get("effective_date")
@@ -962,21 +962,7 @@ class PersonService:
         target_employee_type = params.get("target_employee_type")
         note = params.get("note")
 
-        # 创建批次
-        batch_id = self.payroll_batch_dao.create_batch(
-            {
-                "batch_period": batch_period,
-                "effective_date": effective_date,
-                "target_company": target_company,
-                "target_department": target_department,
-                "target_employee_type": target_employee_type,
-                "note": note,
-                "status": "pending",
-                "affected_count": 0,
-            }
-        )
-
-        # 遍历所有 person，按条件筛选 + 计算薪资
+        # 遍历所有 person，按条件筛选 + 计算薪资（不写入数据库）
         conn = self._get_connection()
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -1009,25 +995,64 @@ class PersonService:
             person_name = (basic_state.data or {}).get("name") if basic_state else None
 
             item_data = {
-                "batch_id": batch_id,
+                "person_id": pid,  # 保存person_id，用于后续创建item
                 **calc,
                 "person_name": person_name,  # 添加员工姓名
-                "applied": 0,
             }
-            item_id = self.payroll_batch_dao.create_item(item_data)
-            item_data["id"] = item_id
             items.append(item_data)
             affected += 1
 
-        self.payroll_batch_dao.update_affected_count(batch_id, affected)
-
         return {
-            "batch_id": batch_id,
             "batch_period": batch_period,
             "effective_date": effective_date,
+            "target_company": target_company,
+            "target_department": target_department,
+            "target_employee_type": target_employee_type,
+            "note": note,
             "affected_count": affected,
             "total_persons": len(person_ids),
             "items": items,
+        }
+
+    def confirm_payroll_batch(self, params: Dict[str, Any], items: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        确认薪酬批量发放：创建批次和明细到数据库。
+        - 创建 payroll_batches
+        - 创建 payroll_batch_items（根据前端返回的items数据）
+        """
+        batch_period = params["batch_period"]
+        effective_date = params.get("effective_date")
+        target_company = params.get("target_company")
+        target_department = params.get("target_department")
+        target_employee_type = params.get("target_employee_type")
+        note = params.get("note")
+
+        # 创建批次
+        batch_id = self.payroll_batch_dao.create_batch(
+            {
+                "batch_period": batch_period,
+                "effective_date": effective_date,
+                "target_company": target_company,
+                "target_department": target_department,
+                "target_employee_type": target_employee_type,
+                "note": note,
+                "status": "pending",
+                "affected_count": len(items),
+            }
+        )
+
+        # 创建明细
+        for item_data in items:
+            # item_data 包含 person_id 和所有计算字段
+            # 移除 assessment_grade（如果存在），因为数据库表中没有这个字段
+            item_to_save = {k: v for k, v in item_data.items() if k != "assessment_grade"}
+            item_to_save["batch_id"] = batch_id
+            item_to_save["applied"] = 0
+            self.payroll_batch_dao.create_item(item_to_save)
+
+        return {
+            "batch_id": batch_id,
+            "affected_count": len(items),
         }
 
     def update_payroll_batch_items(self, batch_id: int, items: List[Dict[str, Any]]) -> None:
