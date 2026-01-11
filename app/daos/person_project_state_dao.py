@@ -52,6 +52,7 @@ class PersonProjectStateDAO(BaseDAO):
         
         state = PersonProjectState(
             person_id=person_id,
+            project_id=project_id,
             version=version,
             ts=ts,
             data=data or {}

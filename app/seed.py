@@ -15,7 +15,63 @@ from app.services.leave_service import LeaveService
 from app.services.project_service import ProjectService
 
 
+def validate_and_fix_project_assignments(db_path: str):
+    """验证并修复项目分配数据：确保一个人正在参与的项目不超过一个"""
+    person_service = PersonService(db_path)
+    
+    # 获取所有人员
+    persons = person_service.list_persons()
+    
+    fixed_count = 0
+    for person in persons:
+        person_id = person["person_id"]
+        # 获取该人员参与的所有项目
+        projects = person_service.get_person_projects(person_id)
+        
+        # 过滤出正在参与的项目（不是"已退出"）
+        active_projects = [p for p in projects if p.get("data", {}).get("project_position") != "已退出"]
+        
+        if len(active_projects) > 1:
+            # 如果有多于一个正在参与的项目，保留最新的一个，其他标记为"已退出"
+            print(f"发现人员 {person_id} ({person.get('name', 'N/A')}) 参与了 {len(active_projects)} 个项目，进行修复...")
+            
+            # 按时间戳排序，保留最新的
+            active_projects.sort(key=lambda x: x.get("ts", ""), reverse=True)
+            
+            # 将除了最新的之外的所有项目标记为"已退出"
+            for project in active_projects[1:]:
+                project_id = project["project_id"]
+                exit_data = {
+                    "project_id": project_id,
+                    "project_position": "已退出",
+                    "process_status": "已退出项目",
+                }
+                # 保留原有信息
+                current_data = project.get("data", {}).copy()
+                for key in ["material_submit_date", "assessment_level", "unit_price"]:
+                    if key in current_data:
+                        exit_data[key] = current_data[key]
+                
+                try:
+                    person_service.append_person_project_change(person_id, project_id, exit_data)
+                    fixed_count += 1
+                    print(f"  已将项目 {project_id} 标记为已退出")
+                except Exception as e:
+                    print(f"  修复项目 {project_id} 失败: {e}")
+    
+    if fixed_count > 0:
+        print(f"\n修复完成，共修复 {fixed_count} 条记录")
+    else:
+        print("\n数据验证通过，无需修复")
+    
+    return fixed_count
+
+
 def seed_initial_data(db_path: str, target_count: int = 30):
+    # 先初始化数据库（创建表结构）
+    from app.db import init_db
+    init_db(db_path)
+    
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM persons")
@@ -23,6 +79,7 @@ def seed_initial_data(db_path: str, target_count: int = 30):
     conn.close()
 
     if count >= target_count:
+        print(f"数据库中已有 {count} 条人员记录，跳过初始化")
         return
 
     service = PersonService(db_path)
@@ -263,10 +320,10 @@ def seed_initial_data(db_path: str, target_count: int = 30):
     conn.close()
 
     # 创建项目数据
-    seed_projects(project_service, service, person_ids_with_position)
+    seed_projects(project_service, service, person_ids_with_position, db_path)
 
 
-def seed_projects(project_service: ProjectService, person_service: PersonService, person_ids: list):
+def seed_projects(project_service: ProjectService, person_service: PersonService, person_ids: list, db_path: str = None):
     """创建项目种子数据"""
     projects_data = [
         {
@@ -326,21 +383,65 @@ def seed_projects(project_service: ProjectService, person_service: PersonService
 
     # 为每个项目分配参与人员（每个项目 3-8 人）
     # 确保每个项目至少有一个项目经理
+    # 要求：一个人正在参与的项目不超过一个
     project_positions = ["项目经理", "技术负责人", "前端开发", "后端开发", "测试工程师", "UI设计师", "产品经理", "运维工程师"]
-    manager_names = ["张伟", "刘洋", "杨静", "黄强", "徐敏", "周杰"]
     assessment_levels = ["高级", "中级", "初级"]
     process_statuses = ["进行中", "待启动", "已完成", "暂停"]
+    
+    # 记录每个人员参与的项目（包括已退出的），用于历史记录
+    person_project_map = {}  # {person_id: [project_ids]}
+    # 记录每个人员当前正在参与的项目（不是"已退出"状态）
+    person_active_project_map = {}  # {person_id: project_id}
 
+    # 预先过滤掉已离职的人员
+    active_person_ids = []
+    for pid in person_ids:
+        latest_position = person_service.position_dao.get_latest(pid)
+        if latest_position:
+            change_type = latest_position.data.get("change_type")
+            # 排除已离职或停薪留职的人员
+            if change_type in {"离职", "停薪留职"}:
+                continue
+        active_person_ids.append(pid)
+    
     for idx, project_id in enumerate(project_ids):
         # 随机选择 3-8 个人员参与项目
-        num_persons = random.randint(3, min(8, len(person_ids)))
-        selected_person_ids = random.sample(person_ids, num_persons)
+        # 只选择没有正在参与项目且未离职的人员（确保一个人正在参与的项目不超过一个）
+        available_persons = [pid for pid in active_person_ids if pid not in person_active_project_map]
+        
+        # 如果可用人员不足，则无法满足要求，记录警告但继续
+        if len(available_persons) < 3:
+            print(f"警告：项目 {project_id} 可用人员不足（需要至少3人，可用{len(available_persons)}人）")
+            if len(available_persons) == 0:
+                continue  # 跳过该项目，因为没有可用人员
+            # 如果可用人员少于3人，使用所有可用人员
+            num_persons = len(available_persons)
+        else:
+            num_persons = random.randint(3, min(8, len(available_persons)))
+        selected_person_ids = random.sample(available_persons, num_persons)
+        
+        # 再次过滤，确保没有重复选择（虽然 random.sample 不会重复，但为了安全）
+        selected_person_ids = [pid for pid in selected_person_ids if pid not in person_active_project_map]
+        
+        if len(selected_person_ids) == 0:
+            continue  # 如果筛选后没有可用人员，跳过该项目
         
         # 第一个人员设置为项目经理
         manager_person_id = selected_person_ids[0]
-        manager_name = manager_names[idx % len(manager_names)]
         
         for i, person_id in enumerate(selected_person_ids):
+            # 再次检查该人员是否已经有正在参与的项目（三重检查，确保安全）
+            if person_id in person_active_project_map:
+                print(f"警告：人员 {person_id} 已在 person_active_project_map 中，跳过")
+                continue  # 跳过，该人员已有正在参与的项目
+            
+            # 从数据库验证：检查该人员是否已经有正在参与的项目
+            person_projects = person_service.get_person_projects(person_id)
+            active_projects = [p for p in person_projects if p.get("data", {}).get("project_position") != "已退出"]
+            if len(active_projects) > 0:
+                print(f"警告：人员 {person_id} 在数据库中已有 {len(active_projects)} 个正在参与的项目，跳过分配")
+                continue  # 跳过，该人员在数据库中已有正在参与的项目
+            
             # 随机生成参与项目的时间（项目开始时间前后 30 天内）
             project_data = project_service.get_project(project_id)
             if project_data and project_data.get("basic", {}).get("data", {}).get("start_date"):
@@ -367,8 +468,105 @@ def seed_projects(project_service: ProjectService, person_service: PersonService
             
             try:
                 person_service.append_person_project_change(person_id, project_id, person_project_data)
+                # 记录人员参与的项目（所有项目，包括历史）
+                if person_id not in person_project_map:
+                    person_project_map[person_id] = []
+                person_project_map[person_id].append(project_id)
+                # 记录人员当前正在参与的项目（确保不会重复）
+                if person_id in person_active_project_map:
+                    print(f"错误：人员 {person_id} 在添加到 person_active_project_map 时已经存在！")
+                    raise ValueError(f"人员 {person_id} 已经在 person_active_project_map 中")
+                person_active_project_map[person_id] = project_id
             except Exception as e:
                 # 如果添加失败（可能因为重复），跳过
+                print(f"警告：为人员 {person_id} 添加项目 {project_id} 失败: {e}")
+                # 确保即使失败，也不会在 person_active_project_map 中留下错误记录
+                if person_id in person_active_project_map and person_active_project_map[person_id] == project_id:
+                    del person_active_project_map[person_id]
+                pass
+    
+    # 为部分人员添加项目信息变更（模拟岗位调整、等级提升等）
+    # 只更新当前正在参与的项目（不是"已退出"状态）
+    if person_active_project_map:
+        update_person_count = max(1, int(len(person_active_project_map) * 0.2))
+        update_person_ids = random.sample(list(person_active_project_map.keys()), min(update_person_count, len(person_active_project_map)))
+        
+        for person_id in update_person_ids:
+            # 获取该人员当前正在参与的项目
+            project_id = person_active_project_map.get(person_id)
+            if not project_id:
+                continue
+            
+            # 获取当前项目参与信息
+            person_projects = person_service.get_person_projects(person_id)
+            current_project_data = next((p for p in person_projects if p["project_id"] == project_id), None)
+            
+            if current_project_data:
+                current_data = current_project_data.get("data", {}).copy()
+                
+                # 只更新正在参与的项目（不是"已退出"状态）
+                if current_data.get("project_position") == "已退出":
+                    continue
+                
+                # 随机更新部分信息
+                updates = {}
+                if random.random() < 0.5:
+                    # 50% 概率更新等级
+                    updates["assessment_level"] = random.choice(assessment_levels)
+                if random.random() < 0.3:
+                    # 30% 概率更新单价
+                    updates["unit_price"] = round(random.uniform(500, 2000), 2)
+                if random.random() < 0.3:
+                    # 30% 概率更新状态
+                    updates["process_status"] = random.choice(process_statuses)
+                
+                if updates:
+                    updates["project_id"] = project_id
+                    # 保留原有信息
+                    for key in ["project_position", "material_submit_date"]:
+                        if key in current_data:
+                            updates[key] = current_data[key]
+                    
+                    try:
+                        person_service.append_person_project_change(person_id, project_id, updates)
+                    except Exception as e:
+                        print(f"警告：更新人员 {person_id} 的项目 {project_id} 信息失败: {e}")
+                        pass
+    
+    # 为部分人员添加退出项目的情况（模拟项目结束或人员调离）
+    # 注意：退出后，该人员就没有正在参与的项目了，可以从 person_active_project_map 中移除
+    if person_active_project_map:
+        exit_count = max(1, int(len(person_active_project_map) * 0.1))
+        exit_person_ids = random.sample(list(person_active_project_map.keys()), min(exit_count, len(person_active_project_map)))
+        
+        for person_id in exit_person_ids:
+            # 获取该人员当前正在参与的项目
+            exit_project_id = person_active_project_map.get(person_id)
+            if not exit_project_id:
+                continue
+            
+            exit_data = {
+                "project_id": exit_project_id,
+                "project_position": "已退出",
+                "process_status": "已退出项目",
+            }
+            
+            try:
+                # 获取当前项目参与信息，保留其他字段
+                person_projects = person_service.get_person_projects(person_id)
+                current_project_data = next((p for p in person_projects if p["project_id"] == exit_project_id), None)
+                if current_project_data:
+                    current_data = current_project_data.get("data", {}).copy()
+                    # 保留原有信息（除了 project_position 和 process_status）
+                    for key in ["material_submit_date", "assessment_level", "unit_price"]:
+                        if key in current_data:
+                            exit_data[key] = current_data[key]
+                
+                person_service.append_person_project_change(person_id, exit_project_id, exit_data)
+                # 从正在参与的项目映射中移除
+                del person_active_project_map[person_id]
+            except Exception as e:
+                print(f"警告：人员 {person_id} 退出项目 {exit_project_id} 失败: {e}")
                 pass
 
     # 为部分项目添加信息变更历史（模拟项目信息更新）
@@ -386,4 +584,9 @@ def seed_projects(project_service: ProjectService, person_service: PersonService
                     current_data["end_date"] = (end_dt + timedelta(days=random.randint(30, 90))).strftime("%Y-%m-%d")
                 
                 project_service.append_project_change(project_id, current_data)
+    
+    # 验证并修复项目分配数据（确保一个人正在参与的项目不超过一个）
+    if db_path:
+        print("\n验证项目分配数据...")
+        validate_and_fix_project_assignments(db_path)
 

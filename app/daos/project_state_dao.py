@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import sqlite3
 from datetime import datetime
-from typing import Optional, Type
+from typing import List, Optional, Type
 
 from app.daos.base_dao import BaseDAO
 from app.models.project_states import ProjectBasicState
@@ -140,3 +140,22 @@ class ProjectBasicStateDAO(ProjectStateDAO):
     table_name = "project_basic_history"
     state_cls = ProjectBasicState
 
+    def list_all_latest(self) -> List[ProjectBasicState]:
+        """获取所有项目的最新基础信息状态"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT pb.project_id, pb.version, pb.ts, pb.data
+            FROM project_basic_history pb
+            JOIN (
+                SELECT project_id, MAX(version) AS max_version
+                FROM project_basic_history
+                GROUP BY project_id
+            ) latest
+            ON pb.project_id = latest.project_id AND pb.version = latest.max_version
+            ORDER BY pb.ts DESC
+            """
+        )
+        rows = cursor.fetchall()
+        return [self.state_cls.from_row(dict(row)) for row in rows]

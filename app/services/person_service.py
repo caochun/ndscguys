@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Optional
 
 import sqlite3
 
+from app.daos.person_dao import PersonDAO
 from app.daos.person_state_dao import (
     PersonBasicStateDAO,
     PersonPositionStateDAO,
@@ -51,6 +52,7 @@ class PersonService:
     def __init__(self, db_path: str):
         self.db_path = db_path
         init_db(db_path)
+        self.person_dao = PersonDAO(db_path=db_path)
         self.basic_dao = PersonBasicStateDAO(db_path=db_path)
         self.position_dao = PersonPositionStateDAO(db_path=db_path)
         self.salary_dao = PersonSalaryStateDAO(db_path=db_path)
@@ -97,27 +99,14 @@ class PersonService:
         return None
 
     def list_persons(self) -> List[Dict[str, Any]]:
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT pb.person_id, pb.ts, pb.data
-            FROM person_basic_history pb
-            JOIN (
-                SELECT person_id, MAX(version) AS max_version
-                FROM person_basic_history
-                GROUP BY person_id
-            ) latest
-            ON pb.person_id = latest.person_id AND pb.version = latest.max_version
-            ORDER BY pb.ts DESC
-            """
-        )
-        rows = cursor.fetchall()
+        """列出所有人员（使用 DAO 层方法）"""
+        # 使用 DAO 层方法获取所有人员的最新基础信息
+        basic_states = self.basic_dao.list_all_latest()
         result = []
-        for row in rows:
-            data = json.loads(row["data"])
+        for state in basic_states:
+            data = state.data
             # 获取当前岗位变动，用于推导当前任职公司
-            position_state = self.position_dao.get_latest(row["person_id"])
+            position_state = self.position_dao.get_latest(state.person_id)
             current_company: Optional[str] = None
             current_position: Optional[str] = None
             if position_state:
@@ -131,8 +120,8 @@ class PersonService:
 
             result.append(
                 {
-                    "person_id": row["person_id"],
-                    "ts": row["ts"],
+                    "person_id": state.person_id,
+                    "ts": state.ts,
                     "name": data.get("name"),
                     "id_card": data.get("id_card"),
                     "gender": data.get("gender"),
@@ -154,11 +143,9 @@ class PersonService:
         housing_fund_data: Optional[dict] = None,
         assessment_data: Optional[dict] = None,
     ) -> int:
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO persons DEFAULT VALUES")
-        conn.commit()
-        person_id = cursor.lastrowid
+        """创建新人员（使用 DAO 层方法）"""
+        # 使用 DAO 层方法创建 person_id
+        person_id = self.person_dao.create_person()
 
         cleaned_basic = sanitize_basic_payload(basic_data)
         if not cleaned_basic.get("avatar"):
@@ -192,11 +179,8 @@ class PersonService:
         cleaned_position = sanitize_position_payload(position_data)
         if not cleaned_position:
             raise ValueError("position payload is empty")
-        # 确保 entity_id 存在（persons 表中有该人）
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT 1 FROM persons WHERE id = ?", (person_id,))
-        if not cursor.fetchone():
+        # 使用 DAO 层方法检查 person_id 是否存在
+        if not self.person_dao.person_exists(person_id):
             raise ValueError("person not found")
         self.position_dao.append(entity_id=person_id, data=cleaned_position)
 
@@ -205,10 +189,8 @@ class PersonService:
         cleaned_salary = sanitize_salary_payload(salary_data)
         if not cleaned_salary:
             raise ValueError("salary payload is empty")
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT 1 FROM persons WHERE id = ?", (person_id,))
-        if not cursor.fetchone():
+        # 使用 DAO 层方法检查 person_id 是否存在
+        if not self.person_dao.person_exists(person_id):
             raise ValueError("person not found")
         self.salary_dao.append(entity_id=person_id, data=cleaned_salary)
 
@@ -217,10 +199,8 @@ class PersonService:
         cleaned_social = sanitize_social_security_payload(social_data)
         if not cleaned_social:
             raise ValueError("social security payload is empty")
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT 1 FROM persons WHERE id = ?", (person_id,))
-        if not cursor.fetchone():
+        # 使用 DAO 层方法检查 person_id 是否存在
+        if not self.person_dao.person_exists(person_id):
             raise ValueError("person not found")
         self.social_security_dao.append(entity_id=person_id, data=cleaned_social)
 
@@ -229,10 +209,8 @@ class PersonService:
         cleaned_assessment = sanitize_assessment_payload(assessment_data)
         if not cleaned_assessment:
             raise ValueError("assessment payload is empty")
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT 1 FROM persons WHERE id = ?", (person_id,))
-        if not cursor.fetchone():
+        # 使用 DAO 层方法检查 person_id 是否存在
+        if not self.person_dao.person_exists(person_id):
             raise ValueError("person not found")
         self.assessment_dao.append(entity_id=person_id, data=cleaned_assessment)
 
@@ -278,12 +256,8 @@ class PersonService:
             }
         )
 
-        # 找出所有已注册 person_id
-        conn = self._get_connection()
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute("SELECT id FROM persons")
-        person_ids = [row["id"] for row in cursor.fetchall()]
+        # 使用 DAO 层方法获取所有已注册 person_id
+        person_ids = self.person_dao.list_all_person_ids()
 
         target_company = params.get("target_company")
         target_department = params.get("target_department")
@@ -508,10 +482,8 @@ class PersonService:
         cleaned_housing = sanitize_housing_fund_payload(housing_data)
         if not cleaned_housing:
             raise ValueError("housing fund payload is empty")
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT 1 FROM persons WHERE id = ?", (person_id,))
-        if not cursor.fetchone():
+        # 使用 DAO 层方法检查 person_id 是否存在
+        if not self.person_dao.person_exists(person_id):
             raise ValueError("person not found")
         self.housing_fund_dao.append(entity_id=person_id, data=cleaned_housing)
 
@@ -520,10 +492,8 @@ class PersonService:
         cleaned_tax = sanitize_tax_deduction_payload(tax_deduction_data)
         if not cleaned_tax:
             raise ValueError("tax deduction payload is empty")
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT 1 FROM persons WHERE id = ?", (person_id,))
-        if not cursor.fetchone():
+        # 使用 DAO 层方法检查 person_id 是否存在
+        if not self.person_dao.person_exists(person_id):
             raise ValueError("person not found")
         self.tax_deduction_dao.append(entity_id=person_id, data=cleaned_tax)
 
@@ -810,12 +780,8 @@ class PersonService:
             }
         )
 
-        # 找出所有已注册 person_id
-        conn = self._get_connection()
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute("SELECT id FROM persons")
-        person_ids = [row["id"] for row in cursor.fetchall()]
+        # 使用 DAO 层方法获取所有已注册 person_id
+        person_ids = self.person_dao.list_all_person_ids()
 
         target_company = params.get("target_company")
         target_department = params.get("target_department")
@@ -962,12 +928,8 @@ class PersonService:
         target_employee_type = params.get("target_employee_type")
         note = params.get("note")
 
-        # 遍历所有 person，按条件筛选 + 计算薪资（不写入数据库）
-        conn = self._get_connection()
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute("SELECT id FROM persons")
-        person_ids = [row["id"] for row in cursor.fetchall()]
+        # 使用 DAO 层方法获取所有已注册 person_id
+        person_ids = self.person_dao.list_all_person_ids()
 
         items: List[Dict[str, Any]] = []
         affected = 0
@@ -1232,12 +1194,8 @@ class PersonService:
             }
         )
 
-        # 找出所有已注册 person_id
-        conn = self._get_connection()
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute("SELECT id FROM persons")
-        person_ids = [row["id"] for row in cursor.fetchall()]
+        # 使用 DAO 层方法获取所有已注册 person_id
+        person_ids = self.person_dao.list_all_person_ids()
 
         target_company = params.get("target_company")
         target_department = params.get("target_department")
@@ -1641,8 +1599,13 @@ class PersonService:
         ]
 
     def get_project_persons(self, project_id: int) -> List[Dict[str, Any]]:
-        """获取项目参与的所有人员（最新状态）"""
+        """获取项目参与的所有人员（最新状态，排除已退出的人员）"""
         states = self.person_project_dao.list_by_project(project_id)
+        # 过滤掉已退出的人员
+        active_states = [
+            state for state in states
+            if state.data.get("project_position") != "已退出"
+        ]
         return [
             {
                 "person_id": state.person_id,
@@ -1650,7 +1613,7 @@ class PersonService:
                 "ts": state.ts,
                 "data": state.data,
             }
-            for state in states
+            for state in active_states
         ]
 
     def get_person_project_history(

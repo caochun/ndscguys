@@ -837,10 +837,12 @@ async function viewPerson(personId) {
         let currentPersonId = personId;
         let attendanceLoaded = false;
         let leaveLoaded = false;
+        let projectsLoaded = false;
         
         // 使用 MutationObserver 监听 tab 内容区域的显示
         const attendanceTab = document.getElementById('attendanceTab');
         const leaveTab = document.getElementById('leaveTab');
+        const projectsTab = document.getElementById('projectsTab');
         
         const observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
@@ -853,11 +855,14 @@ async function viewPerson(personId) {
                 } else if (target === leaveTab && isVisible && !leaveLoaded) {
                     loadLeaveList(currentPersonId);
                     leaveLoaded = true;
+                } else if (target === projectsTab && isVisible && !projectsLoaded) {
+                    loadPersonProjects(currentPersonId);
+                    projectsLoaded = true;
                 }
             });
         });
         
-        // 观察两个 tab 的 style 属性变化
+        // 观察三个 tab 的 style 属性变化
         if (attendanceTab) {
             observer.observe(attendanceTab, { 
                 attributes: true, 
@@ -872,6 +877,13 @@ async function viewPerson(personId) {
                 attributeOldValue: false
             });
         }
+        if (projectsTab) {
+            observer.observe(projectsTab, { 
+                attributes: true, 
+                attributeFilter: ['style', 'class'],
+                attributeOldValue: false
+            });
+        }
         
         // 模态框关闭时断开观察
         const originalOnCloseEnd = modal.options.onCloseEnd;
@@ -879,6 +891,7 @@ async function viewPerson(personId) {
             observer.disconnect();
             attendanceLoaded = false;
             leaveLoaded = false;
+            projectsLoaded = false;
             if (originalOnCloseEnd) {
                 originalOnCloseEnd.call(this);
             }
@@ -985,6 +998,55 @@ async function loadAttendanceSummary(personId) {
             ],
             2
         );
+    } catch (err) {
+        container.innerHTML = `<p class="red-text">加载失败：${err.message}</p>`;
+    }
+}
+
+async function loadPersonProjects(personId) {
+    const container = document.getElementById('projectsListContent');
+    try {
+        const result = await fetchJSON(`/api/persons/${personId}/projects`);
+        if (!result.data || result.data.length === 0) {
+            container.innerHTML = '<p class="grey-text">暂无参与项目</p>';
+            return;
+        }
+        
+        // 获取所有项目信息以显示项目名称
+        const projectsResult = await fetchJSON('/api/projects');
+        const projectsMap = {};
+        projectsResult.data.forEach(p => {
+            projectsMap[p.project_id] = p;
+        });
+        
+        container.innerHTML = result.data.map(item => {
+            const project = projectsMap[item.project_id] || {};
+            const projectName = project.data ? project.data.contract_name : `项目 #${item.project_id}`;
+            const data = item.data || {};
+            const isManager = data.project_position === "项目经理";
+            const positionClass = isManager ? "blue-text text-darken-2" : "grey-text";
+            const cardStyle = isManager ? "padding: 12px; margin-bottom: 8px; border-left: 4px solid #1976d2;" : "padding: 12px; margin-bottom: 8px;";
+            
+            return `
+                <div class="card-panel" style="${cardStyle}">
+                    <div class="row" style="margin-bottom: 0;">
+                        <div class="col s12">
+                            <strong>${projectName}</strong>
+                            ${data.project_position ? `<span class="${positionClass}"><strong> - ${data.project_position}</strong></span>` : ''}
+                        </div>
+                        <div class="col s12" style="margin-top: 8px;">
+                            ${data.assessment_level ? `<span class="grey-text">等级: ${data.assessment_level}</span>` : ''}
+                            ${data.unit_price ? `<span class="grey-text"> | 单价: ¥${data.unit_price}</span>` : ''}
+                            ${data.process_status ? `<span class="grey-text"> | 状态: ${data.process_status}</span>` : ''}
+                            ${data.material_submit_date ? `<span class="grey-text"> | 材料提交: ${data.material_submit_date}</span>` : ''}
+                        </div>
+                        <div class="col s12" style="margin-top: 4px;">
+                            <span class="grey-text" style="font-size: 12px;">更新时间: ${item.ts}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
     } catch (err) {
         container.innerHTML = `<p class="red-text">加载失败：${err.message}</p>`;
     }

@@ -3,11 +3,10 @@
 """
 from __future__ import annotations
 
-import json
-import sqlite3
 from typing import List, Dict, Any, Optional
 
-from app.db import init_db, create_project
+from app.db import init_db
+from app.daos.project_dao import ProjectDAO
 from app.daos.project_state_dao import ProjectBasicStateDAO
 from app.daos.person_project_state_dao import PersonProjectStateDAO
 from app.models.project_payloads import sanitize_project_payload
@@ -17,16 +16,14 @@ class ProjectService:
     def __init__(self, db_path: str):
         self.db_path = db_path
         init_db(db_path)
+        self.project_dao = ProjectDAO(db_path=db_path)
         self.basic_dao = ProjectBasicStateDAO(db_path=db_path)
 
-    def _get_connection(self) -> sqlite3.Connection:
-        return self.basic_dao.get_connection()
-
     def create_project(self, project_data: dict) -> int:
-        """创建新项目"""
+        """创建新项目（使用 DAO 层方法）"""
         cleaned_data = sanitize_project_payload(project_data)
-        conn = self._get_connection()
-        project_id = create_project(conn)
+        # 使用 DAO 层方法创建 project_id
+        project_id = self.project_dao.create_project()
         self.basic_dao.append(project_id, cleaned_data)
         return project_id
 
@@ -62,34 +59,20 @@ class ProjectService:
         }
 
     def list_projects(self) -> List[Dict[str, Any]]:
-        """列出所有项目（最新状态）"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT pb.project_id, pb.ts, pb.data
-            FROM project_basic_history pb
-            JOIN (
-                SELECT project_id, MAX(version) AS max_version
-                FROM project_basic_history
-                GROUP BY project_id
-            ) latest
-            ON pb.project_id = latest.project_id AND pb.version = latest.max_version
-            ORDER BY pb.ts DESC
-            """
-        )
-        rows = cursor.fetchall()
+        """列出所有项目（最新状态，使用 DAO 层方法）"""
+        # 使用 DAO 层方法获取所有项目的最新基础信息
+        basic_states = self.basic_dao.list_all_latest()
         result = []
-        for row in rows:
-            data = json.loads(row["data"])
-            project_id = row["project_id"]
+        for state in basic_states:
+            data = state.data
+            project_id = state.project_id
             
             # 查询当前项目经理
             manager = self.get_current_project_manager(project_id)
             
             result.append({
                 "project_id": project_id,
-                "ts": row["ts"],
+                "ts": state.ts,
                 "data": data,
                 "current_manager": manager,  # 添加当前项目经理信息
             })

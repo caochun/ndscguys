@@ -1,65 +1,185 @@
 {% extends "layout.html" %}
-{% block title %}项目管理{% endblock %}
+{% block title %}项目人员分配关系图{% endblock %}
 {% block extra_head %}
 <style>
     body {
         background: #f5f6fa;
+        overflow-x: auto;
     }
-    .project-card {
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(18,38,63,.08);
-        min-height: 200px;
+    
+    /* 矩阵视图样式 */
+    .matrix-view-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 120px);
     }
-    .project-card .card-content {
-        padding: 20px;
+    
+    .matrix-header {
+        padding: 16px 20px;
+        background: white;
+        border-radius: 8px 8px 0 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
     }
-    .project-card .card-title {
-        font-size: 20px;
-        font-weight: 500;
-        margin-bottom: 12px;
+    
+    .matrix-view {
+        display: block;
+        background: white;
+        border-radius: 0 0 8px 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        overflow: auto;
+        flex: 1;
+        min-height: 0;
     }
-    .project-info-item {
-        margin-bottom: 8px;
-        font-size: 14px;
-    }
-    .project-info-label {
-        color: #757575;
-        display: inline-block;
-        min-width: 100px;
-    }
-    .modal {
-        border-radius: 12px;
-    }
-    .modal .modal-content {
-        padding: 24px;
-    }
-    .history-block {
-        background: #f8fafc;
-        border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 12px;
-    }
-    .person-tag {
-        display: inline-block;
-        padding: 4px 12px;
-        margin: 4px;
-        background: #e3f2fd;
-        border-radius: 16px;
+    
+    .matrix-table {
+        width: 100%;
+        border-collapse: collapse;
         font-size: 13px;
+    }
+    
+    .matrix-table th {
+        background: #1976d2;
+        color: white;
+        padding: 12px 8px;
+        text-align: center;
+        font-weight: 500;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        border: 1px solid #1565c0;
+        transition: background-color 0.2s;
+    }
+    
+    .matrix-table th:hover {
+        background: #1565c0;
+    }
+    
+    .matrix-table th:first-child {
+        left: 0;
+        z-index: 11;
+        background: #1976d2;
+        min-width: 150px;
+        text-align: left;
+        padding-left: 16px;
+    }
+    
+    .matrix-table td {
+        padding: 10px 8px;
+        text-align: center;
+        border: 1px solid #e0e0e0;
+        vertical-align: middle;
+    }
+    
+    .matrix-table td:first-child {
+        position: sticky;
+        left: 0;
+        background: white;
+        z-index: 5;
+        font-weight: 500;
+        text-align: left;
+        padding-left: 16px;
+        min-width: 150px;
+    }
+    
+    .matrix-table tr:hover td:first-child {
+        background: #f5f5f5;
+    }
+    
+    .matrix-table tr:hover {
+        background: #f5f5f5;
+    }
+    
+    .matrix-cell {
+        transition: background-color 0.2s;
+        position: relative;
+    }
+    
+    .matrix-table tbody td:first-child {
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    .matrix-table tbody td:first-child:hover {
+        background-color: #f5f5f5;
+    }
+    
+    .matrix-cell.has-relation {
+        background: #e3f2fd;
+        color: #1976d2;
+    }
+    
+    .matrix-cell.has-relation:hover {
+        background: #bbdefb;
+    }
+    
+    .matrix-cell.manager {
+        background: #c8e6c9;
+        color: #2e7d32;
+        font-weight: 500;
+    }
+    
+    .matrix-cell.manager:hover {
+        background: #a5d6a7;
+    }
+    
+    .matrix-cell.no-relation {
+        color: #bdbdbd;
+    }
+    
+    .matrix-cell .cell-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .matrix-cell .position {
+        font-size: 11px;
+        color: #757575;
+    }
+    
+    .matrix-cell.manager .position {
+        color: #2e7d32;
+        font-weight: 500;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 10px;
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="section">
-    <div class="right-align" style="margin-bottom: 16px;">
-        <a class="btn waves-effect waves-light" id="openCreateModal">
-            <i class="material-icons left">add</i>新建项目
-        </a>
-    </div>
-    <div class="row" id="projectCards">
-        <div class="col s12 center-align grey-text text-darken-1" style="margin-top: 40px;">
-            正在加载...
+    <!-- 矩阵视图容器 -->
+    <div class="matrix-view-container">
+        <!-- 矩阵头部（包含按钮） -->
+        <div class="matrix-header">
+            <h5 style="margin: 0; font-size: 20px; font-weight: 500;">项目人员分配矩阵</h5>
+            <div class="action-buttons">
+                <a class="btn waves-effect waves-light btn-small" id="assignBtn" style="display: none;">
+                    <i class="material-icons left">link</i>分配项目
+                </a>
+                <a class="btn waves-effect waves-light btn-small" id="createProjectBtn">
+                    <i class="material-icons left">add</i>新建项目
+                </a>
+            </div>
+        </div>
+        
+        <!-- 矩阵视图 -->
+        <div class="matrix-view" id="matrixView">
+            <div style="padding: 20px;">
+                <table class="matrix-table" id="matrixTable">
+                    <thead id="matrixTableHead"></thead>
+                    <tbody id="matrixTableBody"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
@@ -103,7 +223,44 @@
     </div>
 </div>
 
-<!-- 项目详情模态框 -->
+<!-- 分配项目模态框 -->
+<div id="assignModal" class="modal">
+    <div class="modal-content">
+        <h5>为 <span id="assignPersonName"></span> 分配项目</h5>
+        <form id="assignForm">
+            <div class="row">
+                <div class="input-field col s12">
+                    <select id="assignProjectSelect" name="project_id" required>
+                        <option value="" disabled selected>请选择项目</option>
+                    </select>
+                    <label>项目 *</label>
+                </div>
+                <div class="input-field col s12">
+                    <input id="assign_position" name="project_position" type="text">
+                    <label for="assign_position">入项岗位</label>
+                </div>
+                <div class="input-field col s12">
+                    <input id="assign_level" name="assessment_level" type="text">
+                    <label for="assign_level">评定等级</label>
+                </div>
+                <div class="input-field col s12">
+                    <input id="assign_price" name="unit_price" type="number" step="0.01" min="0">
+                    <label for="assign_price">评定单价</label>
+                </div>
+                <div class="input-field col s12">
+                    <input id="assign_status" name="process_status" type="text">
+                    <label for="assign_status">流程状态</label>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-grey btn-flat">取消</a>
+        <a href="#!" class="waves-effect waves-light btn" id="submitAssign">确认</a>
+    </div>
+</div>
+
+<!-- 项目详情模态框（保留用于编辑项目信息） -->
 <div id="projectDetailModal" class="modal modal-fixed-footer" style="width: 90%; max-width: 900px;">
     <div class="modal-content">
         <h5 id="projectDetailTitle">项目详情</h5>
@@ -207,9 +364,182 @@
         <a href="#!" class="waves-effect waves-light btn" id="submitAddPerson">确认</a>
     </div>
 </div>
+
+<!-- 编辑项目参与人员模态框 -->
+<div id="editPersonModal" class="modal">
+    <div class="modal-content">
+        <h5>编辑项目参与人员信息</h5>
+        <form id="editPersonForm">
+            <div class="row">
+                <div class="input-field col s12">
+                    <input id="edit_person_name" type="text" readonly>
+                    <label for="edit_person_name">人员</label>
+                </div>
+                <div class="input-field col s12">
+                    <input id="edit_project_position" name="project_position" type="text">
+                    <label for="edit_project_position">入项岗位</label>
+                </div>
+                <div class="input-field col s12">
+                    <input id="edit_material_submit_date" name="material_submit_date" type="date">
+                    <label for="edit_material_submit_date">材料提交时间</label>
+                </div>
+                <div class="input-field col s12">
+                    <input id="edit_assessment_level" name="assessment_level" type="text">
+                    <label for="edit_assessment_level">评定等级</label>
+                </div>
+                <div class="input-field col s12">
+                    <input id="edit_unit_price" name="unit_price" type="number" step="0.01" min="0">
+                    <label for="edit_unit_price">评定单价</label>
+                </div>
+                <div class="input-field col s12">
+                    <input id="edit_process_status" name="process_status" type="text">
+                    <label for="edit_process_status">当前管理流程状态</label>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-grey btn-flat">取消</a>
+        <a href="#!" class="waves-effect waves-light btn" id="submitEditPerson">保存</a>
+    </div>
+</div>
+
+<!-- 人员项目历史模态框 -->
+<div id="personProjectHistoryModal" class="modal modal-fixed-footer" style="width: 90%; max-width: 1000px;">
+    <div class="modal-content">
+        <h5 id="personProjectHistoryTitle">人员项目参与历史</h5>
+        
+        <!-- 添加参与项目表单（仅在没有当前参与项目时显示） -->
+        <div id="addProjectFormSection" style="display: none; margin-bottom: 30px; padding: 20px; background: #f5f5f5; border-radius: 4px;">
+            <h6 style="margin-top: 0;">添加参与项目</h6>
+            <form id="addProjectForm">
+                <div class="row">
+                    <div class="input-field col s12 m6">
+                        <select id="addProjectSelect" name="project_id" required>
+                            <option value="" disabled selected>请选择项目</option>
+                        </select>
+                        <label>项目 *</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <input id="add_position" name="project_position" type="text">
+                        <label for="add_position">入项岗位</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <input id="add_level" name="assessment_level" type="text">
+                        <label for="add_level">评定等级</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <input id="add_price" name="unit_price" type="number" step="0.01" min="0">
+                        <label for="add_price">评定单价</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <input id="add_status" name="process_status" type="text">
+                        <label for="add_status">流程状态</label>
+                    </div>
+                    <div class="col s12" style="margin-top: 20px;">
+                        <a href="#!" class="waves-effect waves-light btn" id="submitAddProject">
+                            <i class="material-icons left">add</i>添加参与项目
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- 项目历史记录列表 -->
+        <div id="personProjectHistoryContent">
+            <div class="center-align" style="padding: 40px;">
+                <div class="preloader-wrapper small active">
+                    <div class="spinner-layer spinner-blue-only">
+                        <div class="circle-clipper left">
+                            <div class="circle"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-grey btn-flat">关闭</a>
+    </div>
+</div>
+
+<!-- 项目人员模态框 -->
+<div id="projectPersonsModal" class="modal modal-fixed-footer" style="width: 90%; max-width: 1000px;">
+    <div class="modal-content">
+        <h5 id="projectPersonsModalTitle">项目参与人员</h5>
+        
+        <!-- 添加人员表单 -->
+        <div id="addPersonToProjectSection" style="margin-bottom: 30px; padding: 20px; background: #f5f5f5; border-radius: 4px;">
+            <h6 style="margin-top: 0;">添加人员到项目</h6>
+            <form id="addPersonToProjectForm">
+                <div class="row">
+                    <div class="input-field col s12 m6">
+                        <select id="addPersonToProjectSelect" name="person_id" required>
+                            <option value="" disabled selected>请选择人员</option>
+                        </select>
+                        <label>人员 *</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <input id="add_person_position" name="project_position" type="text">
+                        <label for="add_person_position">入项岗位</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <input id="add_person_level" name="assessment_level" type="text">
+                        <label for="add_person_level">评定等级</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <input id="add_person_price" name="unit_price" type="number" step="0.01" min="0">
+                        <label for="add_person_price">评定单价</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <input id="add_person_status" name="process_status" type="text">
+                        <label for="add_person_status">流程状态</label>
+                    </div>
+                    <div class="col s12" style="margin-top: 20px;">
+                        <a href="#!" class="waves-effect waves-light btn" id="submitAddPersonToProject">
+                            <i class="material-icons left">add</i>添加人员
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- 参与人员列表（表格形式） -->
+        <div id="projectPersonsTableContainer">
+            <table class="striped">
+                <thead>
+                    <tr>
+                        <th>姓名</th>
+                        <th>公司</th>
+                        <th>岗位</th>
+                        <th>评定等级</th>
+                        <th>评定单价</th>
+                        <th>流程状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="projectPersonsTableBody">
+                    <tr>
+                        <td colspan="7" class="center-align">
+                            <div class="preloader-wrapper small active">
+                                <div class="spinner-layer spinner-blue-only">
+                                    <div class="circle-clipper left">
+                                        <div class="circle"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-grey btn-flat">关闭</a>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='js/projects.js') }}"></script>
 {% endblock %}
-
