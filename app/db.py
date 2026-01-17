@@ -438,6 +438,22 @@ def init_db(db_path: str):
         """
     )
 
+    # 人员项目状态流（在项/待入项/不可用）
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS person_project_status_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            person_id INTEGER NOT NULL,
+            version INTEGER NOT NULL,
+            ts TEXT NOT NULL,
+            data TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (person_id) REFERENCES persons(id),
+            UNIQUE(person_id, version)
+        )
+        """
+    )
+
     # 创建索引以优化查询
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_attendance_person_date ON attendance_records(person_id, date)"
@@ -450,6 +466,9 @@ def init_db(db_path: str):
     )
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_project_basic ON project_basic_history(project_id)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_person_project_status ON person_project_status_history(person_id)"
     )
 
     # 薪资计算规则表（DSL配置）

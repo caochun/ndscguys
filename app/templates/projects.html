@@ -163,6 +163,9 @@
         <div class="matrix-header">
             <h5 style="margin: 0; font-size: 20px; font-weight: 500;">项目人员分配矩阵</h5>
             <div class="action-buttons">
+                <a class="btn waves-effect waves-light btn-small" id="addPersonToProjectBtn">
+                    <i class="material-icons left">person_add</i>登记人员入项
+                </a>
                 <a class="btn waves-effect waves-light btn-small" id="assignBtn" style="display: none;">
                     <i class="material-icons left">link</i>分配项目
                 </a>
@@ -185,34 +188,66 @@
 </div>
 
 <!-- 创建项目模态框 -->
-<div id="createProjectModal" class="modal modal-fixed-footer">
+<div id="createProjectModal" class="modal modal-fixed-footer" style="width: 90%; max-width: 1000px;">
     <div class="modal-content">
         <h5>新建项目</h5>
         <form id="createProjectForm">
             <div class="row">
                 <div class="input-field col s12">
-                    <input id="contract_name" name="contract_name" type="text" required>
-                    <label for="contract_name">合同名称 *</label>
+                    <select id="project_type" name="project_type" required>
+                        <option value="" disabled selected>请选择项目类型</option>
+                        <option value="劳务型">劳务型</option>
+                        <option value="专项型">专项型</option>
+                    </select>
+                    <label>项目类型 *</label>
+                </div>
+            </div>
+            
+            <h6 style="margin-top: 30px; margin-bottom: 20px; color: #1976d2;">内部项目信息</h6>
+            <div class="row">
+                <div class="input-field col s12">
+                    <input id="internal_project_name" name="internal_project_name" type="text" required>
+                    <label for="internal_project_name">项目名称 *</label>
                 </div>
                 <div class="input-field col s12 m6">
-                    <input id="start_date" name="start_date" type="date">
-                    <label for="start_date">开始日期</label>
+                    <input id="internal_department" name="internal_department" type="text" required>
+                    <label for="internal_department">归属部门 *</label>
                 </div>
                 <div class="input-field col s12 m6">
-                    <input id="end_date" name="end_date" type="date">
-                    <label for="end_date">结束日期</label>
+                    <input id="internal_project_manager" name="internal_project_manager" type="text" required>
+                    <label for="internal_project_manager">项目经理 *</label>
+                </div>
+            </div>
+            
+            <h6 style="margin-top: 30px; margin-bottom: 20px; color: #1976d2;">外部项目信息</h6>
+            <div class="row">
+                <div class="input-field col s12">
+                    <input id="external_project_name" name="external_project_name" type="text" required>
+                    <label for="external_project_name">甲方项目名称 *</label>
                 </div>
                 <div class="input-field col s12">
-                    <input id="client_company" name="client_company" type="text">
-                    <label for="client_company">甲方单位</label>
+                    <input id="external_company" name="external_company" type="text" required>
+                    <label for="external_company">甲方单位 *</label>
                 </div>
                 <div class="input-field col s12 m6">
-                    <input id="client_department" name="client_department" type="text">
-                    <label for="client_department">甲方部门</label>
+                    <input id="external_department" name="external_department" type="text">
+                    <label for="external_department">甲方部门</label>
                 </div>
-                <div class="input-field col s12">
-                    <input id="client_project_manager" name="client_project_manager" type="text">
-                    <label for="client_project_manager">甲方项目经理</label>
+                <div class="input-field col s12 m6">
+                    <input id="external_manager" name="external_manager" type="text">
+                    <label for="external_manager">甲方经理</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="external_order_number" name="external_order_number" type="text">
+                    <label for="external_order_number">甲方订单编号</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="execution_start_date" name="execution_start_date" type="date">
+                    <label for="execution_start_date">执行开始时间</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="execution_end_date" name="execution_end_date" type="date">
+                    <label for="execution_end_date">执行结束时间</label>
                 </div>
             </div>
         </form>
@@ -220,6 +255,117 @@
     <div class="modal-footer">
         <a href="#!" class="modal-close waves-effect waves-grey btn-flat">取消</a>
         <a href="#!" class="waves-effect waves-light btn" id="submitCreateProject">确认</a>
+    </div>
+</div>
+
+<!-- 登记人员入项模态框 -->
+<div id="addPersonToProjectModal" class="modal modal-fixed-footer" style="width: 90%; max-width: 1000px;">
+    <div class="modal-content">
+        <h5>登记人员入项</h5>
+        <form id="addPersonToProjectMainForm">
+            <div class="row">
+                <div class="input-field col s12 m6">
+                    <select id="addPersonToProjectMainSelect" name="person_id" required>
+                        <option value="" disabled selected>请选择人员</option>
+                    </select>
+                    <label>人员 *</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <select id="addProjectToPersonMainSelect" name="project_id" required>
+                        <option value="" disabled selected>请选择项目</option>
+                    </select>
+                    <label>项目 *</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="addPersonToProject_material_submit_date" name="material_submit_date" type="date">
+                    <label for="addPersonToProject_material_submit_date">材料提交时间</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="addPersonToProject_position" name="project_position" type="text">
+                    <label for="addPersonToProject_position">入项岗位</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="addPersonToProject_level" name="assessment_level" type="text">
+                    <label for="addPersonToProject_level">评定等级</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="addPersonToProject_price" name="unit_price" type="number" step="0.01" min="0">
+                    <label for="addPersonToProject_price">评定单价</label>
+                </div>
+                <div class="input-field col s12 m6">
+                    <input id="addPersonToProject_status" name="process_status" type="text">
+                    <label for="addPersonToProject_status">流程状态</label>
+                </div>
+                
+                <!-- 劳务型项目专用字段 -->
+                <div id="addPersonToProjectLaborFields" style="display: none;">
+                    <div class="col s12" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+                        <h6 style="color: #1976d2; margin-bottom: 15px;">劳务型项目专用信息</h6>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <input id="addPersonToProject_client_requirement_number" name="client_requirement_number" type="text">
+                        <label for="addPersonToProject_client_requirement_number">甲方需求编号</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <select id="addPersonToProject_attendance_method" name="attendance_method">
+                            <option value="" disabled selected>请选择打卡方式</option>
+                            <option value="现场打卡">现场打卡</option>
+                            <option value="线上打卡">线上打卡</option>
+                        </select>
+                        <label>打卡方式</label>
+                    </div>
+                    
+                    <!-- 现场打卡字段 -->
+                    <div id="addPersonToProjectOnsiteFields" style="display: none;">
+                        <div class="input-field col s12 m6">
+                            <input id="addPersonToProject_attendance_location" name="attendance_location" type="text">
+                            <label for="addPersonToProject_attendance_location">打卡地点</label>
+                        </div>
+                        <div class="input-field col s12 m6">
+                            <input id="addPersonToProject_work_time_range" name="work_time_range" type="text" placeholder="如：09:00-18:00">
+                            <label for="addPersonToProject_work_time_range">正常工作时间区间</label>
+                        </div>
+                    </div>
+                    
+                    <!-- 线上打卡字段 -->
+                    <div id="addPersonToProjectOnlineFields" style="display: none;">
+                        <div class="input-field col s12 m6">
+                            <input id="addPersonToProject_online_location" name="online_location" type="text">
+                            <label for="addPersonToProject_online_location">地点</label>
+                        </div>
+                        <div class="input-field col s12 m6">
+                            <input id="addPersonToProject_online_work_time" name="online_work_time" type="text">
+                            <label for="addPersonToProject_online_work_time">工作时间</label>
+                        </div>
+                        <div class="input-field col s12 m6">
+                            <p>
+                                <label>
+                                    <input type="checkbox" id="addPersonToProject_face_recognition" name="face_recognition" />
+                                    <span>是否刷脸打卡</span>
+                                </label>
+                            </p>
+                        </div>
+                        <div class="input-field col s12 m6">
+                            <input id="addPersonToProject_attendance_person" name="attendance_person" type="text">
+                            <label for="addPersonToProject_attendance_person">打卡人</label>
+                        </div>
+                    </div>
+                    
+                    <div class="input-field col s12 m6">
+                        <input id="addPersonToProject_position_level" name="position_level" type="text">
+                        <label for="addPersonToProject_position_level">岗位级别</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <input id="addPersonToProject_labor_unit_price" name="labor_unit_price" type="number" step="0.01" min="0">
+                        <label for="addPersonToProject_labor_unit_price">单价</label>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-grey btn-flat">取消</a>
+        <a href="#!" class="waves-effect waves-light btn" id="submitAddPersonToProjectMain">确认</a>
     </div>
 </div>
 
@@ -274,28 +420,60 @@
             <form id="projectEditForm">
                 <div class="row">
                     <div class="input-field col s12">
-                        <input id="edit_contract_name" name="contract_name" type="text" required>
-                        <label for="edit_contract_name">合同名称 *</label>
+                        <select id="edit_project_type" name="project_type" required>
+                            <option value="" disabled>请选择项目类型</option>
+                            <option value="劳务型">劳务型</option>
+                            <option value="专项型">专项型</option>
+                        </select>
+                        <label>项目类型 *</label>
+                    </div>
+                </div>
+                
+                <h6 style="margin-top: 30px; margin-bottom: 20px; color: #1976d2;">内部项目信息</h6>
+                <div class="row">
+                    <div class="input-field col s12">
+                        <input id="edit_internal_project_name" name="internal_project_name" type="text" required>
+                        <label for="edit_internal_project_name">项目名称 *</label>
                     </div>
                     <div class="input-field col s12 m6">
-                        <input id="edit_start_date" name="start_date" type="date">
-                        <label for="edit_start_date">开始日期</label>
+                        <input id="edit_internal_department" name="internal_department" type="text" required>
+                        <label for="edit_internal_department">归属部门 *</label>
                     </div>
                     <div class="input-field col s12 m6">
-                        <input id="edit_end_date" name="end_date" type="date">
-                        <label for="edit_end_date">结束日期</label>
+                        <input id="edit_internal_project_manager" name="internal_project_manager" type="text" required>
+                        <label for="edit_internal_project_manager">项目经理 *</label>
+                    </div>
+                </div>
+                
+                <h6 style="margin-top: 30px; margin-bottom: 20px; color: #1976d2;">外部项目信息</h6>
+                <div class="row">
+                    <div class="input-field col s12">
+                        <input id="edit_external_project_name" name="external_project_name" type="text" required>
+                        <label for="edit_external_project_name">甲方项目名称 *</label>
                     </div>
                     <div class="input-field col s12">
-                        <input id="edit_client_company" name="client_company" type="text">
-                        <label for="edit_client_company">甲方单位</label>
+                        <input id="edit_external_company" name="external_company" type="text" required>
+                        <label for="edit_external_company">甲方单位 *</label>
                     </div>
                     <div class="input-field col s12 m6">
-                        <input id="edit_client_department" name="client_department" type="text">
-                        <label for="edit_client_department">甲方部门</label>
+                        <input id="edit_external_department" name="external_department" type="text">
+                        <label for="edit_external_department">甲方部门</label>
                     </div>
-                    <div class="input-field col s12">
-                        <input id="edit_client_project_manager" name="client_project_manager" type="text">
-                        <label for="edit_client_project_manager">甲方项目经理</label>
+                    <div class="input-field col s12 m6">
+                        <input id="edit_external_manager" name="external_manager" type="text">
+                        <label for="edit_external_manager">甲方经理</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <input id="edit_external_order_number" name="external_order_number" type="text">
+                        <label for="edit_external_order_number">甲方订单编号</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <input id="edit_execution_start_date" name="execution_start_date" type="date">
+                        <label for="edit_execution_start_date">执行开始时间</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                        <input id="edit_execution_end_date" name="execution_end_date" type="date">
+                        <label for="edit_execution_end_date">执行结束时间</label>
                     </div>
                 </div>
             </form>
@@ -421,6 +599,10 @@
                         <label>项目 *</label>
                     </div>
                     <div class="input-field col s12 m6">
+                        <input id="add_material_submit_date" name="material_submit_date" type="date">
+                        <label for="add_material_submit_date">材料提交时间</label>
+                    </div>
+                    <div class="input-field col s12 m6">
                         <input id="add_position" name="project_position" type="text">
                         <label for="add_position">入项岗位</label>
                     </div>
@@ -436,6 +618,71 @@
                         <input id="add_status" name="process_status" type="text">
                         <label for="add_status">流程状态</label>
                     </div>
+                    
+                    <!-- 劳务型项目专用字段 -->
+                    <div id="addLaborFields" style="display: none;">
+                        <div class="col s12" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+                            <h6 style="color: #1976d2; margin-bottom: 15px;">劳务型项目专用信息</h6>
+                        </div>
+                        <div class="input-field col s12 m6">
+                            <input id="add_client_requirement_number" name="client_requirement_number" type="text">
+                            <label for="add_client_requirement_number">甲方需求编号</label>
+                        </div>
+                        <div class="input-field col s12 m6">
+                            <select id="add_attendance_method" name="attendance_method">
+                                <option value="" disabled selected>请选择打卡方式</option>
+                                <option value="现场打卡">现场打卡</option>
+                                <option value="线上打卡">线上打卡</option>
+                            </select>
+                            <label>打卡方式</label>
+                        </div>
+                        
+                        <!-- 现场打卡字段 -->
+                        <div id="addOnsiteFields" style="display: none;">
+                            <div class="input-field col s12 m6">
+                                <input id="add_attendance_location" name="attendance_location" type="text">
+                                <label for="add_attendance_location">打卡地点</label>
+                            </div>
+                            <div class="input-field col s12 m6">
+                                <input id="add_work_time_range" name="work_time_range" type="text" placeholder="如：09:00-18:00">
+                                <label for="add_work_time_range">正常工作时间区间</label>
+                            </div>
+                        </div>
+                        
+                        <!-- 线上打卡字段 -->
+                        <div id="addOnlineFields" style="display: none;">
+                            <div class="input-field col s12 m6">
+                                <input id="add_online_location" name="online_location" type="text">
+                                <label for="add_online_location">地点</label>
+                            </div>
+                            <div class="input-field col s12 m6">
+                                <input id="add_online_work_time" name="online_work_time" type="text">
+                                <label for="add_online_work_time">工作时间</label>
+                            </div>
+                            <div class="input-field col s12 m6">
+                                <p>
+                                    <label>
+                                        <input type="checkbox" id="add_face_recognition" name="face_recognition" />
+                                        <span>是否刷脸打卡</span>
+                                    </label>
+                                </p>
+                            </div>
+                            <div class="input-field col s12 m6">
+                                <input id="add_attendance_person" name="attendance_person" type="text">
+                                <label for="add_attendance_person">打卡人</label>
+                            </div>
+                        </div>
+                        
+                        <div class="input-field col s12 m6">
+                            <input id="add_position_level" name="position_level" type="text">
+                            <label for="add_position_level">岗位级别</label>
+                        </div>
+                        <div class="input-field col s12 m6">
+                            <input id="add_labor_unit_price" name="labor_unit_price" type="number" step="0.01" min="0">
+                            <label for="add_labor_unit_price">单价</label>
+                        </div>
+                    </div>
+                    
                     <div class="col s12" style="margin-top: 20px;">
                         <a href="#!" class="waves-effect waves-light btn" id="submitAddProject">
                             <i class="material-icons left">add</i>添加参与项目

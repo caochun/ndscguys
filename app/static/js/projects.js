@@ -38,6 +38,12 @@ function initMaterialize() {
 
 // 初始化事件监听器
 function initEventListeners() {
+    // 登记人员入项按钮
+    const addPersonToProjectBtn = document.getElementById('addPersonToProjectBtn');
+    if (addPersonToProjectBtn) {
+        addPersonToProjectBtn.addEventListener('click', openAddPersonToProjectModal);
+    }
+    
     // 创建项目按钮
     const createProjectBtn = document.getElementById('createProjectBtn');
     if (createProjectBtn) {
@@ -96,10 +102,39 @@ function initEventListeners() {
         submitAddProjectBtn.addEventListener('click', handleAddProject);
     }
     
+    // 监听项目选择变化，根据项目类型显示不同字段
+    const addProjectSelect = document.getElementById('addProjectSelect');
+    if (addProjectSelect) {
+        addProjectSelect.addEventListener('change', handleAddProjectSelectChange);
+    }
+    
+    const addAttendanceMethodSelect = document.getElementById('add_attendance_method');
+    if (addAttendanceMethodSelect) {
+        addAttendanceMethodSelect.addEventListener('change', handleAttendanceMethodChange);
+    }
+    
     // 项目人员相关
     const submitAddPersonToProjectBtn = document.getElementById('submitAddPersonToProject');
     if (submitAddPersonToProjectBtn) {
         submitAddPersonToProjectBtn.addEventListener('click', handleAddPersonToProject);
+    }
+    
+    // 登记人员入项主表单
+    const submitAddPersonToProjectMainBtn = document.getElementById('submitAddPersonToProjectMain');
+    if (submitAddPersonToProjectMainBtn) {
+        submitAddPersonToProjectMainBtn.addEventListener('click', handleAddPersonToProjectMain);
+    }
+    
+    // 监听项目选择变化
+    const addProjectToPersonMainSelect = document.getElementById('addProjectToPersonMainSelect');
+    if (addProjectToPersonMainSelect) {
+        addProjectToPersonMainSelect.addEventListener('change', handleAddProjectToPersonMainSelectChange);
+    }
+    
+    // 监听打卡方式变化
+    const addPersonToProjectAttendanceMethod = document.getElementById('addPersonToProject_attendance_method');
+    if (addPersonToProjectAttendanceMethod) {
+        addPersonToProjectAttendanceMethod.addEventListener('change', handleAddPersonToProjectAttendanceMethodChange);
     }
     
 }
@@ -126,8 +161,10 @@ async function loadRelationData() {
             fetchJSON('/api/projects')
         ]);
         
-        personsData = personsResult.data;
-        projectsData = projectsResult.data;
+        personsData = personsResult.data || [];
+        projectsData = projectsResult.data || [];
+        
+        console.log(`加载完成：${personsData.length} 个人员，${projectsData.length} 个项目`);
         
         // 加载所有关系
         await loadAllRelations();
@@ -147,22 +184,26 @@ async function loadAllRelations() {
     for (const person of personsData) {
         try {
             const result = await fetchJSON(`/api/persons/${person.person_id}/projects`);
-            result.data.forEach(project => {
-                // 过滤已退出的关系
-                if (project.data?.project_position === '已退出') {
-                    return;
-                }
-                relations.push({
-                    person_id: person.person_id,
-                    project_id: project.project_id,
-                    data: project.data,
-                    ts: project.ts
+            if (result.data && result.data.length > 0) {
+                result.data.forEach(project => {
+                    // 过滤已退出的关系
+                    if (project.data?.project_position === '已退出') {
+                        return;
+                    }
+                    relations.push({
+                        person_id: Number(person.person_id),
+                        project_id: Number(project.project_id),
+                        data: project.data || {},
+                        ts: project.ts
+                    });
                 });
-            });
+            }
         } catch (err) {
             console.warn(`加载人员 ${person.person_id} 的项目失败:`, err);
         }
     }
+    
+    console.log(`加载完成：共 ${relations.length} 条人员-项目关系`);
 }
 
 function renderMatrixView() {
@@ -176,12 +217,17 @@ function renderMatrixView() {
     const filteredPersons = getFilteredPersons();
     const filteredProjects = getFilteredProjects();
     
+    console.log(`渲染矩阵视图：${filteredPersons.length} 个人员，${filteredProjects.length} 个项目，${relations.length} 条关系`);
+    if (relations.length > 0) {
+        console.log('关系示例:', relations.slice(0, 3));
+    }
+    
     // 渲染表头
     thead.innerHTML = `
         <tr>
             <th>人员</th>
             ${filteredProjects.map(project => {
-                const projectName = project.data?.contract_name || `项目 #${project.project_id}`;
+                const projectName = project.data?.internal_project_name || project.data?.contract_name || `项目 #${project.project_id}`;
                 return `<th title="${projectName}" 
                             style="cursor: pointer;" 
                             onclick="selectProject(${project.project_id})">${projectName}</th>`;
@@ -210,9 +256,12 @@ function renderMatrixView() {
                     </div>
                 </td>
                 ${filteredProjects.map(project => {
+                    // 确保类型一致（都转为数字）
+                    const personId = Number(person.person_id);
+                    const projectId = Number(project.project_id);
                     const relation = relations.find(r => 
-                        r.person_id === person.person_id && 
-                        r.project_id === project.project_id
+                        Number(r.person_id) === personId && 
+                        Number(r.project_id) === projectId
                     );
                     
                     if (relation) {
@@ -299,8 +348,28 @@ async function handleCreateProject() {
         }
     }
 
-    if (!data.contract_name) {
-        M.toast({html: '合同名称不能为空', classes: 'red'});
+    if (!data.project_type) {
+        M.toast({html: '项目类型不能为空', classes: 'red'});
+        return;
+    }
+    if (!data.internal_project_name) {
+        M.toast({html: '项目名称不能为空', classes: 'red'});
+        return;
+    }
+    if (!data.internal_department) {
+        M.toast({html: '归属部门不能为空', classes: 'red'});
+        return;
+    }
+    if (!data.internal_project_manager) {
+        M.toast({html: '项目经理不能为空', classes: 'red'});
+        return;
+    }
+    if (!data.external_project_name) {
+        M.toast({html: '甲方项目名称不能为空', classes: 'red'});
+        return;
+    }
+    if (!data.external_company) {
+        M.toast({html: '甲方单位不能为空', classes: 'red'});
         return;
     }
 
@@ -313,6 +382,7 @@ async function handleCreateProject() {
         const instance = M.Modal.getInstance(document.getElementById('createProjectModal'));
         form.reset();
         M.updateTextFields();
+        M.FormSelect.init(document.querySelectorAll('#createProjectModal select'));
         instance.close();
         loadRelationData();
     } catch (err) {
@@ -332,27 +402,38 @@ async function openProjectDetail(projectId) {
         instance.open();
         
         setTimeout(() => {
-            const contractNameEl = document.getElementById('edit_contract_name');
-            const startDateEl = document.getElementById('edit_start_date');
-            const endDateEl = document.getElementById('edit_end_date');
-            const clientCompanyEl = document.getElementById('edit_client_company');
-            const clientDeptEl = document.getElementById('edit_client_department');
-            const clientManagerEl = document.getElementById('edit_client_project_manager');
+            const projectTypeEl = document.getElementById('edit_project_type');
+            const internalProjectNameEl = document.getElementById('edit_internal_project_name');
+            const internalDeptEl = document.getElementById('edit_internal_department');
+            const internalManagerEl = document.getElementById('edit_internal_project_manager');
+            const externalProjectNameEl = document.getElementById('edit_external_project_name');
+            const externalCompanyEl = document.getElementById('edit_external_company');
+            const externalDeptEl = document.getElementById('edit_external_department');
+            const externalManagerEl = document.getElementById('edit_external_manager');
+            const externalOrderNumberEl = document.getElementById('edit_external_order_number');
+            const executionStartDateEl = document.getElementById('edit_execution_start_date');
+            const executionEndDateEl = document.getElementById('edit_execution_end_date');
             
-            if (contractNameEl) contractNameEl.value = data.contract_name || '';
-            if (startDateEl) startDateEl.value = data.start_date || '';
-            if (endDateEl) endDateEl.value = data.end_date || '';
-            if (clientCompanyEl) clientCompanyEl.value = data.client_company || '';
-            if (clientDeptEl) clientDeptEl.value = data.client_department || '';
-            if (clientManagerEl) clientManagerEl.value = data.client_project_manager || '';
+            if (projectTypeEl) projectTypeEl.value = data.project_type || '';
+            if (internalProjectNameEl) internalProjectNameEl.value = data.internal_project_name || '';
+            if (internalDeptEl) internalDeptEl.value = data.internal_department || '';
+            if (internalManagerEl) internalManagerEl.value = data.internal_project_manager || '';
+            if (externalProjectNameEl) externalProjectNameEl.value = data.external_project_name || '';
+            if (externalCompanyEl) externalCompanyEl.value = data.external_company || '';
+            if (externalDeptEl) externalDeptEl.value = data.external_department || '';
+            if (externalManagerEl) externalManagerEl.value = data.external_manager || '';
+            if (externalOrderNumberEl) externalOrderNumberEl.value = data.external_order_number || '';
+            if (executionStartDateEl) executionStartDateEl.value = data.execution_start_date || '';
+            if (executionEndDateEl) executionEndDateEl.value = data.execution_end_date || '';
             
             setTimeout(() => {
                 M.updateTextFields();
+                M.FormSelect.init(document.querySelectorAll('#projectDetailModal select'));
             }, 50);
             
             const titleEl = document.getElementById('projectDetailTitle');
             if (titleEl) {
-                titleEl.textContent = `项目详情 - ${data.contract_name || '未知项目'}`;
+                titleEl.textContent = `项目详情 - ${data.internal_project_name || '未知项目'}`;
             }
             
             const submitBtn = document.getElementById('submitProjectEdit');
@@ -387,8 +468,28 @@ async function handleEditProject() {
         }
     }
 
-    if (!data.contract_name) {
-        M.toast({html: '合同名称不能为空', classes: 'red'});
+    if (!data.project_type) {
+        M.toast({html: '项目类型不能为空', classes: 'red'});
+        return;
+    }
+    if (!data.internal_project_name) {
+        M.toast({html: '项目名称不能为空', classes: 'red'});
+        return;
+    }
+    if (!data.internal_department) {
+        M.toast({html: '归属部门不能为空', classes: 'red'});
+        return;
+    }
+    if (!data.internal_project_manager) {
+        M.toast({html: '项目经理不能为空', classes: 'red'});
+        return;
+    }
+    if (!data.external_project_name) {
+        M.toast({html: '甲方项目名称不能为空', classes: 'red'});
+        return;
+    }
+    if (!data.external_company) {
+        M.toast({html: '甲方单位不能为空', classes: 'red'});
         return;
     }
 
@@ -418,7 +519,7 @@ async function showAssignModal() {
     // 加载项目列表
     assignProjectSelect.innerHTML = '<option value="" disabled selected>请选择项目</option>' +
         projectsData.map(p => 
-            `<option value="${p.project_id}">${p.data?.contract_name || `项目 #${p.project_id}`}</option>`
+            `<option value="${p.project_id}">${p.data?.internal_project_name || p.data?.contract_name || `项目 #${p.project_id}`}</option>`
         ).join('');
     M.FormSelect.init(assignProjectSelect);
     
@@ -699,7 +800,7 @@ async function loadProjectHistory(project) {
                     <div class="col s12" style="margin-top: 8px;">
                         <div class="project-info-item">
                             <span class="project-info-label">合同名称：</span>
-                            <span>${data.contract_name || '-'}</span>
+                            <span>${data.internal_project_name || data.contract_name || '-'}</span>
                         </div>
                         ${data.start_date || data.end_date ? `
                         <div class="project-info-item">
@@ -893,7 +994,7 @@ async function renderProjectHistoryList(personId, projects, isActive) {
         
         // 获取项目基本信息
         const projectInfo = projectsData.find(p => p.project_id === projectId);
-        const projectName = projectInfo?.data?.contract_name || `项目 #${projectId}`;
+        const projectName = projectInfo?.data?.internal_project_name || projectInfo?.data?.contract_name || `项目 #${projectId}`;
         
         // 获取该项目的详细历史记录
         let historyHtml = '';
@@ -1014,7 +1115,7 @@ async function loadProjectSelectForAdd(personId) {
         
         select.innerHTML = '<option value="" disabled selected>请选择项目</option>' +
             availableProjects.map(p => 
-                `<option value="${p.project_id}">${p.data?.contract_name || `项目 #${p.project_id}`}</option>`
+                `<option value="${p.project_id}">${p.data?.internal_project_name || p.data?.contract_name || `项目 #${p.project_id}`}</option>`
             ).join('');
         
         M.FormSelect.init(select);
@@ -1084,7 +1185,7 @@ async function openProjectPersonsModal(projectId) {
     const project = projectsData.find(p => p.project_id === projectId);
     
     if (title) {
-        const projectName = project?.data?.contract_name || `项目 #${projectId}`;
+        const projectName = project?.data?.internal_project_name || project?.data?.contract_name || `项目 #${projectId}`;
         title.textContent = `${projectName} - 参与人员`;
     }
     
@@ -1290,5 +1391,249 @@ async function handleAddPersonToProject() {
     } catch (err) {
         M.toast({html: `添加失败：${err.message}`, classes: 'red'});
         console.error('添加人员到项目失败:', err);
+    }
+}
+
+// 打开登记人员入项模态框
+async function openAddPersonToProjectModal() {
+    try {
+        // 加载人员和项目列表
+        const [personsResult, projectsResult] = await Promise.all([
+            fetchJSON('/api/persons'),
+            fetchJSON('/api/projects')
+        ]);
+        
+        const persons = personsResult.data || [];
+        const projects = projectsResult.data || [];
+        
+        // 填充人员下拉框
+        const personSelect = document.getElementById('addPersonToProjectMainSelect');
+        if (personSelect) {
+            let personOptions = '<option value="" disabled selected>请选择人员</option>';
+            persons.forEach(person => {
+                const name = person.name || `ID: ${person.person_id}`;
+                personOptions += `<option value="${person.person_id}">${name}</option>`;
+            });
+            personSelect.innerHTML = personOptions;
+        }
+        
+        // 填充项目下拉框
+        const projectSelect = document.getElementById('addProjectToPersonMainSelect');
+        if (projectSelect) {
+            let projectOptions = '<option value="" disabled selected>请选择项目</option>';
+            projects.forEach(project => {
+                const projectName = project.data?.internal_project_name || `项目 ${project.project_id}`;
+                projectOptions += `<option value="${project.project_id}">${projectName}</option>`;
+            });
+            projectSelect.innerHTML = projectOptions;
+        }
+        
+        // 重置表单
+        const form = document.getElementById('addPersonToProjectMainForm');
+        if (form) {
+            form.reset();
+        }
+        
+        // 隐藏劳务型字段
+        const laborFields = document.getElementById('addPersonToProjectLaborFields');
+        if (laborFields) {
+            laborFields.style.display = 'none';
+        }
+        
+        // 打开模态框
+        const modal = M.Modal.getInstance(document.getElementById('addPersonToProjectModal'));
+        if (modal) {
+            modal.open();
+        } else {
+            M.Modal.init(document.getElementById('addPersonToProjectModal')).open();
+        }
+        
+        setTimeout(() => {
+            M.updateTextFields();
+            M.FormSelect.init(document.querySelectorAll('#addPersonToProjectModal select'));
+        }, 100);
+    } catch (err) {
+        M.toast({html: `加载失败：${err.message}`, classes: 'red'});
+    }
+}
+
+// 处理项目选择变化（在添加参与项目表单中）
+async function handleAddProjectSelectChange() {
+    const select = document.getElementById('addProjectSelect');
+    const projectId = select.value;
+    const laborFields = document.getElementById('addLaborFields');
+    
+    if (!projectId || !laborFields) return;
+    
+    try {
+        const result = await fetchJSON(`/api/projects/${projectId}`);
+        const projectType = result.data.basic.data?.project_type;
+        
+        if (projectType === '劳务型') {
+            laborFields.style.display = 'block';
+        } else {
+            laborFields.style.display = 'none';
+            // 清空劳务型字段
+            const laborInputs = laborFields.querySelectorAll('input, select');
+            laborInputs.forEach(input => {
+                if (input.type === 'checkbox') {
+                    input.checked = false;
+                } else {
+                    input.value = '';
+                }
+            });
+        }
+        
+        setTimeout(() => {
+            M.updateTextFields();
+            M.FormSelect.init(document.querySelectorAll('#addLaborFields select'));
+        }, 50);
+    } catch (err) {
+        console.error('获取项目信息失败:', err);
+    }
+}
+
+// 处理打卡方式变化（在添加参与项目表单中）
+function handleAttendanceMethodChange() {
+    const select = document.getElementById('add_attendance_method');
+    const method = select.value;
+    const onsiteFields = document.getElementById('addOnsiteFields');
+    const onlineFields = document.getElementById('addOnlineFields');
+    
+    if (method === '现场打卡') {
+        if (onsiteFields) onsiteFields.style.display = 'block';
+        if (onlineFields) onlineFields.style.display = 'none';
+    } else if (method === '线上打卡') {
+        if (onsiteFields) onsiteFields.style.display = 'none';
+        if (onlineFields) onlineFields.style.display = 'block';
+    } else {
+        if (onsiteFields) onsiteFields.style.display = 'none';
+        if (onlineFields) onlineFields.style.display = 'none';
+    }
+    
+    setTimeout(() => {
+        M.updateTextFields();
+    }, 50);
+}
+
+// 处理项目选择变化（在登记人员入项主表单中）
+async function handleAddProjectToPersonMainSelectChange() {
+    const select = document.getElementById('addProjectToPersonMainSelect');
+    const projectId = select.value;
+    const laborFields = document.getElementById('addPersonToProjectLaborFields');
+    
+    if (!projectId || !laborFields) return;
+    
+    try {
+        const result = await fetchJSON(`/api/projects/${projectId}`);
+        const projectType = result.data.basic.data?.project_type;
+        
+        if (projectType === '劳务型') {
+            laborFields.style.display = 'block';
+        } else {
+            laborFields.style.display = 'none';
+            // 清空劳务型字段
+            const laborInputs = laborFields.querySelectorAll('input, select');
+            laborInputs.forEach(input => {
+                if (input.type === 'checkbox') {
+                    input.checked = false;
+                } else {
+                    input.value = '';
+                }
+            });
+        }
+        
+        setTimeout(() => {
+            M.updateTextFields();
+            M.FormSelect.init(document.querySelectorAll('#addPersonToProjectLaborFields select'));
+        }, 50);
+    } catch (err) {
+        console.error('获取项目信息失败:', err);
+    }
+}
+
+// 处理打卡方式变化
+function handleAddPersonToProjectAttendanceMethodChange() {
+    const select = document.getElementById('addPersonToProject_attendance_method');
+    const method = select.value;
+    const onsiteFields = document.getElementById('addPersonToProjectOnsiteFields');
+    const onlineFields = document.getElementById('addPersonToProjectOnlineFields');
+    
+    if (method === '现场打卡') {
+        if (onsiteFields) onsiteFields.style.display = 'block';
+        if (onlineFields) onlineFields.style.display = 'none';
+    } else if (method === '线上打卡') {
+        if (onsiteFields) onsiteFields.style.display = 'none';
+        if (onlineFields) onlineFields.style.display = 'block';
+    } else {
+        if (onsiteFields) onsiteFields.style.display = 'none';
+        if (onlineFields) onlineFields.style.display = 'none';
+    }
+    
+    setTimeout(() => {
+        M.updateTextFields();
+    }, 50);
+}
+
+// 处理登记人员入项表单提交
+async function handleAddPersonToProjectMain() {
+    const form = document.getElementById('addPersonToProjectMainForm');
+    if (!form) return;
+    
+    const formData = new FormData(form);
+    const personId = formData.get('person_id');
+    const projectId = formData.get('project_id');
+    
+    if (!personId) {
+        M.toast({html: '请选择人员', classes: 'red'});
+        return;
+    }
+    
+    if (!projectId) {
+        M.toast({html: '请选择项目', classes: 'red'});
+        return;
+    }
+    
+    const data = {
+        project_id: parseInt(projectId),
+    };
+    
+    // 处理通用字段
+    for (const [key, value] of formData.entries()) {
+        if (key !== 'person_id' && key !== 'project_id' && value) {
+            if (key === 'face_recognition') {
+                data[key] = formData.get('face_recognition') === 'on';
+            } else {
+                data[key] = value;
+            }
+        }
+    }
+    
+    try {
+        await fetchJSON(`/api/persons/${personId}/projects`, {
+            method: 'POST',
+            body: JSON.stringify({project: data}),
+        });
+        
+        M.toast({html: '登记成功', classes: 'green'});
+        
+        // 关闭模态框
+        const modal = M.Modal.getInstance(document.getElementById('addPersonToProjectModal'));
+        if (modal) {
+            modal.close();
+        }
+        
+        // 重置表单
+        form.reset();
+        const laborFields = document.getElementById('addPersonToProjectLaborFields');
+        if (laborFields) {
+            laborFields.style.display = 'none';
+        }
+        
+        // 刷新关系图
+        loadRelationData();
+    } catch (err) {
+        M.toast({html: `登记失败：${err.message}`, classes: 'red'});
+        console.error('登记人员入项失败:', err);
     }
 }

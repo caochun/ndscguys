@@ -1,5 +1,5 @@
 """
-人员参与项目状态
+人员项目状态（在项/待入项/不可用）
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -10,25 +10,19 @@ from .base import ensure_dict, serialize_dict
 
 
 @dataclass
-class PersonProjectState:
-    """人员参与项目状态（包含 project_id）"""
+class PersonProjectStatusState:
+    """人员项目状态（在项/待入项/不可用）"""
 
     person_id: int
-    project_id: int
     version: int
     ts: str
     data: Dict[str, Any]
 
     @classmethod
-    def from_row(cls, row) -> "PersonProjectState":
-        # row 必须包含 project_id（从数据库查询）
+    def from_row(cls, row) -> "PersonProjectStatusState":
         # 支持 sqlite3.Row 和 dict（都支持 [] 访问）
-        project_id = row["project_id"]
-        if project_id is None:
-            raise ValueError("project_id is required in row")
         return cls(
             person_id=row["person_id"],
-            project_id=project_id,
             version=row["version"],
             ts=row["ts"],
             data=ensure_dict(row["data"]),
@@ -37,7 +31,6 @@ class PersonProjectState:
     def to_dict(self) -> dict:
         return {
             "person_id": self.person_id,
-            "project_id": self.project_id,
             "version": self.version,
             "ts": self.ts,
             "data": self.data,
@@ -46,9 +39,7 @@ class PersonProjectState:
     def to_record(self) -> dict:
         return {
             "person_id": self.person_id,
-            "project_id": self.project_id,
             "version": self.version,
             "ts": self.ts,
             "data": serialize_dict(self.data),
         }
-

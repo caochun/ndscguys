@@ -18,6 +18,7 @@ from app.daos.person_state_dao import (
     PersonAssessmentStateDAO,
     PersonPayrollStateDAO,
     PersonTaxDeductionStateDAO,
+    PersonProjectStatusStateDAO,
 )
 from app.daos.person_project_state_dao import PersonProjectStateDAO
 from app.models.person_payloads import (
@@ -29,7 +30,7 @@ from app.models.person_payloads import (
     sanitize_assessment_payload,
     sanitize_tax_deduction_payload,
 )
-from app.models.project_payloads import sanitize_person_project_payload
+from app.models.project_payloads import sanitize_person_project_payload, sanitize_person_project_status_payload
 from app.db import init_db
 from app.daos.housing_fund_batch_dao import HousingFundBatchDAO
 from app.daos.social_security_batch_dao import SocialSecurityBatchDAO
@@ -66,6 +67,7 @@ class PersonService:
         self.tax_deduction_dao = PersonTaxDeductionStateDAO(db_path=db_path)
         self.tax_deduction_batch_dao = TaxDeductionBatchDAO(db_path=db_path)
         self.person_project_dao = PersonProjectStateDAO(db_path=db_path)
+        self.person_project_status_dao = PersonProjectStatusStateDAO(db_path=db_path)
         
         # 加载 DSL 配置
         self.dsl_interpreter = self._load_dsl_config()
@@ -1146,6 +1148,9 @@ class PersonService:
 
         # 获取人员参与的项目列表
         person_projects = self.get_person_projects(person_id)
+        
+        # 获取人员项目状态
+        project_status = self.person_project_status_dao.get_latest(person_id)
 
         details = {
             "person_id": person_id,
@@ -1158,6 +1163,7 @@ class PersonService:
             "payroll": payroll.to_dict() if payroll else None,
             "tax_deduction": tax_deduction.to_dict() if tax_deduction else None,
             "projects": person_projects,
+            "project_status": project_status.to_dict() if project_status else None,
             "basic_history": [state.to_dict() for state in self.basic_dao.list_states(person_id, limit=10)],
             "position_history": [state.to_dict() for state in self.position_dao.list_states(person_id, limit=10)],
             "salary_history": [state.to_dict() for state in self.salary_dao.list_states(person_id, limit=10)],
@@ -1166,6 +1172,7 @@ class PersonService:
             "assessment_history": [state.to_dict() for state in self.assessment_dao.list_states(person_id, limit=10)],
             "payroll_history": [state.to_dict() for state in self.payroll_dao.list_states(person_id, limit=10)],
             "tax_deduction_history": [state.to_dict() for state in self.tax_deduction_dao.list_states(person_id, limit=10)],
+            "project_status_history": [state.to_dict() for state in self.person_project_status_dao.list_states(person_id, limit=10)],
         }
         return details
 
@@ -1578,7 +1585,15 @@ class PersonService:
         self, person_id: int, project_id: int, project_data: dict
     ) -> int:
         """追加人员参与项目信息变更"""
-        cleaned_data = sanitize_person_project_payload(project_data)
+        # 获取项目类型，用于验证劳务型项目的必填字段
+        from app.daos.project_state_dao import ProjectBasicStateDAO
+        project_basic_dao = ProjectBasicStateDAO(db_path=self.db_path)
+        project_basic = project_basic_dao.get_latest(project_id)
+        project_type = None
+        if project_basic and project_basic.data:
+            project_type = project_basic.data.get("project_type")
+        
+        cleaned_data = sanitize_person_project_payload(project_data, project_type=project_type)
         if not cleaned_data:
             raise ValueError("person project payload is required")
         # 确保 project_id 一致
@@ -1630,3 +1645,30 @@ class PersonService:
             for state in states
         ]
 
+    def append_person_project_status_change(
+        self, person_id: int, status_data: dict
+    ) -> int:
+        """追加人员项目状态变更（在项/待入项/不可用）"""
+        cleaned_data = sanitize_person_project_status_payload(status_data)
+        
+        # 验证：当状态为"在项"时，必须至少有一个person_project_history记录
+        if cleaned_data.get("status") == "在项":
+            project_id = cleaned_data.get("project_id")
+            if project_id:
+                # 检查是否存在该项目的参与记录
+                latest = self.person_project_dao.get_latest(person_id, project_id)
+                if not latest:
+                    raise ValueError(f"当状态为'在项'时，人员必须至少有一个项目参与记录（project_id={project_id}）")
+        
+        return self.person_project_status_dao.append(person_id, cleaned_data)
+
+    def get_person_project_status(self, person_id: int) -> Optional[Dict[str, Any]]:
+        """获取人员项目状态（最新）"""
+        status = self.person_project_status_dao.get_latest(person_id)
+        if not status:
+            return None
+        return {
+            "version": status.version,
+            "ts": status.ts,
+            "data": status.data,
+        }

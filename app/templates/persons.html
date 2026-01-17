@@ -647,6 +647,49 @@
     </div>
 </div>
 
+<!-- 人员项目状态模态框 -->
+<div id="projectStatusModal" class="modal modal-fixed-footer">
+    <div class="modal-content">
+        <h5>人员项目状态</h5>
+        <form id="projectStatusForm">
+            <input type="hidden" id="projectStatusPersonId" name="person_id">
+            <div class="row">
+                <div class="input-field col s12">
+                    <select id="project_status" name="status" required>
+                        <option value="" disabled selected>请选择状态</option>
+                        <option value="在项">在项</option>
+                        <option value="待入项">待入项</option>
+                        <option value="不可用">不可用</option>
+                    </select>
+                    <label>状态 *</label>
+                </div>
+                <div class="input-field col s12" id="projectIdField">
+                    <select id="project_status_project_id" name="project_id">
+                        <option value="" disabled selected>请选择项目（可选）</option>
+                        <option value="0">占位符项目</option>
+                    </select>
+                    <label>关联项目</label>
+                </div>
+                <div class="input-field col s12">
+                    <textarea id="project_status_note" name="note" class="materialize-textarea"></textarea>
+                    <label for="project_status_note">备注</label>
+                </div>
+            </div>
+        </form>
+        <div class="divider" style="margin: 20px 0;"></div>
+        <div id="projectStatusHistoryContainer">
+            <h6>历史记录</h6>
+            <div id="projectStatusHistoryList">
+                <p class="grey-text">加载历史记录中...</p>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-green btn-flat">取消</a>
+        <button type="submit" form="projectStatusForm" class="waves-effect waves-light btn">保存</button>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_scripts %}

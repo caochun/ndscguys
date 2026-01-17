@@ -18,6 +18,7 @@ class ProjectState:
 
     @classmethod
     def from_row(cls, row) -> "ProjectState":
+        # 支持 sqlite3.Row 和 dict（都支持 [] 访问）
         return cls(
             project_id=row["project_id"],
             version=row["version"],

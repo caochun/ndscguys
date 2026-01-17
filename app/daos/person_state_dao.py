@@ -13,6 +13,7 @@ from app.models.person_states import (
     PersonAssessmentState,
     PersonPayrollState,
     PersonTaxDeductionState,
+    PersonProjectStatusState,
 )
 
 
@@ -74,4 +75,9 @@ class PersonPayrollStateDAO(EntityStateDAO):
 class PersonTaxDeductionStateDAO(EntityStateDAO):
     table_name = "person_tax_deduction_history"
     state_cls = PersonTaxDeductionState
+
+
+class PersonProjectStatusStateDAO(EntityStateDAO):
+    table_name = "person_project_status_history"
+    state_cls = PersonProjectStatusState
 

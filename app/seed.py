@@ -326,53 +326,111 @@ def seed_initial_data(db_path: str, target_count: int = 30):
 def seed_projects(project_service: ProjectService, person_service: PersonService, person_ids: list, db_path: str = None):
     """创建项目种子数据"""
     projects_data = [
+        # 专项型项目
         {
-            "contract_name": "智慧城市管理系统开发",
-            "start_date": "2024-01-15",
-            "end_date": "2024-12-31",
-            "client_company": "某市政府信息中心",
-            "client_department": "信息化建设部",
-            "client_project_manager": "王主任",
+            "project_type": "专项型",
+            "internal_project_name": "智慧城市管理系统",
+            "internal_department": "研发部",
+            "internal_project_manager": "张伟",
+            "external_project_name": "智慧城市管理系统开发",
+            "external_company": "某市政府信息中心",
+            "external_department": "信息化建设部",
+            "external_manager": "王主任",
+            "external_order_number": "ORD-2024-001",
+            "execution_start_date": "2024-01-15",
+            "execution_end_date": "2024-12-31",
         },
         {
-            "contract_name": "企业ERP系统升级改造",
-            "start_date": "2024-03-01",
-            "end_date": "2024-09-30",
-            "client_company": "某大型制造企业",
-            "client_department": "IT部门",
-            "client_project_manager": "李经理",
+            "project_type": "专项型",
+            "internal_project_name": "企业ERP系统升级",
+            "internal_department": "研发部",
+            "internal_project_manager": "王芳",
+            "external_project_name": "企业ERP系统升级改造",
+            "external_company": "某大型制造企业",
+            "external_department": "IT部门",
+            "external_manager": "李经理",
+            "external_order_number": "ORD-2024-002",
+            "execution_start_date": "2024-03-01",
+            "execution_end_date": "2024-09-30",
         },
         {
-            "contract_name": "移动办公平台建设",
-            "start_date": "2024-02-10",
-            "end_date": "2024-08-31",
-            "client_company": "某科技公司",
-            "client_department": "产品研发部",
-            "client_project_manager": "陈总监",
+            "project_type": "专项型",
+            "internal_project_name": "移动办公平台",
+            "internal_department": "产品部",
+            "internal_project_manager": "李娜",
+            "external_project_name": "移动办公平台建设",
+            "external_company": "某科技公司",
+            "external_department": "产品研发部",
+            "external_manager": "陈总监",
+            "external_order_number": "ORD-2024-003",
+            "execution_start_date": "2024-02-10",
+            "execution_end_date": "2024-08-31",
         },
         {
-            "contract_name": "数据中台架构设计",
-            "start_date": "2024-04-01",
-            "end_date": "2024-10-31",
-            "client_company": "某金融机构",
-            "client_department": "科技部",
-            "client_project_manager": "赵总",
+            "project_type": "专项型",
+            "internal_project_name": "数据中台架构",
+            "internal_department": "研发部",
+            "internal_project_manager": "刘洋",
+            "external_project_name": "数据中台架构设计",
+            "external_company": "某金融机构",
+            "external_department": "科技部",
+            "external_manager": "赵总",
+            "external_order_number": "ORD-2024-004",
+            "execution_start_date": "2024-04-01",
+            "execution_end_date": "2024-10-31",
+        },
+        # 劳务型项目
+        {
+            "project_type": "劳务型",
+            "internal_project_name": "AI智能客服系统",
+            "internal_department": "研发部",
+            "internal_project_manager": "陈磊",
+            "external_project_name": "AI智能客服系统开发",
+            "external_company": "某电商平台",
+            "external_department": "技术中心",
+            "external_manager": "周经理",
+            "external_order_number": "ORD-2024-005",
+            "execution_start_date": "2024-05-15",
+            "execution_end_date": "2024-11-30",
         },
         {
-            "contract_name": "AI智能客服系统",
-            "start_date": "2024-05-15",
-            "end_date": "2024-11-30",
-            "client_company": "某电商平台",
-            "client_department": "技术中心",
-            "client_project_manager": "周经理",
+            "project_type": "劳务型",
+            "internal_project_name": "云原生微服务",
+            "internal_department": "研发部",
+            "internal_project_manager": "杨静",
+            "external_project_name": "云原生微服务改造",
+            "external_company": "某互联网公司",
+            "external_department": "架构组",
+            "external_manager": "吴总监",
+            "external_order_number": "ORD-2024-006",
+            "execution_start_date": "2024-06-01",
+            "execution_end_date": "2024-12-31",
         },
         {
-            "contract_name": "云原生微服务改造",
-            "start_date": "2024-06-01",
-            "end_date": "2024-12-31",
-            "client_company": "某互联网公司",
-            "client_department": "架构组",
-            "client_project_manager": "吴总监",
+            "project_type": "劳务型",
+            "internal_project_name": "前端开发外包",
+            "internal_department": "研发部",
+            "internal_project_manager": "黄强",
+            "external_project_name": "前端开发服务",
+            "external_company": "某软件公司",
+            "external_department": "产品部",
+            "external_manager": "孙经理",
+            "external_order_number": "ORD-2024-007",
+            "execution_start_date": "2024-07-01",
+            "execution_end_date": "2025-01-31",
+        },
+        {
+            "project_type": "劳务型",
+            "internal_project_name": "测试服务外包",
+            "internal_department": "研发部",
+            "internal_project_manager": "徐敏",
+            "external_project_name": "软件测试服务",
+            "external_company": "某互联网企业",
+            "external_department": "质量保障部",
+            "external_manager": "钱经理",
+            "external_order_number": "ORD-2024-008",
+            "execution_start_date": "2024-08-01",
+            "execution_end_date": "2025-02-28",
         },
     ]
 
@@ -444,8 +502,8 @@ def seed_projects(project_service: ProjectService, person_service: PersonService
             
             # 随机生成参与项目的时间（项目开始时间前后 30 天内）
             project_data = project_service.get_project(project_id)
-            if project_data and project_data.get("basic", {}).get("data", {}).get("start_date"):
-                start_date = project_data["basic"]["data"]["start_date"]
+            if project_data and project_data.get("basic", {}).get("data", {}).get("execution_start_date"):
+                start_date = project_data["basic"]["data"]["execution_start_date"]
                 start_dt = datetime.strptime(start_date, "%Y-%m-%d")
                 material_date = (start_dt + timedelta(days=random.randint(-30, 30))).strftime("%Y-%m-%d")
             else:
@@ -465,6 +523,35 @@ def seed_projects(project_service: ProjectService, person_service: PersonService
                 "unit_price": round(random.uniform(500, 2000), 2),
                 "process_status": random.choice(process_statuses),
             }
+            
+            # 如果是劳务型项目，添加劳务型专用字段
+            if project_data and project_data.get("basic", {}).get("data", {}).get("project_type") == "劳务型":
+                person_project_data["client_requirement_number"] = f"REQ-{project_id}-{person_id:03d}"
+                person_project_data["position_level"] = random.choice(["P5", "P6", "P7", "P8"])
+                person_project_data["labor_unit_price"] = round(random.uniform(800, 1500), 2)
+                
+                # 随机选择打卡方式
+                attendance_method = random.choice(["现场打卡", "线上打卡"])
+                person_project_data["attendance_method"] = attendance_method
+                
+                if attendance_method == "现场打卡":
+                    person_project_data["attendance_location"] = random.choice([
+                        "客户现场A座", "客户现场B座", "客户现场C座", "客户现场D座"
+                    ])
+                    person_project_data["work_time_range"] = random.choice([
+                        "09:00-18:00", "08:30-17:30", "09:30-18:30"
+                    ])
+                else:  # 线上打卡
+                    person_project_data["online_location"] = random.choice([
+                        "远程办公", "居家办公", "混合办公"
+                    ])
+                    person_project_data["online_work_time"] = random.choice([
+                        "弹性工作制", "标准工作时间", "项目制"
+                    ])
+                    person_project_data["face_recognition"] = random.choice([True, False])
+                    person_project_data["attendance_person"] = random.choice([
+                        "本人", "代打卡", "系统自动"
+                    ])
             
             try:
                 person_service.append_person_project_change(person_id, project_id, person_project_data)
@@ -579,11 +666,77 @@ def seed_projects(project_service: ProjectService, person_service: PersonService
             if project_data and project_data.get("basic", {}).get("data"):
                 current_data = project_data["basic"]["data"].copy()
                 # 延长项目结束日期
-                if current_data.get("end_date"):
-                    end_dt = datetime.strptime(current_data["end_date"], "%Y-%m-%d")
-                    current_data["end_date"] = (end_dt + timedelta(days=random.randint(30, 90))).strftime("%Y-%m-%d")
+                if current_data.get("execution_end_date"):
+                    end_dt = datetime.strptime(current_data["execution_end_date"], "%Y-%m-%d")
+                current_data["execution_end_date"] = (end_dt + timedelta(days=random.randint(30, 90))).strftime("%Y-%m-%d")
                 
                 project_service.append_project_change(project_id, current_data)
+    
+    # 为部分人员添加项目状态（在项/待入项/不可用）
+    if person_ids:
+        # 获取所有有项目参与的人员
+        persons_with_projects = set()
+        for person_id in person_ids:
+            projects = person_service.get_person_projects(person_id)
+            active_projects = [p for p in projects if p.get("data", {}).get("project_position") != "已退出"]
+            if active_projects:
+                persons_with_projects.add(person_id)
+        
+        # 60%的人员设置为"在项"状态
+        in_project_count = max(1, int(len(persons_with_projects) * 0.6))
+        in_project_ids = random.sample(list(persons_with_projects), min(in_project_count, len(persons_with_projects)))
+        
+        for person_id in in_project_ids:
+            projects = person_service.get_person_projects(person_id)
+            active_projects = [p for p in projects if p.get("data", {}).get("project_position") != "已退出"]
+            if active_projects:
+                project_id = active_projects[0]["project_id"]  # 使用第一个活跃项目
+                status_data = {
+                    "status": "在项",
+                    "project_id": project_id,
+                    "note": "自动生成测试数据",
+                }
+                try:
+                    person_service.append_person_project_status_change(person_id, status_data)
+                except Exception as e:
+                    print(f"警告：为人员 {person_id} 设置项目状态失败: {e}")
+        
+        # 20%的人员设置为"待入项"状态
+        pending_count = max(1, int(len(person_ids) * 0.2))
+        pending_ids = random.sample(person_ids, min(pending_count, len(person_ids)))
+        pending_ids = [pid for pid in pending_ids if pid not in in_project_ids]  # 排除已在项的人员
+        
+        for person_id in pending_ids:
+            # 随机选择项目或占位符
+            if random.random() < 0.5 and project_ids:
+                project_id = random.choice(project_ids)
+            else:
+                project_id = 0  # 占位符项目
+            
+            status_data = {
+                "status": "待入项",
+                "project_id": project_id,
+                "note": "等待入项安排",
+            }
+            try:
+                person_service.append_person_project_status_change(person_id, status_data)
+            except Exception as e:
+                print(f"警告：为人员 {person_id} 设置待入项状态失败: {e}")
+        
+        # 10%的人员设置为"不可用"状态
+        unavailable_count = max(1, int(len(person_ids) * 0.1))
+        unavailable_ids = random.sample(person_ids, min(unavailable_count, len(person_ids)))
+        unavailable_ids = [pid for pid in unavailable_ids if pid not in in_project_ids and pid not in pending_ids]
+        
+        for person_id in unavailable_ids:
+            status_data = {
+                "status": "不可用",
+                "note": "暂时不可用",
+            }
+            try:
+                person_service.append_person_project_status_change(person_id, status_data)
+            except Exception as e:
+                print(f"警告：为人员 {person_id} 设置不可用状态失败: {e}")
     
     # 验证并修复项目分配数据（确保一个人正在参与的项目不超过一个）
     if db_path:

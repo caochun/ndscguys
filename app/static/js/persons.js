@@ -40,6 +40,17 @@ document.addEventListener('DOMContentLoaded', function () {
         taxDeductionForm.addEventListener('submit', handleTaxDeductionSubmit);
     }
 
+    const projectStatusForm = document.getElementById('projectStatusForm');
+    if (projectStatusForm) {
+        projectStatusForm.addEventListener('submit', handleProjectStatusSubmit);
+    }
+
+    // 监听项目状态选择变化
+    const projectStatusSelect = document.getElementById('project_status');
+    if (projectStatusSelect) {
+        projectStatusSelect.addEventListener('change', handleProjectStatusChange);
+    }
+
     loadPersons();
 });
 
@@ -136,6 +147,9 @@ function renderPersonCard(person) {
                         </a>
                         <a class="cyan-text text-darken-2" style="margin-right:8px;" onclick="openTaxDeductionModal(${person.person_id})" title="个税抵扣信息">
                             <i class="material-icons tiny">receipt</i>
+                        </a>
+                        <a class="purple-text text-darken-2" style="margin-right:8px;" onclick="openProjectStatusModal(${person.person_id})" title="项目状态">
+                            <i class="material-icons tiny">assignment</i>
                         </a>
                         <a class="orange-text text-darken-2" onclick="openPositionAdjustModal(${person.person_id})" title="任职调整">
                             <i class="material-icons tiny">work_history</i>
@@ -1213,3 +1227,124 @@ async function handleTaxDeductionSubmit(e) {
     }
 }
 
+// 人员项目状态管理
+async function openProjectStatusModal(personId) {
+    try {
+        const result = await fetchJSON(`/api/persons/${personId}`);
+        const projectStatus = result.data.project_status ? result.data.project_status.data : null;
+        const history = result.data.project_status_history || [];
+        
+        // 加载项目列表
+        const projectsResult = await fetchJSON('/api/projects');
+        const projects = projectsResult.data || [];
+
+        document.getElementById('projectStatusPersonId').value = personId;
+        const statusSelect = document.getElementById('project_status');
+        const projectIdSelect = document.getElementById('project_status_project_id');
+        const noteTextarea = document.getElementById('project_status_note');
+
+        // 填充项目下拉框
+        let projectOptions = '<option value="" disabled selected>请选择项目（可选）</option><option value="0">占位符项目</option>';
+        projects.forEach(project => {
+            const projectName = project.data?.internal_project_name || `项目 ${project.project_id}`;
+            projectOptions += `<option value="${project.project_id}">${projectName}</option>`;
+        });
+        projectIdSelect.innerHTML = projectOptions;
+
+        if (projectStatus) {
+            statusSelect.value = projectStatus.status || '';
+            if (projectStatus.project_id !== null && projectStatus.project_id !== undefined) {
+                projectIdSelect.value = projectStatus.project_id;
+            }
+            noteTextarea.value = projectStatus.note || '';
+        } else {
+            statusSelect.value = '';
+            projectIdSelect.value = '';
+            noteTextarea.value = '';
+        }
+
+        // 根据状态显示/隐藏项目选择字段
+        handleProjectStatusChange();
+
+        // 渲染历史记录
+        const historyContainer = document.getElementById('projectStatusHistoryList');
+        if (history && history.length > 0) {
+            historyContainer.innerHTML = renderHistoryTable(history, '项目状态');
+        } else {
+            historyContainer.innerHTML = '<p class="grey-text">暂无项目状态历史</p>';
+        }
+
+        const modal = M.Modal.getInstance(document.getElementById('projectStatusModal'));
+        modal.open();
+        
+        setTimeout(() => {
+            M.updateTextFields();
+            M.FormSelect.init(document.querySelectorAll('#projectStatusModal select'));
+        }, 100);
+    } catch (err) {
+        M.toast({html: '加载项目状态失败：' + err.message, classes: 'red'});
+    }
+}
+
+function handleProjectStatusChange() {
+    const statusSelect = document.getElementById('project_status');
+    const projectIdField = document.getElementById('projectIdField');
+    const projectIdSelect = document.getElementById('project_status_project_id');
+    
+    if (!statusSelect || !projectIdField) return;
+    
+    const status = statusSelect.value;
+    if (status === '在项') {
+        projectIdField.style.display = 'block';
+        projectIdSelect.required = true;
+    } else if (status === '待入项') {
+        projectIdField.style.display = 'block';
+        projectIdSelect.required = false;
+    } else {
+        projectIdField.style.display = 'none';
+        projectIdSelect.required = false;
+        projectIdSelect.value = '';
+    }
+    
+    setTimeout(() => {
+        M.updateTextFields();
+        M.FormSelect.init(document.querySelectorAll('#projectStatusModal select'));
+    }, 50);
+}
+
+async function handleProjectStatusSubmit(e) {
+    e.preventDefault();
+    const personId = document.getElementById('projectStatusPersonId').value;
+    const formData = new FormData(e.target);
+    const status = formData.get('status');
+    const projectId = formData.get('project_id');
+    const note = formData.get('note');
+    
+    const payload = {
+        status: status,
+        project_id: projectId ? parseInt(projectId) : null,
+        note: note || null,
+    };
+    
+    try {
+        await fetchJSON(`/api/persons/${personId}/project-status`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        M.toast({html: '项目状态已保存', classes: 'green'});
+        
+        // 重新加载历史记录
+        const result = await fetchJSON(`/api/persons/${personId}`);
+        const history = result.data.project_status_history || [];
+        const historyContainer = document.getElementById('projectStatusHistoryList');
+        if (history && history.length > 0) {
+            historyContainer.innerHTML = renderHistoryTable(history, '项目状态');
+        } else {
+            historyContainer.innerHTML = '<p class="grey-text">暂无项目状态历史</p>';
+        }
+        
+        loadPersons();
+    } catch (err) {
+        M.toast({html: '保存失败：' + err.message, classes: 'red'});
+    }
+}

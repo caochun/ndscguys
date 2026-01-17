@@ -113,7 +113,7 @@ class PersonProjectStateDAO(BaseDAO):
             (person_id, project_id, limit),
         )
         rows = cursor.fetchall()
-        return [PersonProjectState.from_row(dict(row)) for row in rows]
+        return [PersonProjectState.from_row(row) for row in rows]
 
     def list_by_person(self, person_id: int) -> List[PersonProjectState]:
         """列出某人员参与的所有项目（最新状态）"""
@@ -138,7 +138,7 @@ class PersonProjectStateDAO(BaseDAO):
             (person_id,),
         )
         rows = cursor.fetchall()
-        return [PersonProjectState.from_row(dict(row)) for row in rows]
+        return [PersonProjectState.from_row(row) for row in rows]
 
     def list_by_project(self, project_id: int) -> List[PersonProjectState]:
         """列出某项目的所有参与人员（最新状态）"""
@@ -163,7 +163,7 @@ class PersonProjectStateDAO(BaseDAO):
             (project_id,),
         )
         rows = cursor.fetchall()
-        return [PersonProjectState.from_row(dict(row)) for row in rows]
+        return [PersonProjectState.from_row(row) for row in rows]
 
     def get_at(self, person_id: int, project_id: int, ts: str | datetime):
         """获取指定时间点的最新状态（<= ts）"""

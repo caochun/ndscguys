@@ -84,6 +84,7 @@ class ProjectStateDAO(BaseDAO):
     def get_by_version(self, project_id: int, version: int):
         """按版本获取状态"""
         conn = self.get_connection()
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute(
             f"""
@@ -96,11 +97,12 @@ class ProjectStateDAO(BaseDAO):
         row = cursor.fetchone()
         if not row:
             return None
-        return self.state_cls.from_row(dict(row))
+        return self.state_cls.from_row(row)
 
     def list_states(self, project_id: int, limit: int = 50):
         """列出最近的状态"""
         conn = self.get_connection()
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute(
             f"""
@@ -113,12 +115,13 @@ class ProjectStateDAO(BaseDAO):
             (project_id, limit),
         )
         rows = cursor.fetchall()
-        return [self.state_cls.from_row(dict(row)) for row in rows]
+        return [self.state_cls.from_row(row) for row in rows]
 
     def get_at(self, project_id: int, ts: str | datetime):
         """获取指定时间点的最新状态（<= ts）"""
         ts_str = self._normalize_ts(ts)
         conn = self.get_connection()
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute(
             f"""
@@ -133,7 +136,7 @@ class ProjectStateDAO(BaseDAO):
         row = cursor.fetchone()
         if not row:
             return None
-        return self.state_cls.from_row(dict(row))
+        return self.state_cls.from_row(row)
 
 
 class ProjectBasicStateDAO(ProjectStateDAO):
@@ -143,6 +146,7 @@ class ProjectBasicStateDAO(ProjectStateDAO):
     def list_all_latest(self) -> List[ProjectBasicState]:
         """获取所有项目的最新基础信息状态"""
         conn = self.get_connection()
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -158,4 +162,4 @@ class ProjectBasicStateDAO(ProjectStateDAO):
             """
         )
         rows = cursor.fetchall()
-        return [self.state_cls.from_row(dict(row)) for row in rows]
+        return [self.state_cls.from_row(row) for row in rows]

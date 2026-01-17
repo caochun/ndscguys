@@ -712,6 +712,33 @@ def get_person_project_history(person_id: int, project_id: int):
     return jsonify({"success": True, "data": history})
 
 
+# ========== 人员项目状态相关 API ==========
+
+@api_bp.route("/persons/<int:person_id>/project-status", methods=["GET"])
+def get_person_project_status(person_id: int):
+    """获取人员项目状态（最新）"""
+    service = get_person_service()
+    status = service.get_person_project_status(person_id)
+    if status is None:
+        return jsonify({"success": False, "error": "person project status not found"}), 404
+    return jsonify({"success": True, "data": status})
+
+
+@api_bp.route("/persons/<int:person_id>/project-status", methods=["POST"])
+def append_person_project_status_change(person_id: int):
+    """追加一条人员项目状态变更"""
+    service = get_person_service()
+    payload = request.get_json() or {}
+    status_data = payload.get("status") or payload
+    try:
+        service.append_person_project_status_change(person_id, status_data)
+    except PayloadValidationError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    return jsonify({"success": True})
+
+
 # ========== 薪资计算 DSL 管理 API ==========
 
 @api_bp.route("/payroll/dsl-rules", methods=["GET"])
