@@ -1,0 +1,374 @@
+schema:
+  version: "1.0"
+  description: "Twin 类型系统定义 - Entity 和 Activity"
+
+twins:
+  # ========== Entity Twins ==========
+  person:
+    type: entity
+    label: "人员"
+    description: "人员实体"
+    table: "persons"
+    state_table: "person_history"
+    mode: versioned
+    unique_key: [person_id, version]
+    
+    fields:
+      name:
+        type: string
+        required: true
+        label: "姓名"
+        validation:
+          min_length: 1
+          max_length: 50
+        ui:
+          component: text_input
+      
+      id_card:
+        type: string
+        required: false
+        label: "身份证号"
+        validation:
+          pattern: "^[0-9X]{18}$"
+        ui:
+          component: text_input
+      
+      phone:
+        type: string
+        required: false
+        label: "电话"
+        validation:
+          pattern: "^1[3-9]\\d{9}$"
+        ui:
+          component: tel_input
+      
+      email:
+        type: string
+        required: false
+        label: "邮箱"
+        validation:
+          pattern: "^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}$"
+        ui:
+          component: email_input
+      
+      address:
+        type: string
+        required: false
+        label: "地址"
+        ui:
+          component: textarea
+      
+      avatar:
+        type: string
+        required: false
+        label: "头像URL"
+        ui:
+          component: image_upload
+
+  company:
+    type: entity
+    label: "公司"
+    table: "companies"
+    state_table: "company_history"
+    mode: versioned
+    unique_key: [company_id, version]
+    
+    fields:
+      name:
+        type: string
+        required: true
+        label: "公司名称"
+        ui:
+          component: text_input
+      
+      registration_number:
+        type: string
+        required: false
+        label: "注册号"
+        ui:
+          component: text_input
+
+  project:
+    type: entity
+    label: "项目"
+    description: "项目实体"
+    table: "projects"
+    state_table: "project_history"
+    mode: versioned
+    unique_key: [project_id, version]
+    
+    fields:
+      project_type:
+        type: enum
+        required: true
+        label: "项目类型"
+        options: ["劳务型", "专项型"]
+        ui:
+          component: select
+      
+      internal_project_name:
+        type: string
+        required: true
+        label: "内部项目名称"
+        ui:
+          component: text_input
+      
+      external_project_name:
+        type: string
+        required: true
+        label: "外部项目名称"
+        ui:
+          component: text_input
+      
+      project_code:
+        type: string
+        required: false
+        label: "项目编号"
+        ui:
+          component: text_input
+      
+      status:
+        type: enum
+        required: true
+        label: "项目状态"
+        options: ["筹备中", "进行中", "已暂停", "已完成", "已取消"]
+        ui:
+          component: select
+      
+      start_date:
+        type: date
+        required: false
+        label: "开始日期"
+        ui:
+          component: date_picker
+      
+      end_date:
+        type: date
+        required: false
+        label: "结束日期"
+        ui:
+          component: date_picker
+      
+      description:
+        type: string
+        required: false
+        label: "项目描述"
+        ui:
+          component: textarea
+      
+      budget:
+        type: decimal
+        required: false
+        label: "项目预算"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+
+  # ========== Activity Twins ==========
+  person_company_employment:
+    type: activity
+    label: "人员-公司雇佣活动"
+    description: "记录人员与公司的雇佣关系活动"
+    table: "person_company_employment_activities"
+    
+    related_entities:
+      - entity: person
+        role: employee
+        key: person_id
+        required: true
+      - entity: company
+        role: employer
+        key: company_id
+        required: true
+    
+    state_table: "person_company_employment_history"
+    mode: versioned
+    unique_key: [activity_id, version]
+    
+    fields:
+      person_id:
+        type: reference
+        reference_entity: person
+        required: true
+        storage: foreign_key
+      
+      company_id:
+        type: reference
+        reference_entity: company
+        required: true
+        storage: foreign_key
+      
+      position:
+        type: string
+        required: false
+        label: "职位"
+        ui:
+          component: text_input
+      
+      department:
+        type: string
+        required: false
+        label: "部门"
+        ui:
+          component: text_input
+      
+      employee_number:
+        type: string
+        required: false
+        label: "员工号"
+        ui:
+          component: text_input
+      
+      employee_type:
+        type: enum
+        required: false
+        label: "员工类别"
+        options: ["正式员工", "试用期员工", "实习生", "部门负责人", "其他"]
+        ui:
+          component: select
+      
+      change_type:
+        type: enum
+        required: true
+        label: "变动类型"
+        options: ["入职", "转岗", "调部门", "转公司", "停薪留职", "返岗", "离职"]
+        ui:
+          component: select
+      
+      change_date:
+        type: date
+        required: true
+        label: "变动日期"
+        ui:
+          component: date_picker
+
+  person_company_attendance:
+    type: activity
+    label: "人员-公司打卡活动"
+    table: "person_company_attendance_activities"
+    
+    related_entities:
+      - entity: person
+        role: attendee
+        key: person_id
+        required: true
+      - entity: company
+        role: company
+        key: company_id
+        required: true
+    
+    state_table: "person_company_attendance_history"
+    mode: time_series
+    unique_key: [activity_id, date]
+    
+    fields:
+      person_id:
+        type: reference
+        reference_entity: person
+        required: true
+        storage: foreign_key
+      
+      company_id:
+        type: reference
+        reference_entity: company
+        required: true
+        storage: foreign_key
+      
+      date:
+        type: date
+        required: true
+        label: "日期"
+        storage: unique_key
+        ui:
+          component: date_picker
+      
+      check_in_time:
+        type: time
+        required: false
+        label: "上班时间"
+        ui:
+          component: time_picker
+      
+      check_out_time:
+        type: time
+        required: false
+        label: "下班时间"
+        ui:
+          component: time_picker
+      
+      work_hours:
+        type: decimal
+        required: false
+        label: "工作时长"
+        validation:
+          min: 0
+          max: 24
+        ui:
+          component: number_input
+          suffix: "小时"
+
+  person_project_participation:
+    type: activity
+    label: "人员-项目参与活动"
+    description: "记录人员参与项目的情况，包括入项、出项及劳务定价"
+    table: "person_project_participation_activities"
+    
+    related_entities:
+      - entity: person
+        role: participant
+        key: person_id
+        required: true
+      - entity: project
+        role: project
+        key: project_id
+        required: true
+    
+    state_table: "person_project_participation_history"
+    mode: versioned
+    unique_key: [activity_id, version]
+    
+    fields:
+      person_id:
+        type: reference
+        reference_entity: person
+        required: true
+        storage: foreign_key
+      
+      project_id:
+        type: reference
+        reference_entity: project
+        required: true
+        storage: foreign_key
+      
+      status:
+        type: enum
+        required: true
+        label: "参与状态"
+        options: ["入项", "出项"]
+        ui:
+          component: select
+      
+      change_date:
+        type: date
+        required: true
+        label: "变动日期"
+        description: "记录状态变更的日期（入项或出项的日期）"
+        ui:
+          component: date_picker
+      
+      labor_price:
+        type: decimal
+        required: false
+        label: "劳务定价"
+        description: "劳务型项目的定价（单位：元/天或元/月，根据项目类型确定）"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+          conditional_display:
+            field: "project_type"
+            value: "劳务型"
+            operator: "equals"

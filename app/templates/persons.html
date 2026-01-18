@@ -1,698 +1,232 @@
-{% extends "layout.html" %}
-{% block title %}人员状态管理{% endblock %}
-{% block extra_head %}
-<style>
-    body {
-        background: #f5f6fa;
-    }
-    .person-card {
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(18,38,63,.08);
-    }
-    .person-card .card-content {
-        min-height: 180px;
-    }
-    /* 不同公司背景色 */
-    .person-card.company-none {
-        background: #eeeeee;
-    }
-    .person-card.company-scg {
-        background: #e3f2fd;
-    }
-    .person-card.company-sce {
-        background: #e8f5e9;
-    }
-    .person-card.company-other {
-        background: #fff8e1;
-    }
-    .modal {
-        border-radius: 12px;
-    }
-    .modal .modal-content {
-        padding: 24px;
-    }
-    .history-block {
-        background: #f8fafc;
-        border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 12px;
-    }
-    /* Tab 样式调整 - 使用蓝色系替代默认的红色 */
-    .modal .tabs .tab a {
-        color: #64b5f6;
-    }
-    .modal .tabs .tab a:hover {
-        color: #42a5f5;
-    }
-    .modal .tabs .tab a.active {
-        color: #1976d2;
-        border-bottom: 2px solid #1976d2;
-    }
-    .modal .tabs .indicator {
-        background-color: #1976d2;
-    }
-</style>
-{% endblock %}
+{% extends "base.html" %}
+
+{% block title %}人员管理 - HRMS{% endblock %}
 
 {% block content %}
-<div class="section">
-    <div class="right-align" style="margin-bottom: 16px;">
-        <a class="btn waves-effect waves-light" id="openCreateModal">
-            <i class="material-icons left">person_add</i>新增人员
-        </a>
+<div class="px-4 py-6 sm:px-0">
+    <div class="mb-6">
+        <h2 class="text-2xl font-bold text-gray-900">人员列表</h2>
+        <p class="mt-1 text-sm text-gray-500">根据 Schema 动态渲染的人员信息</p>
     </div>
-    <div class="row" id="personCards">
-        <div class="col s12 center-align grey-text text-darken-1" style="margin-top: 40px;">
-            正在加载...
+
+    <!-- 加载状态 -->
+    <div id="loading" class="text-center py-12">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <p class="mt-2 text-sm text-gray-500">加载中...</p>
+    </div>
+
+    <!-- 错误提示 -->
+    <div id="error" class="hidden bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-red-800">加载失败</h3>
+                <p id="error-message" class="mt-2 text-sm text-red-700"></p>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- 创建人员模态框 -->
-<div id="createPersonModal" class="modal modal-fixed-footer">
-    <div class="modal-content">
-        <h5>创建人员</h5>
-        <form id="createPersonForm">
-            <div class="row">
-                <div class="input-field col s12 m6">
-                    <input id="name" name="name" type="text" required>
-                    <label for="name">姓名 *</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="id_card" name="id_card" type="text" required>
-                    <label for="id_card">身份证 *</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="birth_date" name="birth_date" type="date">
-                    <label for="birth_date">出生日期</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="gender" name="gender" type="text">
-                    <label for="gender">性别</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="phone" name="phone" type="text">
-                    <label for="phone">电话</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="email" name="email" type="email">
-                    <label for="email">邮箱</label>
-                </div>
-                <div class="input-field col s12">
-                    <input id="address" name="address" type="text">
-                    <label for="address">地址</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="graduation_school" name="graduation_school" type="text">
-                    <label for="graduation_school">毕业院校</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="major" name="major" type="text">
-                    <label for="major">专业</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="education_level" name="education_level" type="text">
-                    <label for="education_level">学历类型</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="graduation_date" name="graduation_date" type="date">
-                    <label for="graduation_date">毕业时间</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="first_work_date" name="first_work_date" type="date">
-                    <label for="first_work_date">首次参加工作时间</label>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col s12">
-                    <h6 class="grey-text text-darken-1">岗位信息（可选）</h6>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="company_name" name="company_name" type="text">
-                    <label for="company_name">公司</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="employee_number" name="employee_number" type="text">
-                    <label for="employee_number">员工号</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="department" name="department" type="text">
-                    <label for="department">部门</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="position" name="position" type="text">
-                    <label for="position">职位</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="supervisor_employee_id" name="supervisor_employee_id" type="number">
-                    <label for="supervisor_employee_id">上级员工ID</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="change_date" name="change_date" type="date">
-                    <label for="change_date">变动日期</label>
-                </div>
-                <div class="input-field col s12">
-                    <select id="employee_type" name="employee_type">
-                        <option value="" selected>请选择</option>
-                        <option value="正式员工">正式员工</option>
-                        <option value="试用期员工">试用期员工</option>
-                        <option value="实习生">实习生</option>
-                        <option value="其他">其他</option>
-                    </select>
-                    <label>员工类别</label>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col s12">
-                    <h6 class="grey-text text-darken-1">薪资信息（可选）</h6>
-                </div>
-                <div class="input-field col s12 m6">
-                    <select id="salary_type" name="salary_type">
-                        <option value="" selected>请选择</option>
-                        <option value="年薪制">年薪制</option>
-                        <option value="月薪制">月薪制</option>
-                        <option value="日薪制">日薪制</option>
-                    </select>
-                    <label>薪资类型</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="salary_amount" name="salary_amount" type="number" step="0.01" min="0">
-                    <label for="salary_amount">薪资金额</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="salary_start_date" name="salary_start_date" type="date">
-                    <label for="salary_start_date">起薪日期</label>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col s12">
-                    <h6 class="grey-text text-darken-1">社保信息（可选）</h6>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="social_base_amount" name="social_base_amount" type="number" step="0.01" min="0">
-                    <label for="social_base_amount">社保基数</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="pension_company_rate" name="pension_company_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="pension_company_rate">养老保险公司比例</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="pension_personal_rate" name="pension_personal_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="pension_personal_rate">养老保险个人比例</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="unemployment_company_rate" name="unemployment_company_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="unemployment_company_rate">失业保险公司比例</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="unemployment_personal_rate" name="unemployment_personal_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="unemployment_personal_rate">失业保险个人比例</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="medical_company_rate" name="medical_company_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="medical_company_rate">医疗保险公司比例</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="medical_personal_rate" name="medical_personal_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="medical_personal_rate">医疗保险个人比例</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="maternity_company_rate" name="maternity_company_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="maternity_company_rate">生育保险公司比例</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="maternity_personal_rate" name="maternity_personal_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="maternity_personal_rate">生育保险个人比例</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="critical_illness_company_amount" name="critical_illness_company_amount" type="number" step="0.01" min="0">
-                    <label for="critical_illness_company_amount">大病险公司金额</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="critical_illness_personal_amount" name="critical_illness_personal_amount" type="number" step="0.01" min="0">
-                    <label for="critical_illness_personal_amount">大病险个人金额</label>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col s12">
-                    <h6 class="grey-text text-darken-1">公积金信息（可选）</h6>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="housing_base_amount" name="housing_base_amount" type="number" step="0.01" min="0">
-                    <label for="housing_base_amount">住房公积金基数</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="housing_company_rate" name="housing_company_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="housing_company_rate">住房公积金公司比例</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="housing_personal_rate" name="housing_personal_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="housing_personal_rate">住房公积金个人比例</label>
-                </div>
-            </div>
-        </form>
+    <!-- 人员卡片列表 -->
+    <div id="persons-container" class="hidden grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <!-- 动态生成 -->
     </div>
-    <div class="modal-footer">
-        <a href="#!" class="modal-close waves-effect waves-green btn-flat">取消</a>
-        <button type="submit" form="createPersonForm" class="waves-effect waves-light btn">创建</button>
-    </div>
-</div>
 
-<!-- 详情模态框 -->
-<div id="detailModal" class="modal modal-fixed-footer">
-    <div class="modal-content">
-        <div id="detailContent">
-            <h5>人员详情</h5>
-            <p class="grey-text">加载中...</p>
-        </div>
-        <div id="detailTabs" style="margin-top: 16px; display: none;">
-            <div class="row">
-                <div class="col s12">
-                    <ul class="tabs tabs-fixed-width">
-                        <li class="tab col s2"><a class="active" href="#basicTab">基础信息</a></li>
-                        <li class="tab col s2"><a href="#positionTab">岗位信息</a></li>
-                        <li class="tab col s2"><a href="#salaryTab">薪资信息</a></li>
-                        <li class="tab col s2"><a href="#socialTab">社保信息</a></li>
-                        <li class="tab col s2"><a href="#housingTab">公积金信息</a></li>
-                        <li class="tab col s1"><a href="#attendanceTab">考勤</a></li>
-                        <li class="tab col s1"><a href="#leaveTab">请假</a></li>
-                        <li class="tab col s1"><a href="#projectsTab">项目</a></li>
-                    </ul>
+    <!-- 人员详情模态框 -->
+    <div id="person-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">人员详情</h3>
+                    <button id="close-modal" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
                 </div>
-                <div id="basicTab" class="col s12" style="padding-top: 20px;">
-                    <div id="basicInfoCard" class="card">
-                        <div class="card-content" id="basicInfoContent"></div>
-                    </div>
-                    <div id="basicHistoryCard" class="card">
-                        <div class="card-content">
-                            <span class="card-title" style="font-size:18px;">基础信息历史</span>
-                            <div id="basicHistoryContent"></div>
-                        </div>
-                    </div>
-                </div>
-                <div id="positionTab" class="col s12" style="padding-top: 20px;">
-                    <div id="positionInfoCard" class="card">
-                        <div class="card-content" id="positionInfoContent"></div>
-                    </div>
-                    <div id="positionHistoryCard" class="card">
-                        <div class="card-content">
-                            <span class="card-title" style="font-size:18px;">岗位信息历史</span>
-                            <div id="positionHistoryContent"></div>
-                        </div>
-                    </div>
-                </div>
-                <div id="salaryTab" class="col s12" style="padding-top: 20px;">
-                    <div id="salaryInfoCard" class="card">
-                        <div class="card-content" id="salaryInfoContent"></div>
-                    </div>
-                    <div id="salaryHistoryCard" class="card">
-                        <div class="card-content">
-                            <span class="card-title" style="font-size:18px;">薪资信息历史</span>
-                            <div id="salaryHistoryContent"></div>
-                        </div>
-                    </div>
-                </div>
-                <div id="socialTab" class="col s12" style="padding-top: 20px;">
-                    <div id="socialInfoCard" class="card">
-                        <div class="card-content" id="socialInfoContent"></div>
-                    </div>
-                    <div id="socialHistoryCard" class="card">
-                        <div class="card-content">
-                            <span class="card-title" style="font-size:18px;">社保信息历史</span>
-                            <div id="socialHistoryContent"></div>
-                        </div>
-                    </div>
-                </div>
-                <div id="housingTab" class="col s12" style="padding-top: 20px;">
-                    <div id="housingInfoCard" class="card">
-                        <div class="card-content" id="housingInfoContent"></div>
-                    </div>
-                    <div id="housingHistoryCard" class="card">
-                        <div class="card-content">
-                            <span class="card-title" style="font-size:18px;">公积金信息历史</span>
-                            <div id="housingHistoryContent"></div>
-                        </div>
-                    </div>
-                </div>
-                <div id="attendanceTab" class="col s12" style="padding-top: 20px;">
-                    <div id="attendanceSummaryCard" class="card">
-                        <div class="card-content">
-                            <span class="card-title" style="font-size:18px;">本月考勤统计</span>
-                            <div id="attendanceSummaryContent" class="grey-text">点击标签加载数据...</div>
-                        </div>
-                    </div>
-                </div>
-                <div id="leaveTab" class="col s12" style="padding-top: 20px;">
-                    <div id="leaveListCard" class="card">
-                        <div class="card-content">
-                            <span class="card-title" style="font-size:18px;">本月请假记录</span>
-                            <div id="leaveListContent" class="grey-text">点击标签加载数据...</div>
-                        </div>
-                    </div>
-                </div>
-                <div id="projectsTab" class="col s12" style="padding-top: 20px;">
-                    <div id="projectsListCard" class="card">
-                        <div class="card-content">
-                            <span class="card-title" style="font-size:18px;">参与项目</span>
-                            <div id="projectsListContent" class="grey-text">点击标签加载数据...</div>
-                        </div>
-                    </div>
+                
+                <div id="person-detail-content">
+                    <!-- 动态生成 -->
                 </div>
             </div>
         </div>
     </div>
-    <div class="modal-footer">
-        <a href="#!" class="modal-close waves-effect waves-green btn-flat">关闭</a>
-    </div>
 </div>
-
-<!-- 任职调整模态框 -->
-<div id="positionAdjustModal" class="modal modal-fixed-footer">
-    <div class="modal-content">
-        <h5>任职调整</h5>
-        <form id="positionAdjustForm">
-            <input type="hidden" id="positionAdjustPersonId" name="person_id">
-            <div class="row">
-                <div class="input-field col s12 m6">
-                    <input id="adj_company_name" name="company_name" type="text">
-                    <label for="adj_company_name">公司</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="adj_employee_number" name="employee_number" type="text">
-                    <label for="adj_employee_number">员工号</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="adj_department" name="department" type="text">
-                    <label for="adj_department">部门</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="adj_position" name="position" type="text">
-                    <label for="adj_position">职位</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <select id="adj_change_type" name="change_type">
-                        <option value="转岗" selected>转岗</option>
-                        <option value="调部门">调部门</option>
-                        <option value="转公司">转公司</option>
-                        <option value="停薪留职">停薪留职</option>
-                        <option value="返岗">返岗</option>
-                        <option value="离职">离职</option>
-                    </select>
-                    <label for="adj_change_type">变动事件</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="adj_change_date" name="change_date" type="date">
-                    <label for="adj_change_date">变动日期</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <select id="adj_employee_type" name="employee_type">
-                        <option value="" selected>不变</option>
-                        <option value="正式员工">正式员工</option>
-                        <option value="试用期员工">试用期员工</option>
-                        <option value="实习生">实习生</option>
-                        <option value="部门负责人">部门负责人</option>
-                        <option value="其他">其他</option>
-                    </select>
-                    <label for="adj_employee_type">员工类别</label>
-                </div>
-                <div class="input-field col s12">
-                    <textarea id="adj_change_reason" name="change_reason" class="materialize-textarea"></textarea>
-                    <label for="adj_change_reason">变动原因（可选）</label>
-                </div>
-            </div>
-        </form>
-        <div class="divider" style="margin: 12px 0;"></div>
-        <div id="positionHistoryContainer">
-            <p class="grey-text">加载历史记录中...</p>
-        </div>
-    </div>
-    <div class="modal-footer">
-        <a href="#!" class="modal-close waves-effect waves-green btn-flat">取消</a>
-        <button type="submit" form="positionAdjustForm" class="waves-effect waves-light btn">保存</button>
-    </div>
-</div>
-
-<!-- 薪资调整模态框 -->
-<div id="salaryAdjustModal" class="modal modal-fixed-footer">
-    <div class="modal-content">
-        <h5>薪资调整</h5>
-        <form id="salaryAdjustForm">
-            <input type="hidden" id="salaryAdjustPersonId" name="person_id">
-            <div class="row">
-                <div class="input-field col s12 m6">
-                    <select id="adj_salary_type" name="salary_type">
-                        <option value="" disabled selected>请选择</option>
-                        <option value="年薪制">年薪制</option>
-                        <option value="月薪制">月薪制</option>
-                        <option value="日薪制">日薪制</option>
-                    </select>
-                    <label for="adj_salary_type">薪资类型</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="adj_salary_amount" name="amount" type="number" step="0.01" min="0">
-                    <label for="adj_salary_amount">薪资金额</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="adj_salary_effective_date" name="effective_date" type="date">
-                    <label for="adj_salary_effective_date">生效日期</label>
-                </div>
-            </div>
-        </form>
-        <div class="divider" style="margin: 12px 0;"></div>
-        <div id="salaryHistoryContainer">
-            <p class="grey-text">加载历史记录中...</p>
-        </div>
-    </div>
-    <div class="modal-footer">
-        <a href="#!" class="modal-close waves-effect waves-green btn-flat">取消</a>
-        <button type="submit" form="salaryAdjustForm" class="waves-effect waves-light btn">保存</button>
-    </div>
-</div>
-
-<!-- 社保调整模态框 -->
-<div id="socialAdjustModal" class="modal modal-fixed-footer">
-    <div class="modal-content">
-        <h5>社保调整</h5>
-        <form id="socialAdjustForm">
-            <input type="hidden" id="socialAdjustPersonId" name="person_id">
-            <div class="row">
-                <div class="input-field col s12 m6">
-                    <input id="adj_social_base_amount" name="base_amount" type="number" step="0.01" min="0">
-                    <label for="adj_social_base_amount">社保基数</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="adj_pension_company_rate" name="pension_company_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="adj_pension_company_rate">养老公司比例</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="adj_pension_personal_rate" name="pension_personal_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="adj_pension_personal_rate">养老个人比例</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="adj_unemployment_company_rate" name="unemployment_company_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="adj_unemployment_company_rate">失业公司比例</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="adj_unemployment_personal_rate" name="unemployment_personal_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="adj_unemployment_personal_rate">失业个人比例</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="adj_medical_company_rate" name="medical_company_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="adj_medical_company_rate">医疗公司比例</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="adj_medical_personal_rate" name="medical_personal_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="adj_medical_personal_rate">医疗个人比例</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="adj_maternity_company_rate" name="maternity_company_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="adj_maternity_company_rate">生育公司比例</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="adj_maternity_personal_rate" name="maternity_personal_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="adj_maternity_personal_rate">生育个人比例</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="adj_critical_illness_company_amount" name="critical_illness_company_amount" type="number" step="0.01" min="0">
-                    <label for="adj_critical_illness_company_amount">大病险公司金额</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="adj_critical_illness_personal_amount" name="critical_illness_personal_amount" type="number" step="0.01" min="0">
-                    <label for="adj_critical_illness_personal_amount">大病险个人金额</label>
-                </div>
-            </div>
-        </form>
-        <div class="divider" style="margin: 12px 0;"></div>
-        <div id="socialHistoryContainer">
-            <p class="grey-text">加载历史记录中...</p>
-        </div>
-    </div>
-    <div class="modal-footer">
-        <a href="#!" class="modal-close waves-effect waves-green btn-flat">取消</a>
-        <button type="submit" form="socialAdjustForm" class="waves-effect waves-light btn">保存</button>
-    </div>
-</div>
-
-<!-- 公积金调整模态框 -->
-<div id="housingAdjustModal" class="modal modal-fixed-footer">
-    <div class="modal-content">
-        <h5>公积金调整</h5>
-        <form id="housingAdjustForm">
-            <input type="hidden" id="housingAdjustPersonId" name="person_id">
-            <div class="row">
-                <div class="input-field col s12 m6">
-                    <input id="adj_housing_base_amount" name="base_amount" type="number" step="0.01" min="0">
-                    <label for="adj_housing_base_amount">公积金基数</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="adj_housing_company_rate" name="company_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="adj_housing_company_rate">公司比例</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="adj_housing_personal_rate" name="personal_rate" type="number" step="0.001" min="0" max="1">
-                    <label for="adj_housing_personal_rate">个人比例</label>
-                </div>
-            </div>
-        </form>
-        <div class="divider" style="margin: 12px 0;"></div>
-        <div id="housingHistoryContainer">
-            <p class="grey-text">加载历史记录中...</p>
-        </div>
-    </div>
-    <div class="modal-footer">
-        <a href="#!" class="modal-close waves-effect waves-green btn-flat">取消</a>
-        <button type="submit" form="housingAdjustForm" class="waves-effect waves-light btn">保存</button>
-    </div>
-</div>
-
-<!-- 考核记录模态框 -->
-<div id="assessmentModal" class="modal modal-fixed-footer">
-    <div class="modal-content">
-        <h5>考核记录</h5>
-        <form id="assessmentForm">
-            <input type="hidden" id="assessmentPersonId" name="person_id">
-            <div class="row">
-                <div class="input-field col s12 m4">
-                    <select id="assessment_grade" name="grade">
-                        <option value="" disabled selected>请选择</option>
-                        <option value="A">A</option>
-                        <option value="B">B</option>
-                        <option value="C">C</option>
-                        <option value="D">D</option>
-                        <option value="E">E</option>
-                    </select>
-                    <label for="assessment_grade">考核等级</label>
-                </div>
-                <div class="input-field col s12 m4">
-                    <input id="assessment_date" name="assessment_date" type="date">
-                    <label for="assessment_date">考核日期</label>
-                </div>
-                <div class="input-field col s12">
-                    <textarea id="assessment_note" name="note" class="materialize-textarea"></textarea>
-                    <label for="assessment_note">备注（可选）</label>
-                </div>
-            </div>
-        </form>
-        <div class="divider" style="margin: 12px 0;"></div>
-        <div id="latestAssessmentContainer" style="margin-bottom: 12px;"></div>
-        <div id="assessmentHistoryContainer"></div>
-    </div>
-    <div class="modal-footer">
-        <a href="#!" class="modal-close waves-effect waves-green btn-flat">取消</a>
-        <button type="submit" form="assessmentForm" class="waves-effect waves-light btn">保存</button>
-    </div>
-</div>
-
-<!-- 个税抵扣信息模态框 -->
-<div id="taxDeductionModal" class="modal modal-fixed-footer">
-    <div class="modal-content">
-        <h5>个税抵扣信息</h5>
-        <form id="taxDeductionForm">
-            <input type="hidden" id="taxDeductionPersonId" name="person_id">
-            <div class="row">
-                <div class="input-field col s12 m6">
-                    <input id="tax_continuing_education" name="continuing_education" type="number" step="0.01" min="0">
-                    <label for="tax_continuing_education">继续教育（元/月）</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="tax_infant_care" name="infant_care" type="number" step="0.01" min="0">
-                    <label for="tax_infant_care">三岁及以下婴幼儿（元/月）</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="tax_children_education" name="children_education" type="number" step="0.01" min="0">
-                    <label for="tax_children_education">子女教育（元/月）</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="tax_housing_loan_interest" name="housing_loan_interest" type="number" step="0.01" min="0">
-                    <label for="tax_housing_loan_interest">住房贷款利息（元/月）</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="tax_housing_rent" name="housing_rent" type="number" step="0.01" min="0">
-                    <label for="tax_housing_rent">住房租金（元/月）</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="tax_elderly_support" name="elderly_support" type="number" step="0.01" min="0">
-                    <label for="tax_elderly_support">赡养老人（元/月）</label>
-                </div>
-            </div>
-        </form>
-        <div class="divider" style="margin: 12px 0;"></div>
-        <div id="taxDeductionHistoryContainer">
-            <p class="grey-text">加载历史记录中...</p>
-        </div>
-    </div>
-    <div class="modal-footer">
-        <a href="#!" class="modal-close waves-effect waves-green btn-flat">取消</a>
-        <button type="submit" form="taxDeductionForm" class="waves-effect waves-light btn">保存</button>
-    </div>
-</div>
-
-<!-- 人员项目状态模态框 -->
-<div id="projectStatusModal" class="modal modal-fixed-footer">
-    <div class="modal-content">
-        <h5>人员项目状态</h5>
-        <form id="projectStatusForm">
-            <input type="hidden" id="projectStatusPersonId" name="person_id">
-            <div class="row">
-                <div class="input-field col s12">
-                    <select id="project_status" name="status" required>
-                        <option value="" disabled selected>请选择状态</option>
-                        <option value="在项">在项</option>
-                        <option value="待入项">待入项</option>
-                        <option value="不可用">不可用</option>
-                    </select>
-                    <label>状态 *</label>
-                </div>
-                <div class="input-field col s12" id="projectIdField">
-                    <select id="project_status_project_id" name="project_id">
-                        <option value="" disabled selected>请选择项目（可选）</option>
-                        <option value="0">占位符项目</option>
-                    </select>
-                    <label>关联项目</label>
-                </div>
-                <div class="input-field col s12">
-                    <textarea id="project_status_note" name="note" class="materialize-textarea"></textarea>
-                    <label for="project_status_note">备注</label>
-                </div>
-            </div>
-        </form>
-        <div class="divider" style="margin: 20px 0;"></div>
-        <div id="projectStatusHistoryContainer">
-            <h6>历史记录</h6>
-            <div id="projectStatusHistoryList">
-                <p class="grey-text">加载历史记录中...</p>
-            </div>
-        </div>
-    </div>
-    <div class="modal-footer">
-        <a href="#!" class="modal-close waves-effect waves-green btn-flat">取消</a>
-        <button type="submit" form="projectStatusForm" class="waves-effect waves-light btn">保存</button>
-    </div>
-</div>
-
 {% endblock %}
 
-{% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/persons.js') }}"></script>
-{% endblock %}
+{% block scripts %}
+<script>
+// Schema 定义（从后端传递）
+const schema = {{ schema | tojson }};
 
+// 渲染人员卡片
+function renderPersonCard(person) {
+    const fields = schema.fields || {};
+    const card = document.createElement('div');
+    card.className = 'bg-white overflow-hidden shadow rounded-lg hover:shadow-lg transition-shadow cursor-pointer';
+    card.onclick = () => showPersonDetail(person.id);
+    
+    let html = '<div class="p-5">';
+    
+    // 头像（如果有）
+    if (person.avatar) {
+        html += `<div class="flex items-center mb-4">
+            <img src="${person.avatar}" alt="${person.name || ''}" class="h-16 w-16 rounded-full object-cover">
+        </div>`;
+    }
+    
+    // 主要字段
+    html += '<div class="space-y-2">';
+    
+    // 遍历 Schema 定义的字段
+    for (const [fieldName, fieldDef] of Object.entries(fields)) {
+        const value = person[fieldName];
+        if (value !== undefined && value !== null && value !== '') {
+            const label = fieldDef.label || fieldName;
+            html += `<div>
+                <span class="text-xs font-medium text-gray-500">${label}:</span>
+                <p class="text-sm text-gray-900">${value}</p>
+            </div>`;
+        }
+    }
+    
+    html += '</div>';
+    html += '</div>';
+    
+    card.innerHTML = html;
+    return card;
+}
+
+// 显示人员详情
+async function showPersonDetail(personId) {
+    try {
+        const response = await fetch(`/api/persons/${personId}`);
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('加载失败: ' + result.error);
+            return;
+        }
+        
+        const person = result.data;
+        const modal = document.getElementById('person-modal');
+        const content = document.getElementById('person-detail-content');
+        
+        let html = '<div class="space-y-6">';
+        
+        // 当前信息
+        html += '<div>';
+        html += '<h4 class="text-md font-semibold text-gray-900 mb-3">当前信息</h4>';
+        html += '<div class="bg-gray-50 rounded-lg p-4 space-y-3">';
+        
+        const fields = schema.fields || {};
+        for (const [fieldName, fieldDef] of Object.entries(fields)) {
+            const value = person.current[fieldName];
+            if (value !== undefined && value !== null && value !== '') {
+                const label = fieldDef.label || fieldName;
+                html += `<div class="flex">
+                    <span class="text-sm font-medium text-gray-700 w-24">${label}:</span>
+                    <span class="text-sm text-gray-900 flex-1">${value}</span>
+                </div>`;
+            }
+        }
+        
+        html += '</div></div>';
+        
+        // 历史记录
+        if (person.history && person.history.length > 1) {
+            html += '<div>';
+            html += '<h4 class="text-md font-semibold text-gray-900 mb-3">历史记录</h4>';
+            html += '<div class="overflow-x-auto">';
+            html += '<table class="min-w-full divide-y divide-gray-200">';
+            html += '<thead class="bg-gray-50">';
+            html += '<tr>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">版本</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">时间</th>';
+            
+            // 动态生成字段列
+            for (const [fieldName, fieldDef] of Object.entries(fields)) {
+                const label = fieldDef.label || fieldName;
+                html += `<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">${label}</th>`;
+            }
+            
+            html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+            
+            // 历史记录行
+            for (const record of person.history) {
+                html += '<tr>';
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${record.version}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-500">${record.ts}</td>`;
+                
+                for (const fieldName of Object.keys(fields)) {
+                    const value = record.data[fieldName] || '';
+                    html += `<td class="px-4 py-3 text-sm text-gray-900">${value}</td>`;
+                }
+                
+                html += '</tr>';
+            }
+            
+            html += '</tbody></table></div></div>';
+        }
+        
+        html += '</div>';
+        
+        content.innerHTML = html;
+        modal.classList.remove('hidden');
+    } catch (error) {
+        alert('加载失败: ' + error.message);
+    }
+}
+
+// 关闭模态框
+document.getElementById('close-modal').onclick = () => {
+    document.getElementById('person-modal').classList.add('hidden');
+};
+
+// 加载人员列表
+async function loadPersons() {
+    const loading = document.getElementById('loading');
+    const error = document.getElementById('error');
+    const container = document.getElementById('persons-container');
+    
+    try {
+        const response = await fetch('/api/persons');
+        const result = await response.json();
+        
+        loading.classList.add('hidden');
+        
+        if (!result.success) {
+            error.classList.remove('hidden');
+            document.getElementById('error-message').textContent = result.error;
+            return;
+        }
+        
+        error.classList.add('hidden');
+        container.classList.remove('hidden');
+        
+        // 清空容器
+        container.innerHTML = '';
+        
+        // 渲染人员卡片
+        if (result.data && result.data.length > 0) {
+            result.data.forEach(person => {
+                const card = renderPersonCard(person);
+                container.appendChild(card);
+            });
+        } else {
+            container.innerHTML = '<div class="col-span-full text-center py-12 text-gray-500">暂无人员数据</div>';
+        }
+    } catch (err) {
+        loading.classList.add('hidden');
+        error.classList.remove('hidden');
+        document.getElementById('error-message').textContent = err.message;
+    }
+}
+
+// 页面加载时获取数据
+window.addEventListener('DOMContentLoaded', loadPersons);
+</script>
+{% endblock %}

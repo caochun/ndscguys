@@ -1,64 +1,83 @@
 """
-Web routes for person management UI
+Web 路由 - 页面路由
 """
 from __future__ import annotations
 
-from flask import Blueprint, render_template, redirect, url_for
+from flask import Blueprint, render_template
+
+from app.schema.loader import SchemaLoader
 
 web_bp = Blueprint("web", __name__)
 
 
 @web_bp.route("/")
 def index():
-    return redirect(url_for("web.persons"))
+    """首页 - 重定向到人员列表"""
+    schema_loader = SchemaLoader()
+    person_schema = schema_loader.get_twin_schema("person")
+    
+    if not person_schema:
+        person_schema = {}
+    
+    schema_dict = {
+        "name": "person",
+        "label": person_schema.get("label", "人员"),
+        "fields": person_schema.get("fields", {})
+    }
+    
+    return render_template("persons.html", schema=schema_dict)
 
 
 @web_bp.route("/persons")
 def persons():
-    return render_template("persons.html", active_page="persons")
+    """人员列表页"""
+    schema_loader = SchemaLoader()
+    person_schema = schema_loader.get_twin_schema("person")
+    
+    if not person_schema:
+        person_schema = {}
+    
+    # 确保字段存在
+    schema_dict = {
+        "name": "person",
+        "label": person_schema.get("label", "人员"),
+        "fields": person_schema.get("fields", {})
+    }
+    
+    return render_template("persons.html", schema=schema_dict)
 
 
-@web_bp.route("/attendance")
-def attendance():
-    return render_template("attendance.html", active_page="attendance")
-
-
-@web_bp.route("/leave")
-def leave():
-    return render_template("leave.html", active_page="leave")
-
-
-@web_bp.route("/housing-fund/batch")
-def housing_fund_batch():
-    return render_template("housing_fund_batch.html", active_page="housing_batch")
-
-
-@web_bp.route("/social-security/batch")
-def social_security_batch():
-    return render_template("social_security_batch.html", active_page="social_batch")
-
-
-@web_bp.route("/payroll/batch")
-def payroll_batch():
-    return render_template("payroll_batch.html", active_page="payroll_batch")
-
-
-@web_bp.route("/tax-deduction/batch")
-def tax_deduction_batch():
-    return render_template("tax_deduction_batch.html", active_page="tax_deduction_batch")
-
-
-@web_bp.route("/statistics")
-def statistics():
-    return render_template("statistics.html", active_page="statistics")
+@web_bp.route("/employments")
+def employments():
+    """雇佣关系列表页"""
+    schema_loader = SchemaLoader()
+    employment_schema = schema_loader.get_twin_schema("person_company_employment")
+    
+    if not employment_schema:
+        employment_schema = {}
+    
+    schema_dict = {
+        "name": "person_company_employment",
+        "label": employment_schema.get("label", "雇佣关系"),
+        "fields": employment_schema.get("fields", {})
+    }
+    
+    return render_template("employments.html", schema=schema_dict)
 
 
 @web_bp.route("/projects")
 def projects():
-    return render_template("projects.html", active_page="projects")
-
-
-@web_bp.route("/payroll/dsl-editor")
-def payroll_dsl_editor():
-    return render_template("payroll_dsl_editor.html", active_page="payroll_dsl_editor")
-
+    """项目列表页"""
+    schema_loader = SchemaLoader()
+    project_schema = schema_loader.get_twin_schema("project")
+    
+    if not project_schema:
+        project_schema = {}
+    
+    schema_dict = {
+        "name": "project",
+        "label": project_schema.get("label", "项目"),
+        "fields": project_schema.get("fields", {})
+    }
+    
+    return render_template("projects.html", schema=schema_dict)

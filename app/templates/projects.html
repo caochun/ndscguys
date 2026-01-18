@@ -1,792 +1,841 @@
-{% extends "layout.html" %}
-{% block title %}项目人员分配关系图{% endblock %}
-{% block extra_head %}
-<style>
-    body {
-        background: #f5f6fa;
-        overflow-x: auto;
-    }
-    
-    /* 矩阵视图样式 */
-    .matrix-view-container {
-        display: flex;
-        flex-direction: column;
-        height: calc(100vh - 120px);
-    }
-    
-    .matrix-header {
-        padding: 16px 20px;
-        background: white;
-        border-radius: 8px 8px 0 0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        margin-bottom: 0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-shrink: 0;
-    }
-    
-    .matrix-view {
-        display: block;
-        background: white;
-        border-radius: 0 0 8px 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        overflow: auto;
-        flex: 1;
-        min-height: 0;
-    }
-    
-    .matrix-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13px;
-    }
-    
-    .matrix-table th {
-        background: #1976d2;
-        color: white;
-        padding: 12px 8px;
-        text-align: center;
-        font-weight: 500;
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        border: 1px solid #1565c0;
-        transition: background-color 0.2s;
-    }
-    
-    .matrix-table th:hover {
-        background: #1565c0;
-    }
-    
-    .matrix-table th:first-child {
-        left: 0;
-        z-index: 11;
-        background: #1976d2;
-        min-width: 150px;
-        text-align: left;
-        padding-left: 16px;
-    }
-    
-    .matrix-table td {
-        padding: 10px 8px;
-        text-align: center;
-        border: 1px solid #e0e0e0;
-        vertical-align: middle;
-    }
-    
-    .matrix-table td:first-child {
-        position: sticky;
-        left: 0;
-        background: white;
-        z-index: 5;
-        font-weight: 500;
-        text-align: left;
-        padding-left: 16px;
-        min-width: 150px;
-    }
-    
-    .matrix-table tr:hover td:first-child {
-        background: #f5f5f5;
-    }
-    
-    .matrix-table tr:hover {
-        background: #f5f5f5;
-    }
-    
-    .matrix-cell {
-        transition: background-color 0.2s;
-        position: relative;
-    }
-    
-    .matrix-table tbody td:first-child {
-        cursor: pointer;
-        transition: background-color 0.2s;
-    }
-    
-    .matrix-table tbody td:first-child:hover {
-        background-color: #f5f5f5;
-    }
-    
-    .matrix-cell.has-relation {
-        background: #e3f2fd;
-        color: #1976d2;
-    }
-    
-    .matrix-cell.has-relation:hover {
-        background: #bbdefb;
-    }
-    
-    .matrix-cell.manager {
-        background: #c8e6c9;
-        color: #2e7d32;
-        font-weight: 500;
-    }
-    
-    .matrix-cell.manager:hover {
-        background: #a5d6a7;
-    }
-    
-    .matrix-cell.no-relation {
-        color: #bdbdbd;
-    }
-    
-    .matrix-cell .cell-content {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-    }
-    
-    .matrix-cell .position {
-        font-size: 11px;
-        color: #757575;
-    }
-    
-    .matrix-cell.manager .position {
-        color: #2e7d32;
-        font-weight: 500;
-    }
-    
-    .action-buttons {
-        display: flex;
-        gap: 10px;
-    }
-</style>
-{% endblock %}
+{% extends "base.html" %}
+
+{% block title %}项目管理 - HRMS{% endblock %}
 
 {% block content %}
-<div class="section">
-    <!-- 矩阵视图容器 -->
-    <div class="matrix-view-container">
-        <!-- 矩阵头部（包含按钮） -->
-        <div class="matrix-header">
-            <h5 style="margin: 0; font-size: 20px; font-weight: 500;">项目人员分配矩阵</h5>
-            <div class="action-buttons">
-                <a class="btn waves-effect waves-light btn-small" id="addPersonToProjectBtn">
-                    <i class="material-icons left">person_add</i>登记人员入项
-                </a>
-                <a class="btn waves-effect waves-light btn-small" id="assignBtn" style="display: none;">
-                    <i class="material-icons left">link</i>分配项目
-                </a>
-                <a class="btn waves-effect waves-light btn-small" id="createProjectBtn">
-                    <i class="material-icons left">add</i>新建项目
-                </a>
-            </div>
+<div class="px-4 py-6 sm:px-0">
+    <div class="mb-6">
+        <h2 class="text-2xl font-bold text-gray-900">项目管理</h2>
+        <p class="mt-1 text-sm text-gray-500">根据 Schema 动态渲染的项目信息</p>
+    </div>
+
+    <!-- Tab 导航 -->
+    <div class="border-b border-gray-200 mb-6">
+        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+            <button id="tab-projects" class="tab-button border-indigo-500 text-indigo-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                项目列表
+            </button>
+            <button id="tab-person-status" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                人员在项
+            </button>
+        </nav>
+    </div>
+
+    <!-- Tab 内容：项目列表 -->
+    <div id="tab-content-projects" class="tab-content">
+        <!-- 加载状态 -->
+        <div id="loading" class="text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            <p class="mt-2 text-sm text-gray-500">加载中...</p>
         </div>
-        
-        <!-- 矩阵视图 -->
-        <div class="matrix-view" id="matrixView">
-            <div style="padding: 20px;">
-                <table class="matrix-table" id="matrixTable">
-                    <thead id="matrixTableHead"></thead>
-                    <tbody id="matrixTableBody"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
 
-<!-- 创建项目模态框 -->
-<div id="createProjectModal" class="modal modal-fixed-footer" style="width: 90%; max-width: 1000px;">
-    <div class="modal-content">
-        <h5>新建项目</h5>
-        <form id="createProjectForm">
-            <div class="row">
-                <div class="input-field col s12">
-                    <select id="project_type" name="project_type" required>
-                        <option value="" disabled selected>请选择项目类型</option>
-                        <option value="劳务型">劳务型</option>
-                        <option value="专项型">专项型</option>
-                    </select>
-                    <label>项目类型 *</label>
+        <!-- 错误提示 -->
+        <div id="error" class="hidden bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
                 </div>
-            </div>
-            
-            <h6 style="margin-top: 30px; margin-bottom: 20px; color: #1976d2;">内部项目信息</h6>
-            <div class="row">
-                <div class="input-field col s12">
-                    <input id="internal_project_name" name="internal_project_name" type="text" required>
-                    <label for="internal_project_name">项目名称 *</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="internal_department" name="internal_department" type="text" required>
-                    <label for="internal_department">归属部门 *</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="internal_project_manager" name="internal_project_manager" type="text" required>
-                    <label for="internal_project_manager">项目经理 *</label>
-                </div>
-            </div>
-            
-            <h6 style="margin-top: 30px; margin-bottom: 20px; color: #1976d2;">外部项目信息</h6>
-            <div class="row">
-                <div class="input-field col s12">
-                    <input id="external_project_name" name="external_project_name" type="text" required>
-                    <label for="external_project_name">甲方项目名称 *</label>
-                </div>
-                <div class="input-field col s12">
-                    <input id="external_company" name="external_company" type="text" required>
-                    <label for="external_company">甲方单位 *</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="external_department" name="external_department" type="text">
-                    <label for="external_department">甲方部门</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="external_manager" name="external_manager" type="text">
-                    <label for="external_manager">甲方经理</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="external_order_number" name="external_order_number" type="text">
-                    <label for="external_order_number">甲方订单编号</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="execution_start_date" name="execution_start_date" type="date">
-                    <label for="execution_start_date">执行开始时间</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="execution_end_date" name="execution_end_date" type="date">
-                    <label for="execution_end_date">执行结束时间</label>
-                </div>
-            </div>
-        </form>
-    </div>
-    <div class="modal-footer">
-        <a href="#!" class="modal-close waves-effect waves-grey btn-flat">取消</a>
-        <a href="#!" class="waves-effect waves-light btn" id="submitCreateProject">确认</a>
-    </div>
-</div>
-
-<!-- 登记人员入项模态框 -->
-<div id="addPersonToProjectModal" class="modal modal-fixed-footer" style="width: 90%; max-width: 1000px;">
-    <div class="modal-content">
-        <h5>登记人员入项</h5>
-        <form id="addPersonToProjectMainForm">
-            <div class="row">
-                <div class="input-field col s12 m6">
-                    <select id="addPersonToProjectMainSelect" name="person_id" required>
-                        <option value="" disabled selected>请选择人员</option>
-                    </select>
-                    <label>人员 *</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <select id="addProjectToPersonMainSelect" name="project_id" required>
-                        <option value="" disabled selected>请选择项目</option>
-                    </select>
-                    <label>项目 *</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="addPersonToProject_material_submit_date" name="material_submit_date" type="date">
-                    <label for="addPersonToProject_material_submit_date">材料提交时间</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="addPersonToProject_position" name="project_position" type="text">
-                    <label for="addPersonToProject_position">入项岗位</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="addPersonToProject_level" name="assessment_level" type="text">
-                    <label for="addPersonToProject_level">评定等级</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="addPersonToProject_price" name="unit_price" type="number" step="0.01" min="0">
-                    <label for="addPersonToProject_price">评定单价</label>
-                </div>
-                <div class="input-field col s12 m6">
-                    <input id="addPersonToProject_status" name="process_status" type="text">
-                    <label for="addPersonToProject_status">流程状态</label>
-                </div>
-                
-                <!-- 劳务型项目专用字段 -->
-                <div id="addPersonToProjectLaborFields" style="display: none;">
-                    <div class="col s12" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
-                        <h6 style="color: #1976d2; margin-bottom: 15px;">劳务型项目专用信息</h6>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input id="addPersonToProject_client_requirement_number" name="client_requirement_number" type="text">
-                        <label for="addPersonToProject_client_requirement_number">甲方需求编号</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <select id="addPersonToProject_attendance_method" name="attendance_method">
-                            <option value="" disabled selected>请选择打卡方式</option>
-                            <option value="现场打卡">现场打卡</option>
-                            <option value="线上打卡">线上打卡</option>
-                        </select>
-                        <label>打卡方式</label>
-                    </div>
-                    
-                    <!-- 现场打卡字段 -->
-                    <div id="addPersonToProjectOnsiteFields" style="display: none;">
-                        <div class="input-field col s12 m6">
-                            <input id="addPersonToProject_attendance_location" name="attendance_location" type="text">
-                            <label for="addPersonToProject_attendance_location">打卡地点</label>
-                        </div>
-                        <div class="input-field col s12 m6">
-                            <input id="addPersonToProject_work_time_range" name="work_time_range" type="text" placeholder="如：09:00-18:00">
-                            <label for="addPersonToProject_work_time_range">正常工作时间区间</label>
-                        </div>
-                    </div>
-                    
-                    <!-- 线上打卡字段 -->
-                    <div id="addPersonToProjectOnlineFields" style="display: none;">
-                        <div class="input-field col s12 m6">
-                            <input id="addPersonToProject_online_location" name="online_location" type="text">
-                            <label for="addPersonToProject_online_location">地点</label>
-                        </div>
-                        <div class="input-field col s12 m6">
-                            <input id="addPersonToProject_online_work_time" name="online_work_time" type="text">
-                            <label for="addPersonToProject_online_work_time">工作时间</label>
-                        </div>
-                        <div class="input-field col s12 m6">
-                            <p>
-                                <label>
-                                    <input type="checkbox" id="addPersonToProject_face_recognition" name="face_recognition" />
-                                    <span>是否刷脸打卡</span>
-                                </label>
-                            </p>
-                        </div>
-                        <div class="input-field col s12 m6">
-                            <input id="addPersonToProject_attendance_person" name="attendance_person" type="text">
-                            <label for="addPersonToProject_attendance_person">打卡人</label>
-                        </div>
-                    </div>
-                    
-                    <div class="input-field col s12 m6">
-                        <input id="addPersonToProject_position_level" name="position_level" type="text">
-                        <label for="addPersonToProject_position_level">岗位级别</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input id="addPersonToProject_labor_unit_price" name="labor_unit_price" type="number" step="0.01" min="0">
-                        <label for="addPersonToProject_labor_unit_price">单价</label>
-                    </div>
-                </div>
-            </div>
-        </form>
-    </div>
-    <div class="modal-footer">
-        <a href="#!" class="modal-close waves-effect waves-grey btn-flat">取消</a>
-        <a href="#!" class="waves-effect waves-light btn" id="submitAddPersonToProjectMain">确认</a>
-    </div>
-</div>
-
-<!-- 分配项目模态框 -->
-<div id="assignModal" class="modal">
-    <div class="modal-content">
-        <h5>为 <span id="assignPersonName"></span> 分配项目</h5>
-        <form id="assignForm">
-            <div class="row">
-                <div class="input-field col s12">
-                    <select id="assignProjectSelect" name="project_id" required>
-                        <option value="" disabled selected>请选择项目</option>
-                    </select>
-                    <label>项目 *</label>
-                </div>
-                <div class="input-field col s12">
-                    <input id="assign_position" name="project_position" type="text">
-                    <label for="assign_position">入项岗位</label>
-                </div>
-                <div class="input-field col s12">
-                    <input id="assign_level" name="assessment_level" type="text">
-                    <label for="assign_level">评定等级</label>
-                </div>
-                <div class="input-field col s12">
-                    <input id="assign_price" name="unit_price" type="number" step="0.01" min="0">
-                    <label for="assign_price">评定单价</label>
-                </div>
-                <div class="input-field col s12">
-                    <input id="assign_status" name="process_status" type="text">
-                    <label for="assign_status">流程状态</label>
-                </div>
-            </div>
-        </form>
-    </div>
-    <div class="modal-footer">
-        <a href="#!" class="modal-close waves-effect waves-grey btn-flat">取消</a>
-        <a href="#!" class="waves-effect waves-light btn" id="submitAssign">确认</a>
-    </div>
-</div>
-
-<!-- 项目详情模态框（保留用于编辑项目信息） -->
-<div id="projectDetailModal" class="modal modal-fixed-footer" style="width: 90%; max-width: 900px;">
-    <div class="modal-content">
-        <h5 id="projectDetailTitle">项目详情</h5>
-        <ul class="tabs">
-            <li class="tab col s3"><a href="#projectBasicTab" class="active">基本信息</a></li>
-            <li class="tab col s3"><a href="#projectPersonsTab">参与人员</a></li>
-            <li class="tab col s3"><a href="#projectHistoryTab">历史记录</a></li>
-        </ul>
-        
-        <div id="projectBasicTab" class="col s12" style="padding-top: 20px;">
-            <form id="projectEditForm">
-                <div class="row">
-                    <div class="input-field col s12">
-                        <select id="edit_project_type" name="project_type" required>
-                            <option value="" disabled>请选择项目类型</option>
-                            <option value="劳务型">劳务型</option>
-                            <option value="专项型">专项型</option>
-                        </select>
-                        <label>项目类型 *</label>
-                    </div>
-                </div>
-                
-                <h6 style="margin-top: 30px; margin-bottom: 20px; color: #1976d2;">内部项目信息</h6>
-                <div class="row">
-                    <div class="input-field col s12">
-                        <input id="edit_internal_project_name" name="internal_project_name" type="text" required>
-                        <label for="edit_internal_project_name">项目名称 *</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input id="edit_internal_department" name="internal_department" type="text" required>
-                        <label for="edit_internal_department">归属部门 *</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input id="edit_internal_project_manager" name="internal_project_manager" type="text" required>
-                        <label for="edit_internal_project_manager">项目经理 *</label>
-                    </div>
-                </div>
-                
-                <h6 style="margin-top: 30px; margin-bottom: 20px; color: #1976d2;">外部项目信息</h6>
-                <div class="row">
-                    <div class="input-field col s12">
-                        <input id="edit_external_project_name" name="external_project_name" type="text" required>
-                        <label for="edit_external_project_name">甲方项目名称 *</label>
-                    </div>
-                    <div class="input-field col s12">
-                        <input id="edit_external_company" name="external_company" type="text" required>
-                        <label for="edit_external_company">甲方单位 *</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input id="edit_external_department" name="external_department" type="text">
-                        <label for="edit_external_department">甲方部门</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input id="edit_external_manager" name="external_manager" type="text">
-                        <label for="edit_external_manager">甲方经理</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input id="edit_external_order_number" name="external_order_number" type="text">
-                        <label for="edit_external_order_number">甲方订单编号</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input id="edit_execution_start_date" name="execution_start_date" type="date">
-                        <label for="edit_execution_start_date">执行开始时间</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input id="edit_execution_end_date" name="execution_end_date" type="date">
-                        <label for="edit_execution_end_date">执行结束时间</label>
-                    </div>
-                </div>
-            </form>
-        </div>
-        
-        <div id="projectPersonsTab" class="col s12" style="padding-top: 20px;">
-            <div class="right-align" style="margin-bottom: 16px;">
-                <a class="btn waves-effect waves-light btn-small" id="openAddPersonModal">
-                    <i class="material-icons left">person_add</i>添加人员
-                </a>
-            </div>
-            <div id="projectPersonsList">
-                <p class="grey-text center-align">正在加载...</p>
-            </div>
-        </div>
-        
-        <div id="projectHistoryTab" class="col s12" style="padding-top: 20px;">
-            <div id="projectHistoryList">
-                <p class="grey-text center-align">正在加载...</p>
-            </div>
-        </div>
-    </div>
-    <div class="modal-footer">
-        <a href="#!" class="modal-close waves-effect waves-grey btn-flat">关闭</a>
-        <a href="#!" class="waves-effect waves-light btn" id="submitProjectEdit" style="display: none;">保存修改</a>
-    </div>
-</div>
-
-<!-- 添加项目参与人员模态框 -->
-<div id="addPersonModal" class="modal">
-    <div class="modal-content">
-        <h5>添加项目参与人员</h5>
-        <form id="addPersonForm">
-            <div class="row">
-                <div class="input-field col s12">
-                    <select id="personSelect" name="person_id" required>
-                        <option value="" disabled selected>请选择人员</option>
-                    </select>
-                    <label>人员 *</label>
-                </div>
-                <div class="input-field col s12">
-                    <input id="project_position" name="project_position" type="text">
-                    <label for="project_position">入项岗位</label>
-                </div>
-                <div class="input-field col s12">
-                    <input id="material_submit_date" name="material_submit_date" type="date">
-                    <label for="material_submit_date">材料提交时间</label>
-                </div>
-                <div class="input-field col s12">
-                    <input id="assessment_level" name="assessment_level" type="text">
-                    <label for="assessment_level">评定等级</label>
-                </div>
-                <div class="input-field col s12">
-                    <input id="unit_price" name="unit_price" type="number" step="0.01" min="0">
-                    <label for="unit_price">评定单价</label>
-                </div>
-                <div class="input-field col s12">
-                    <input id="process_status" name="process_status" type="text">
-                    <label for="process_status">当前管理流程状态</label>
-                </div>
-            </div>
-        </form>
-    </div>
-    <div class="modal-footer">
-        <a href="#!" class="modal-close waves-effect waves-grey btn-flat">取消</a>
-        <a href="#!" class="waves-effect waves-light btn" id="submitAddPerson">确认</a>
-    </div>
-</div>
-
-<!-- 编辑项目参与人员模态框 -->
-<div id="editPersonModal" class="modal">
-    <div class="modal-content">
-        <h5>编辑项目参与人员信息</h5>
-        <form id="editPersonForm">
-            <div class="row">
-                <div class="input-field col s12">
-                    <input id="edit_person_name" type="text" readonly>
-                    <label for="edit_person_name">人员</label>
-                </div>
-                <div class="input-field col s12">
-                    <input id="edit_project_position" name="project_position" type="text">
-                    <label for="edit_project_position">入项岗位</label>
-                </div>
-                <div class="input-field col s12">
-                    <input id="edit_material_submit_date" name="material_submit_date" type="date">
-                    <label for="edit_material_submit_date">材料提交时间</label>
-                </div>
-                <div class="input-field col s12">
-                    <input id="edit_assessment_level" name="assessment_level" type="text">
-                    <label for="edit_assessment_level">评定等级</label>
-                </div>
-                <div class="input-field col s12">
-                    <input id="edit_unit_price" name="unit_price" type="number" step="0.01" min="0">
-                    <label for="edit_unit_price">评定单价</label>
-                </div>
-                <div class="input-field col s12">
-                    <input id="edit_process_status" name="process_status" type="text">
-                    <label for="edit_process_status">当前管理流程状态</label>
-                </div>
-            </div>
-        </form>
-    </div>
-    <div class="modal-footer">
-        <a href="#!" class="modal-close waves-effect waves-grey btn-flat">取消</a>
-        <a href="#!" class="waves-effect waves-light btn" id="submitEditPerson">保存</a>
-    </div>
-</div>
-
-<!-- 人员项目历史模态框 -->
-<div id="personProjectHistoryModal" class="modal modal-fixed-footer" style="width: 90%; max-width: 1000px;">
-    <div class="modal-content">
-        <h5 id="personProjectHistoryTitle">人员项目参与历史</h5>
-        
-        <!-- 添加参与项目表单（仅在没有当前参与项目时显示） -->
-        <div id="addProjectFormSection" style="display: none; margin-bottom: 30px; padding: 20px; background: #f5f5f5; border-radius: 4px;">
-            <h6 style="margin-top: 0;">添加参与项目</h6>
-            <form id="addProjectForm">
-                <div class="row">
-                    <div class="input-field col s12 m6">
-                        <select id="addProjectSelect" name="project_id" required>
-                            <option value="" disabled selected>请选择项目</option>
-                        </select>
-                        <label>项目 *</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input id="add_material_submit_date" name="material_submit_date" type="date">
-                        <label for="add_material_submit_date">材料提交时间</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input id="add_position" name="project_position" type="text">
-                        <label for="add_position">入项岗位</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input id="add_level" name="assessment_level" type="text">
-                        <label for="add_level">评定等级</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input id="add_price" name="unit_price" type="number" step="0.01" min="0">
-                        <label for="add_price">评定单价</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input id="add_status" name="process_status" type="text">
-                        <label for="add_status">流程状态</label>
-                    </div>
-                    
-                    <!-- 劳务型项目专用字段 -->
-                    <div id="addLaborFields" style="display: none;">
-                        <div class="col s12" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
-                            <h6 style="color: #1976d2; margin-bottom: 15px;">劳务型项目专用信息</h6>
-                        </div>
-                        <div class="input-field col s12 m6">
-                            <input id="add_client_requirement_number" name="client_requirement_number" type="text">
-                            <label for="add_client_requirement_number">甲方需求编号</label>
-                        </div>
-                        <div class="input-field col s12 m6">
-                            <select id="add_attendance_method" name="attendance_method">
-                                <option value="" disabled selected>请选择打卡方式</option>
-                                <option value="现场打卡">现场打卡</option>
-                                <option value="线上打卡">线上打卡</option>
-                            </select>
-                            <label>打卡方式</label>
-                        </div>
-                        
-                        <!-- 现场打卡字段 -->
-                        <div id="addOnsiteFields" style="display: none;">
-                            <div class="input-field col s12 m6">
-                                <input id="add_attendance_location" name="attendance_location" type="text">
-                                <label for="add_attendance_location">打卡地点</label>
-                            </div>
-                            <div class="input-field col s12 m6">
-                                <input id="add_work_time_range" name="work_time_range" type="text" placeholder="如：09:00-18:00">
-                                <label for="add_work_time_range">正常工作时间区间</label>
-                            </div>
-                        </div>
-                        
-                        <!-- 线上打卡字段 -->
-                        <div id="addOnlineFields" style="display: none;">
-                            <div class="input-field col s12 m6">
-                                <input id="add_online_location" name="online_location" type="text">
-                                <label for="add_online_location">地点</label>
-                            </div>
-                            <div class="input-field col s12 m6">
-                                <input id="add_online_work_time" name="online_work_time" type="text">
-                                <label for="add_online_work_time">工作时间</label>
-                            </div>
-                            <div class="input-field col s12 m6">
-                                <p>
-                                    <label>
-                                        <input type="checkbox" id="add_face_recognition" name="face_recognition" />
-                                        <span>是否刷脸打卡</span>
-                                    </label>
-                                </p>
-                            </div>
-                            <div class="input-field col s12 m6">
-                                <input id="add_attendance_person" name="attendance_person" type="text">
-                                <label for="add_attendance_person">打卡人</label>
-                            </div>
-                        </div>
-                        
-                        <div class="input-field col s12 m6">
-                            <input id="add_position_level" name="position_level" type="text">
-                            <label for="add_position_level">岗位级别</label>
-                        </div>
-                        <div class="input-field col s12 m6">
-                            <input id="add_labor_unit_price" name="labor_unit_price" type="number" step="0.01" min="0">
-                            <label for="add_labor_unit_price">单价</label>
-                        </div>
-                    </div>
-                    
-                    <div class="col s12" style="margin-top: 20px;">
-                        <a href="#!" class="waves-effect waves-light btn" id="submitAddProject">
-                            <i class="material-icons left">add</i>添加参与项目
-                        </a>
-                    </div>
-                </div>
-            </form>
-        </div>
-        
-        <!-- 项目历史记录列表 -->
-        <div id="personProjectHistoryContent">
-            <div class="center-align" style="padding: 40px;">
-                <div class="preloader-wrapper small active">
-                    <div class="spinner-layer spinner-blue-only">
-                        <div class="circle-clipper left">
-                            <div class="circle"></div>
-                        </div>
-                    </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">加载失败</h3>
+                    <p id="error-message" class="mt-2 text-sm text-red-700"></p>
                 </div>
             </div>
         </div>
-    </div>
-    <div class="modal-footer">
-        <a href="#!" class="modal-close waves-effect waves-grey btn-flat">关闭</a>
-    </div>
-</div>
 
-<!-- 项目人员模态框 -->
-<div id="projectPersonsModal" class="modal modal-fixed-footer" style="width: 90%; max-width: 1000px;">
-    <div class="modal-content">
-        <h5 id="projectPersonsModalTitle">项目参与人员</h5>
-        
-        <!-- 添加人员表单 -->
-        <div id="addPersonToProjectSection" style="margin-bottom: 30px; padding: 20px; background: #f5f5f5; border-radius: 4px;">
-            <h6 style="margin-top: 0;">添加人员到项目</h6>
-            <form id="addPersonToProjectForm">
-                <div class="row">
-                    <div class="input-field col s12 m6">
-                        <select id="addPersonToProjectSelect" name="person_id" required>
-                            <option value="" disabled selected>请选择人员</option>
-                        </select>
-                        <label>人员 *</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input id="add_person_position" name="project_position" type="text">
-                        <label for="add_person_position">入项岗位</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input id="add_person_level" name="assessment_level" type="text">
-                        <label for="add_person_level">评定等级</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input id="add_person_price" name="unit_price" type="number" step="0.01" min="0">
-                        <label for="add_person_price">评定单价</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                        <input id="add_person_status" name="process_status" type="text">
-                        <label for="add_person_status">流程状态</label>
-                    </div>
-                    <div class="col s12" style="margin-top: 20px;">
-                        <a href="#!" class="waves-effect waves-light btn" id="submitAddPersonToProject">
-                            <i class="material-icons left">add</i>添加人员
-                        </a>
-                    </div>
-                </div>
-            </form>
-        </div>
-        
-        <!-- 参与人员列表（表格形式） -->
-        <div id="projectPersonsTableContainer">
-            <table class="striped">
-                <thead>
-                    <tr>
-                        <th>姓名</th>
-                        <th>公司</th>
-                        <th>岗位</th>
-                        <th>评定等级</th>
-                        <th>评定单价</th>
-                        <th>流程状态</th>
-                        <th>操作</th>
+        <!-- 项目表格 -->
+        <div id="projects-container" class="hidden overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+            <table class="min-w-full divide-y divide-gray-300">
+                <thead class="bg-gray-50">
+                    <tr id="table-header">
+                        <!-- 动态生成表头 -->
                     </tr>
                 </thead>
-                <tbody id="projectPersonsTableBody">
-                    <tr>
-                        <td colspan="7" class="center-align">
-                            <div class="preloader-wrapper small active">
-                                <div class="spinner-layer spinner-blue-only">
-                                    <div class="circle-clipper left">
-                                        <div class="circle"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
+                <tbody class="divide-y divide-gray-200 bg-white" id="table-body">
+                    <!-- 动态生成表格行 -->
                 </tbody>
             </table>
         </div>
     </div>
-    <div class="modal-footer">
-        <a href="#!" class="modal-close waves-effect waves-grey btn-flat">关闭</a>
+
+    <!-- Tab 内容：人员在项 -->
+    <div id="tab-content-person-status" class="tab-content hidden">
+        <!-- 加载状态 -->
+        <div id="loading-person-status" class="text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            <p class="mt-2 text-sm text-gray-500">加载中...</p>
+        </div>
+
+        <!-- 错误提示 -->
+        <div id="error-person-status" class="hidden bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">加载失败</h3>
+                    <p id="error-message-person-status" class="mt-2 text-sm text-red-700"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 人员在项表格 -->
+        <div id="person-status-container" class="hidden overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+            <table class="min-w-full divide-y divide-gray-300">
+                <thead class="bg-gray-50">
+                    <tr id="person-status-table-header">
+                        <!-- 动态生成表头 -->
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 bg-white" id="person-status-table-body">
+                    <!-- 动态生成表格行 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 项目详情模态框 -->
+    <div id="project-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">项目详情</h3>
+                    <button id="close-modal" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div id="project-detail-content">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 人员参与详情模态框 -->
+    <div id="person-participation-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">人员参与详情</h3>
+                    <button id="close-person-modal" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div id="person-participation-content">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
 
-{% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/projects.js') }}"></script>
+{% block scripts %}
+<script>
+// Schema 定义（从后端传递）
+const schema = {{ schema | tojson }};
+
+// 渲染表格
+function renderTable(projects) {
+    const headerRow = document.getElementById('table-header');
+    const tbody = document.getElementById('table-body');
+    
+    if (!headerRow || !tbody) {
+        console.error('表格元素未找到');
+        return;
+    }
+    
+    // 清空
+    headerRow.innerHTML = '';
+    tbody.innerHTML = '';
+    
+    // 定义表格列
+    const columns = [
+        { key: 'project_code', label: '项目编号', type: 'project' },
+        { key: 'internal_project_name', label: '内部项目名称', type: 'project' },
+        { key: 'external_project_name', label: '外部项目名称', type: 'project' },
+        { key: 'project_type', label: '项目类型', type: 'project' },
+        { key: 'status', label: '项目状态', type: 'project' },
+        { key: 'start_date', label: '开始日期', type: 'project' },
+        { key: 'end_date', label: '结束日期', type: 'project' },
+        { key: 'budget', label: '项目预算', type: 'project' },
+    ];
+    
+    // 生成表头
+    columns.forEach(col => {
+        const th = document.createElement('th');
+        th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+        th.textContent = col.label;
+        headerRow.appendChild(th);
+    });
+    
+    // 生成表格行
+    projects.forEach(project => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50 cursor-pointer';
+        tr.onclick = () => showProjectDetail(project.id);
+        
+        columns.forEach(col => {
+            const td = document.createElement('td');
+            td.className = 'whitespace-nowrap px-6 py-4 text-sm text-gray-900';
+            
+            let value = project[col.key] || '';
+            
+            // 特殊处理项目类型和状态（添加颜色标签）
+            if (col.key === 'project_type' && value) {
+                const typeColors = {
+                    '劳务型': 'bg-blue-100 text-blue-800',
+                    '专项型': 'bg-purple-100 text-purple-800'
+                };
+                const colorClass = typeColors[value] || 'bg-gray-100 text-gray-800';
+                td.innerHTML = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
+            } else if (col.key === 'status' && value) {
+                const statusColors = {
+                    '筹备中': 'bg-yellow-100 text-yellow-800',
+                    '进行中': 'bg-green-100 text-green-800',
+                    '已暂停': 'bg-orange-100 text-orange-800',
+                    '已完成': 'bg-blue-100 text-blue-800',
+                    '已取消': 'bg-red-100 text-red-800'
+                };
+                const colorClass = statusColors[value] || 'bg-gray-100 text-gray-800';
+                td.innerHTML = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
+            } else if (col.key === 'budget' && value) {
+                td.textContent = value ? `¥${parseFloat(value).toLocaleString()}` : '-';
+            } else {
+                td.textContent = value || '-';
+            }
+            
+            tr.appendChild(td);
+        });
+        
+        tbody.appendChild(tr);
+    });
+}
+
+// 显示项目详情
+async function showProjectDetail(projectId) {
+    try {
+        const response = await fetch(`/api/projects/${projectId}`);
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('加载失败: ' + result.error);
+            return;
+        }
+        
+        const project = result.data;
+        const modal = document.getElementById('project-modal');
+        const content = document.getElementById('project-detail-content');
+        
+        let html = '<div class="space-y-6">';
+        
+        // 当前信息
+        html += '<div>';
+        html += '<h4 class="text-md font-semibold text-gray-900 mb-3">当前信息</h4>';
+        html += '<div class="bg-gray-50 rounded-lg p-4 space-y-3">';
+        
+        const fields = schema.fields || {};
+        for (const [fieldName, fieldDef] of Object.entries(fields)) {
+            const value = project.current[fieldName];
+            if (value !== undefined && value !== null && value !== '') {
+                const label = fieldDef.label || fieldName;
+                let displayValue = value;
+                
+                // 特殊处理预算字段
+                if (fieldName === 'budget') {
+                    displayValue = `¥${parseFloat(value).toLocaleString()}`;
+                }
+                
+                html += `<div class="flex">
+                    <span class="text-sm font-medium text-gray-700 w-32">${label}:</span>
+                    <span class="text-sm text-gray-900 flex-1">${displayValue}</span>
+                </div>`;
+            }
+        }
+        
+        html += '</div></div>';
+        
+        // 参与人员列表
+        if (project.participations && project.participations.length > 0) {
+            html += '<div>';
+            html += '<h4 class="text-md font-semibold text-gray-900 mb-3">参与人员</h4>';
+            html += '<div class="overflow-x-auto">';
+            html += '<table class="min-w-full divide-y divide-gray-200">';
+            html += '<thead class="bg-gray-50">';
+            html += '<tr>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">姓名</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">电话</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">参与状态</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">变动日期</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">劳务定价</th>';
+            html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+            
+            // 按变动日期排序（最新的在前）
+            const sortedParticipations = [...project.participations].sort((a, b) => {
+                const dateA = a.change_date || '';
+                const dateB = b.change_date || '';
+                return dateB.localeCompare(dateA);
+            });
+            
+            // 按人员分组，只显示每个人员的最新状态
+            const personMap = new Map();
+            sortedParticipations.forEach(part => {
+                const personId = part.person_id;
+                if (!personMap.has(personId) || 
+                    new Date(part.change_date) > new Date(personMap.get(personId).change_date)) {
+                    personMap.set(personId, part);
+                }
+            });
+            
+            // 转换为数组并按日期排序
+            const uniquePersons = Array.from(personMap.values()).sort((a, b) => {
+                const dateA = a.change_date || '';
+                const dateB = b.change_date || '';
+                return dateB.localeCompare(dateA);
+            });
+            
+            uniquePersons.forEach(part => {
+                const statusColors = {
+                    '入项': 'bg-green-100 text-green-800',
+                    '出项': 'bg-red-100 text-red-800'
+                };
+                const colorClass = statusColors[part.status] || 'bg-gray-100 text-gray-800';
+                
+                html += `<tr class="hover:bg-gray-50 cursor-pointer" onclick="showPersonParticipation(${project.id}, ${part.person_id})">`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900 font-medium">${part.person_name || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${part.person_phone || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">
+                        ${part.status || '-'}
+                    </span>
+                </td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${part.change_date || '-'}</td>`;
+                // 专项型项目显示 N/A，劳务型项目显示价格
+                let laborPriceDisplay = '-';
+                if (project.current && project.current.project_type === '专项型') {
+                    laborPriceDisplay = 'N/A';
+                } else if (part.labor_price) {
+                    laborPriceDisplay = '¥' + part.labor_price + '/天';
+                }
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${laborPriceDisplay}</td>`;
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table></div></div>';
+        }
+        
+        // 历史记录
+        if (project.history && project.history.length > 1) {
+            html += '<div>';
+            html += '<h4 class="text-md font-semibold text-gray-900 mb-3">历史记录</h4>';
+            html += '<div class="overflow-x-auto">';
+            html += '<table class="min-w-full divide-y divide-gray-200">';
+            html += '<thead class="bg-gray-50">';
+            html += '<tr>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">版本</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">时间</th>';
+            
+            // 动态生成字段列
+            for (const [fieldName, fieldDef] of Object.entries(fields)) {
+                const label = fieldDef.label || fieldName;
+                html += `<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">${label}</th>`;
+            }
+            
+            html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+            
+            // 历史记录行
+            for (const record of project.history) {
+                html += '<tr>';
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${record.version}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-500">${new Date(record.ts).toLocaleString()}</td>`;
+                
+                for (const [fieldName, fieldDef] of Object.entries(fields)) {
+                    let value = record.data[fieldName] || '';
+                    if (fieldName === 'budget' && value) {
+                        value = `¥${parseFloat(value).toLocaleString()}`;
+                    }
+                    html += `<td class="px-4 py-3 text-sm text-gray-900">${value}</td>`;
+                }
+                
+                html += '</tr>';
+            }
+            
+            html += '</tbody></table></div></div>';
+        }
+        
+        html += '</div>';
+        
+        content.innerHTML = html;
+        modal.classList.remove('hidden');
+    } catch (error) {
+        alert('加载失败: ' + error.message);
+    }
+}
+
+// 关闭项目详情模态框
+document.getElementById('close-modal').onclick = () => {
+    document.getElementById('project-modal').classList.add('hidden');
+};
+
+// 关闭人员参与详情模态框
+document.getElementById('close-person-modal').onclick = () => {
+    document.getElementById('person-participation-modal').classList.add('hidden');
+};
+
+// 显示人员参与详情
+async function showPersonParticipation(projectId, personId) {
+    try {
+        const response = await fetch(`/api/projects/${projectId}/persons/${personId}/participations`);
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('加载失败: ' + result.error);
+            return;
+        }
+        
+        const data = result.data;
+        const schemas = data.schemas || {};
+        const personSchema = schemas.person || { fields: {} };
+        const projectSchema = schemas.project || { fields: {} };
+        const participationSchema = schemas.participation || { fields: {} };
+        
+        const modal = document.getElementById('person-participation-modal');
+        const content = document.getElementById('person-participation-content');
+        
+        let html = '<div class="space-y-6">';
+        
+        // 人员基本信息 - 基于 schema 动态渲染
+        html += '<div>';
+        html += `<h4 class="text-md font-semibold text-gray-900 mb-3">${personSchema.label || '人员信息'}</h4>`;
+        html += '<div class="bg-gray-50 rounded-lg p-4 space-y-2">';
+        
+        const personFields = personSchema.fields || {};
+        for (const [fieldName, fieldDef] of Object.entries(personFields)) {
+            // 跳过 reference 类型的字段（如 person_id）
+            if (fieldDef.type === 'reference') continue;
+            
+            const value = data.person[fieldName];
+            if (value !== undefined && value !== null && value !== '') {
+                const label = fieldDef.label || fieldName;
+                let displayValue = value;
+                
+                // 特殊处理：如果是头像 URL，显示图片
+                if (fieldName === 'avatar' && value) {
+                    displayValue = `<img src="${value}" alt="头像" class="w-16 h-16 rounded-full object-cover">`;
+                }
+                
+                html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-24">${label}:</span><span class="text-sm text-gray-900">${displayValue}</span></div>`;
+            }
+        }
+        
+        html += '</div></div>';
+        
+        // 项目信息 - 基于 schema 动态渲染
+        html += '<div>';
+        html += `<h4 class="text-md font-semibold text-gray-900 mb-3">${projectSchema.label || '项目信息'}</h4>`;
+        html += '<div class="bg-gray-50 rounded-lg p-4 space-y-2">';
+        
+        const projectFields = projectSchema.fields || {};
+        for (const [fieldName, fieldDef] of Object.entries(projectFields)) {
+            // 跳过 reference 类型的字段
+            if (fieldDef.type === 'reference') continue;
+            
+            const value = data.project[fieldName];
+            if (value !== undefined && value !== null && value !== '') {
+                const label = fieldDef.label || fieldName;
+                let displayValue = value;
+                
+                // 特殊处理预算字段
+                if (fieldName === 'budget') {
+                    displayValue = `¥${parseFloat(value).toLocaleString()}`;
+                }
+                // 特殊处理枚举类型（项目类型、项目状态）
+                else if (fieldDef.type === 'enum' && fieldDef.options) {
+                    const statusColors = {
+                        '劳务型': 'bg-blue-100 text-blue-800',
+                        '专项型': 'bg-purple-100 text-purple-800',
+                        '筹备中': 'bg-yellow-100 text-yellow-800',
+                        '进行中': 'bg-green-100 text-green-800',
+                        '已暂停': 'bg-orange-100 text-orange-800',
+                        '已完成': 'bg-blue-100 text-blue-800',
+                        '已取消': 'bg-red-100 text-red-800'
+                    };
+                    const colorClass = statusColors[value] || 'bg-gray-100 text-gray-800';
+                    displayValue = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
+                }
+                
+                html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-24">${label}:</span><span class="text-sm text-gray-900 flex-1">${displayValue}</span></div>`;
+            }
+        }
+        
+        html += '</div></div>';
+        
+        // 参与历史记录
+        if (data.participations && data.participations.length > 0) {
+            html += '<div>';
+            html += '<h4 class="text-md font-semibold text-gray-900 mb-3">参与历史</h4>';
+            html += '<div class="overflow-x-auto">';
+            html += '<table class="min-w-full divide-y divide-gray-200">';
+            html += '<thead class="bg-gray-50">';
+            html += '<tr>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">版本</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">时间</th>';
+            
+            // 基于 schema 动态生成表头
+            const participationFields = participationSchema.fields || {};
+            for (const [fieldName, fieldDef] of Object.entries(participationFields)) {
+                // 排除 reference 类型的字段
+                if (fieldDef.type !== 'reference') {
+                    const label = fieldDef.label || fieldName;
+                    html += `<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">${label}</th>`;
+                }
+            }
+            
+            html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+            
+            // 收集所有历史记录
+            const allHistory = [];
+            data.participations.forEach(part => {
+                if (part.history && part.history.length > 0) {
+                    part.history.forEach(record => {
+                        allHistory.push({
+                            version: record.version,
+                            ts: record.ts,
+                            data: record.data
+                        });
+                    });
+                }
+            });
+            
+            // 按时间排序（最新的在前）
+            allHistory.sort((a, b) => {
+                const dateA = a.data.change_date || '';
+                const dateB = b.data.change_date || '';
+                return dateB.localeCompare(dateA);
+            });
+            
+            // 基于 schema 动态生成表格列（复用之前声明的 participationFields）
+            const displayFields = [];
+            
+            // 排除 reference 类型的字段（person_id, project_id）
+            for (const [fieldName, fieldDef] of Object.entries(participationFields)) {
+                if (fieldDef.type !== 'reference') {
+                    displayFields.push({ name: fieldName, def: fieldDef });
+                }
+            }
+            
+            allHistory.forEach(record => {
+                html += '<tr>';
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${record.version}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-500">${new Date(record.ts).toLocaleString()}</td>`;
+                
+                // 基于 schema 动态渲染字段
+                displayFields.forEach(({ name, def }) => {
+                    const value = record.data[name];
+                    const label = def.label || name;
+                    let displayValue = value || '-';
+                    
+                    // 特殊处理枚举类型（参与状态）
+                    if (def.type === 'enum' && def.options) {
+                        const statusColors = {
+                            '入项': 'bg-green-100 text-green-800',
+                            '出项': 'bg-red-100 text-red-800'
+                        };
+                        const colorClass = statusColors[value] || 'bg-gray-100 text-gray-800';
+                        displayValue = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">${value || '-'}</span>`;
+                    }
+                    // 特殊处理 decimal 类型（劳务定价）
+                    else if (def.type === 'decimal' && name === 'labor_price') {
+                        // 专项型项目显示 N/A
+                        if (data.project && data.project.project_type === '专项型') {
+                            displayValue = 'N/A';
+                        } else if (value) {
+                            const suffix = def.ui?.suffix || '';
+                            displayValue = `¥${parseFloat(value).toLocaleString()}${suffix ? '/' + suffix.replace('元', '天') : ''}`;
+                        } else {
+                            displayValue = '-';
+                        }
+                    }
+                    else if (def.type === 'decimal' && value) {
+                        const suffix = def.ui?.suffix || '';
+                        displayValue = `¥${parseFloat(value).toLocaleString()}${suffix ? '/' + suffix.replace('元', '天') : ''}`;
+                    }
+                    
+                    html += `<td class="px-4 py-3 text-sm text-gray-900">${displayValue}</td>`;
+                });
+                
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table></div></div>';
+        } else {
+            html += '<div class="text-center py-8 text-gray-500">暂无参与历史记录</div>';
+        }
+        
+        html += '</div>';
+        
+        content.innerHTML = html;
+        modal.classList.remove('hidden');
+    } catch (error) {
+        alert('加载失败: ' + error.message);
+    }
+}
+
+// 加载项目列表
+async function loadProjects() {
+    try {
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const container = document.getElementById('projects-container');
+        
+        if (!loading || !error || !container) {
+            console.error('页面元素未找到');
+            return;
+        }
+        
+        const response = await fetch('/api/projects');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        loading.classList.add('hidden');
+        
+        if (!result.success) {
+            error.classList.remove('hidden');
+            const errorMsg = document.getElementById('error-message');
+            if (errorMsg) {
+                errorMsg.textContent = result.error || '加载失败';
+            }
+            return;
+        }
+        
+        error.classList.add('hidden');
+        container.classList.remove('hidden');
+        
+        // 渲染表格
+        if (result.data && result.data.length > 0) {
+            renderTable(result.data);
+        } else {
+            container.innerHTML = '<div class="text-center py-12 text-gray-500">暂无数据</div>';
+        }
+    } catch (err) {
+        console.error('加载项目列表失败:', err);
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        if (loading) loading.classList.add('hidden');
+        if (error) {
+            error.classList.remove('hidden');
+            const errorMsg = document.getElementById('error-message');
+            if (errorMsg) {
+                errorMsg.textContent = err.message || '加载失败，请刷新页面重试';
+            }
+        }
+    }
+}
+
+// Tab 切换功能
+function switchTab(tabName) {
+    // 隐藏所有 tab 内容
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.add('hidden');
+    });
+    
+    // 移除所有 tab 按钮的 active 状态
+    document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active', 'border-indigo-500', 'text-indigo-600');
+        btn.classList.add('border-transparent', 'text-gray-500');
+    });
+    
+    // 显示选中的 tab 内容
+    const content = document.getElementById(`tab-content-${tabName}`);
+    if (content) {
+        content.classList.remove('hidden');
+    }
+    
+    // 激活选中的 tab 按钮
+    const button = document.getElementById(`tab-${tabName}`);
+    if (button) {
+        button.classList.add('active', 'border-indigo-500', 'text-indigo-600');
+        button.classList.remove('border-transparent', 'text-gray-500');
+    }
+    
+    // 根据 tab 加载相应数据
+    if (tabName === 'projects') {
+        loadProjects();
+    } else if (tabName === 'person-status') {
+        loadPersonProjectStatus();
+    }
+}
+
+// Tab 按钮点击事件
+document.getElementById('tab-projects').addEventListener('click', () => switchTab('projects'));
+document.getElementById('tab-person-status').addEventListener('click', () => switchTab('person-status'));
+
+// 加载人员在项数据
+async function loadPersonProjectStatus() {
+    try {
+        const loading = document.getElementById('loading-person-status');
+        const error = document.getElementById('error-person-status');
+        const container = document.getElementById('person-status-container');
+        
+        if (!loading || !error || !container) {
+            console.error('页面元素未找到');
+            return;
+        }
+        
+        loading.classList.remove('hidden');
+        error.classList.add('hidden');
+        container.classList.add('hidden');
+        
+        const response = await fetch('/api/person-project-status');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        loading.classList.add('hidden');
+        
+        if (!result.success) {
+            error.classList.remove('hidden');
+            const errorMsg = document.getElementById('error-message-person-status');
+            if (errorMsg) {
+                errorMsg.textContent = result.error || '加载失败';
+            }
+            return;
+        }
+        
+        error.classList.add('hidden');
+        container.classList.remove('hidden');
+        
+        // 渲染表格
+        if (result.data && result.data.length > 0) {
+            renderPersonStatusTable(result.data);
+        } else {
+            container.innerHTML = '<div class="text-center py-12 text-gray-500">暂无数据</div>';
+        }
+    } catch (err) {
+        console.error('加载人员在项数据失败:', err);
+        const loading = document.getElementById('loading-person-status');
+        const error = document.getElementById('error-person-status');
+        if (loading) loading.classList.add('hidden');
+        if (error) {
+            error.classList.remove('hidden');
+            const errorMsg = document.getElementById('error-message-person-status');
+            if (errorMsg) {
+                errorMsg.textContent = err.message || '加载失败，请刷新页面重试';
+            }
+        }
+    }
+}
+
+// 渲染人员在项表格
+function renderPersonStatusTable(data) {
+    const headerRow = document.getElementById('person-status-table-header');
+    const tbody = document.getElementById('person-status-table-body');
+    
+    if (!headerRow || !tbody) {
+        console.error('表格元素未找到');
+        return;
+    }
+    
+    // 清空
+    headerRow.innerHTML = '';
+    tbody.innerHTML = '';
+    
+    // 定义表格列
+    const columns = [
+        { key: 'person_name', label: '姓名' },
+        { key: 'person_phone', label: '电话' },
+        { key: 'project_name', label: '项目名称' },
+        { key: 'project_code', label: '项目编号' },
+        { key: 'project_type', label: '项目类型' },
+        { key: 'status', label: '参与状态' },
+        { key: 'change_date', label: '变动日期' },
+        { key: 'labor_price', label: '劳务定价' },
+    ];
+    
+    // 生成表头
+    columns.forEach(col => {
+        const th = document.createElement('th');
+        th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+        th.textContent = col.label;
+        headerRow.appendChild(th);
+    });
+    
+    // 生成表格行
+    data.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50 cursor-pointer';
+        tr.onclick = () => showPersonParticipation(item.project_id, item.person_id);
+        
+        columns.forEach(col => {
+            const td = document.createElement('td');
+            td.className = 'whitespace-nowrap px-6 py-4 text-sm text-gray-900';
+            
+            let value = item[col.key] || '';
+            
+            // 特殊处理项目类型
+            if (col.key === 'project_type' && value) {
+                const typeColors = {
+                    '劳务型': 'bg-blue-100 text-blue-800',
+                    '专项型': 'bg-purple-100 text-purple-800'
+                };
+                const colorClass = typeColors[value] || 'bg-gray-100 text-gray-800';
+                td.innerHTML = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
+            }
+            // 特殊处理参与状态
+            else if (col.key === 'status' && value) {
+                const statusColors = {
+                    '入项': 'bg-green-100 text-green-800',
+                    '出项': 'bg-red-100 text-red-800'
+                };
+                const colorClass = statusColors[value] || 'bg-gray-100 text-gray-800';
+                td.innerHTML = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
+            }
+            // 特殊处理劳务定价
+            else if (col.key === 'labor_price') {
+                // 专项型项目显示 N/A
+                if (item.project_type === '专项型') {
+                    td.textContent = 'N/A';
+                } else if (value) {
+                    td.textContent = `¥${parseFloat(value).toLocaleString()}/天`;
+                } else {
+                    td.textContent = '-';
+                }
+            }
+            else {
+                td.textContent = value || '-';
+            }
+            
+            tr.appendChild(td);
+        });
+        
+        tbody.appendChild(tr);
+    });
+}
+
+// 页面加载时获取数据
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', () => {
+        // 默认激活第一个 tab
+        switchTab('projects');
+    });
+} else {
+    // DOM 已经加载完成
+    // 默认激活第一个 tab
+    switchTab('projects');
+}
+</script>
 {% endblock %}
