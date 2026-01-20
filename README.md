@@ -271,10 +271,17 @@ all_states = state_dao.list_states("person", person_id)
 - `get_latest()`：获取最新状态
 - `list_states()`：列出所有历史状态
 - `query_latest_states()`：查询最新状态（支持过滤）
+- `query_latest_states_with_enrich()`：查询最新状态并 enrich 关联的 Entity Twin 数据（通过 SQL JOIN）
 
 **智能过滤**：
-- 对于 Entity Twin：直接过滤 `data` JSON 字段
+- 对于 Entity Twin：直接过滤 `data` JSON 字段（支持 `LIKE` 操作符用于字符串字段的模糊搜索）
 - 对于 Activity Twin：自动识别 `related_entities` 的 key（如 `person_id`），先查询注册表获取 `twin_id` 列表，再过滤状态表
+
+**Enrich 机制**：
+- 仅对 Activity Twin 有效
+- 通过 SQL JOIN 自动关联相关 Entity Twin 的最新状态
+- 返回的数据中包含关联实体的所有字段（字段名前缀为 `{entity_name}_`，如 `person_name`、`company_name`）
+- 支持 enrich 所有 related_entities（`enrich=true`）或指定实体（`enrich=person,project`）
 
 #### 4. Twin Service（`app/services/twin_service.py`）
 
@@ -288,30 +295,41 @@ employments = service.list_twins("person_company_employment", filters={"person_i
 ```
 
 **功能**：
-- `list_twins()`：列出所有 Twin 及其最新状态（支持过滤）
+- `list_twins()`：列出所有 Twin 及其最新状态（支持过滤和 enrich）
 - `get_twin()`：获取指定 Twin 的详情（包含完整历史）
+- `create_twin()`：创建新的 Twin（Entity 或 Activity）
+- `update_twin()`：更新 Twin（追加新状态版本）
 - `query_twins()`：基于过滤条件查询 Twin
 
 **特点**：
 - 自动处理 Entity 和 Activity Twin 的差异
 - 自动展开状态数据
 - 自动添加 Activity Twin 的关联实体 ID
+- **Enrich 机制**：Activity Twin 查询时可通过 `enrich` 参数自动关联 Entity Twin 数据
 
 #### 5. API 层（`app/api.py`）
 
 统一的 REST API 端点，基于 Schema 处理请求：
 
 ```python
-@api_bp.route("/persons", methods=["GET"])
-def list_persons():
+# 统一的 Twin API
+@api_bp.route("/twins/<twin_name>", methods=["GET"])
+def list_twins(twin_name: str):
     service = get_twin_service()
-    persons = service.list_twins("person")
-    return jsonify({"success": True, "data": persons})
+    twins = service.list_twins(twin_name, filters=filters, enrich=enrich)
+    return standard_response(True, twins)
 ```
 
+**统一的 Twin API 接口**：
+- `GET /api/twins/<twin_name>` - 列出所有指定类型的 Twin（支持过滤和 enrich）
+- `GET /api/twins/<twin_name>/<id>` - 获取指定 Twin 的详情（包含历史）
+- `POST /api/twins/<twin_name>` - 创建新的 Twin
+- `PUT /api/twins/<twin_name>/<id>` - 更新 Twin（追加新状态）
+
 **特点**：
-- 所有端点都使用统一的 `TwinService`
-- 在 API 层进行数据增强（关联、合并）
+- 所有 Twin 类型使用统一的 API 接口，无需为每种类型编写专门代码
+- 支持查询参数过滤（如 `?person_id=1&project_id=2`）
+- 支持 `enrich` 参数自动关联 Entity Twin 数据（仅对 Activity Twin 有效）
 - 统一的错误处理和响应格式
 
 #### 6. 用户界面层（`app/templates/`）
@@ -421,9 +439,16 @@ CREATE TABLE person_company_employment_history (
 - **Schema 系统**：YAML Schema 定义、加载器、解析器
 - **Twin 模型**：Entity Twin、Activity Twin、Twin State
 - **数据访问层**：通用的 TwinDAO 和 TwinStateDAO
-- **服务层**：通用的 TwinService
-- **API 层**：REST API 端点（人员、雇佣关系、项目）
+- **Enrich 机制**：Activity Twin 自动关联 Entity Twin 数据（通过 SQL JOIN）
+- **服务层**：通用的 TwinService（支持 enrich 参数）
+- **统一 API 层**：统一的 `/api/twins/<twin_name>` REST API 接口
+  - 支持 CRUD 操作（GET、POST、PUT）
+  - 支持查询参数过滤
+  - 支持 `enrich` 参数自动关联数据
 - **Web UI**：基于 Schema 动态渲染的页面（人员列表、雇佣关系、项目列表）
+  - 人员管理：新增、编辑、过滤
+  - 项目管理：新增、编辑、参与人员管理
+  - 动态表单渲染和验证
 - **数据库初始化**：根据 Schema 自动创建表结构
 - **测试数据生成**：基于 Schema 生成测试数据
 
@@ -438,11 +463,13 @@ CREATE TABLE person_company_employment_history (
 
 1. **无需修改代码即可扩展**：添加新的 Twin 类型只需在 Schema 文件中定义，系统自动支持
 2. **统一的访问模式**：所有 Twin 类型使用相同的 DAO、Service 和 API 接口
-3. **类型安全**：基于 Schema 的字段验证和类型检查
-4. **动态 UI**：前端根据 Schema 自动渲染表单和列表，无需为每种类型编写专门代码
-5. **灵活的数据模型**：JSON 字段存储状态数据，支持灵活扩展，无需频繁修改表结构
-6. **完整的历史记录**：状态流模式自动记录所有变更历史
-7. **易于维护**：Schema 集中管理，修改类型定义只需更新 YAML 文件
+3. **Enrich 机制**：Activity Twin 查询时自动关联 Entity Twin 数据，避免 N+1 查询问题
+4. **类型安全**：基于 Schema 的字段验证和类型检查
+5. **动态 UI**：前端根据 Schema 自动渲染表单和列表，无需为每种类型编写专门代码
+6. **灵活的数据模型**：JSON 字段存储状态数据，支持灵活扩展，无需频繁修改表结构
+7. **完整的历史记录**：状态流模式自动记录所有变更历史
+8. **易于维护**：Schema 集中管理，修改类型定义只需更新 YAML 文件
+9. **性能优化**：通过 SQL JOIN 实现 enrich，在数据库层面完成数据关联，减少网络请求
 
 ## 技术栈
 
@@ -479,20 +506,87 @@ PORT=5001 python main.py
 
 ## API 端点
 
-### 人员相关
-- `GET /api/persons` - 获取人员列表
-- `GET /api/persons/<person_id>` - 获取人员详情（含历史）
+### 统一的 Twin API（推荐使用）
 
-### 雇佣关系相关
-- `GET /api/employments` - 获取雇佣关系列表
-- `GET /api/employments/<employment_id>` - 获取雇佣关系详情
-- `GET /api/persons/<person_id>/employments` - 获取指定人员的所有雇佣关系
+所有 Twin 类型都使用统一的 API 接口：
 
-### 项目相关
-- `GET /api/projects` - 获取项目列表
-- `GET /api/projects/<project_id>` - 获取项目详情（含参与人员）
-- `GET /api/projects/<project_id>/persons/<person_id>/participations` - 获取指定人员在项目中的参与记录
-- `GET /api/person-project-status` - 获取所有人员在项目中的参与状态
+#### 列出 Twin
+```
+GET /api/twins/<twin_name>?field1=value1&field2=value2&enrich=true
+```
+
+**参数**：
+- `field1`, `field2`, ...：过滤条件（字段名=值）
+- `enrich`：enrich 参数，仅对 Activity Twin 有效
+  - `enrich=true`：enrich 所有 related_entities
+  - `enrich=person,project`：只 enrich 指定的实体
+
+**示例**：
+```bash
+# 获取所有人员
+GET /api/twins/person
+
+# 获取所有雇佣关系（enrich 人员姓名和公司名称）
+GET /api/twins/person_company_employment?enrich=true
+
+# 获取指定人员的雇佣关系
+GET /api/twins/person_company_employment?person_id=1&enrich=person,company
+
+# 获取项目参与记录（enrich 人员和项目信息）
+GET /api/twins/person_project_participation?project_id=1&enrich=person,project
+```
+
+#### 获取 Twin 详情
+```
+GET /api/twins/<twin_name>/<twin_id>
+```
+
+返回 Twin 的完整信息，包括：
+- `id`：Twin ID
+- `current`：当前状态数据
+- `history`：历史状态记录数组
+
+#### 创建 Twin
+```
+POST /api/twins/<twin_name>
+Content-Type: application/json
+
+{
+  "field1": "value1",
+  "field2": "value2",
+  ...
+}
+```
+
+对于 Activity Twin，需要在数据中包含关联的 Entity Twin ID：
+```json
+{
+  "person_id": 1,
+  "project_id": 2,
+  "status": "入项",
+  "change_date": "2024-01-01"
+    }
+```
+
+#### 更新 Twin
+```
+PUT /api/twins/<twin_name>/<twin_id>
+Content-Type: application/json
+
+{
+  "field1": "new_value1",
+  ...
+    }
+```
+
+更新会追加新的状态版本，不会覆盖历史记录。
+
+### 特殊业务端点（保留用于特定场景）
+
+- `GET /api/persons/<person_id>/employments` - 获取指定人员的所有雇佣关系（包含公司信息）
+- `GET /api/projects/<project_id>` - 获取项目详情（包含参与人员列表）
+
+**注意**：这些端点主要用于向后兼容，新功能建议使用统一的 Twin API。
 
 ## 开发指南
 
@@ -526,14 +620,26 @@ service = TwinService()
 twins = service.list_twins("my_new_twin")
 ```
 
-4. **（可选）添加 API 端点和 Web UI**：
-```python
-@api_bp.route("/my-new-twins", methods=["GET"])
-def list_my_new_twins():
-    service = get_twin_service()
-    twins = service.list_twins("my_new_twin")
-    return jsonify({"success": True, "data": twins})
+4. **通过统一 API 访问**（无需添加专门端点）：
+```bash
+# 列出所有
+GET /api/twins/my_new_twin
+
+# 获取详情
+GET /api/twins/my_new_twin/1
+
+# 创建
+POST /api/twins/my_new_twin
+Content-Type: application/json
+{"field1": "value1"}
+
+# 更新
+PUT /api/twins/my_new_twin/1
+Content-Type: application/json
+{"field1": "new_value"}
 ```
+
+5. **（可选）添加 Web UI**：在 `routes.py` 中添加页面路由，传递 Schema 给模板即可
 
 ## 许可证
 

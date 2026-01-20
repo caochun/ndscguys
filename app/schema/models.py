@@ -20,6 +20,7 @@ class FieldDefinition:
     storage: Optional[str] = None  # "foreign_key", "unique_key", None (data)
     reference_entity: Optional[str] = None
     options: Optional[List[str]] = None  # enum 类型的选项
+    auto: Optional[str] = None  # 自动生成类型："timestamp"/"now", "date", "datetime"
     
     @classmethod
     def from_dict(cls, name: str, field_def: Dict[str, Any]) -> "FieldDefinition":
@@ -35,6 +36,7 @@ class FieldDefinition:
             storage=field_def.get("storage"),
             reference_entity=field_def.get("reference_entity"),
             options=field_def.get("options"),
+            auto=field_def.get("auto"),
         )
 
 

@@ -217,10 +217,15 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/js/schema-utils.js"></script>
 <script>
 // Schema 定义（从后端传递）
 const schema = {{ schema | tojson }};
 const participationSchema = {{ participation_schema | tojson }};
+
+// 应用字段顺序修复
+ensureFieldOrder(schema);
+ensureFieldOrder(participationSchema);
 
 // 渲染表格
 function renderTable(projects) {
@@ -341,7 +346,10 @@ async function showProjectDetail(projectId) {
         html += '<div class="bg-gray-50 rounded-lg p-4 space-y-3">';
         
         const fields = schema.fields || {};
-        for (const [fieldName, fieldDef] of Object.entries(fields)) {
+        // 使用 Object.keys() 确保按照 schema 定义的顺序遍历
+        const fieldNames = Object.keys(fields); // 保持 schema 定义的顺序
+        for (const fieldName of fieldNames) {
+            const fieldDef = fields[fieldName];
             const value = project.current[fieldName];
             if (value !== undefined && value !== null && value !== '') {
                 const label = fieldDef.label || fieldName;
@@ -442,7 +450,10 @@ async function showProjectDetail(projectId) {
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">时间</th>';
             
             // 动态生成字段列
-            for (const [fieldName, fieldDef] of Object.entries(fields)) {
+            // 使用 Object.keys() 确保按照 schema 定义的顺序遍历
+            const fieldNames = Object.keys(fields); // 保持 schema 定义的顺序
+            for (const fieldName of fieldNames) {
+                const fieldDef = fields[fieldName];
                 const label = fieldDef.label || fieldName;
                 html += `<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">${label}</th>`;
             }
@@ -455,7 +466,9 @@ async function showProjectDetail(projectId) {
                 html += `<td class="px-4 py-3 text-sm text-gray-900">${record.version}</td>`;
                 html += `<td class="px-4 py-3 text-sm text-gray-500">${new Date(record.ts).toLocaleString()}</td>`;
                 
-                for (const [fieldName, fieldDef] of Object.entries(fields)) {
+                // 使用相同的 fieldNames 顺序
+                for (const fieldName of fieldNames) {
+                    const fieldDef = fields[fieldName];
                     let value = record.data[fieldName] || '';
                     if (fieldName === 'budget' && value) {
                         value = `¥${parseFloat(value).toLocaleString()}`;
@@ -564,13 +577,20 @@ async function showPersonParticipation(projectId, personId) {
         
         let html = '<div class="space-y-6">';
         
+        // 人员信息和项目信息 - 水平并排显示
+        html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
+        
         // 人员基本信息 - 基于 schema 动态渲染
+        // 字段顺序与 schema.yaml 中定义的顺序保持一致
         html += '<div>';
         html += `<h4 class="text-md font-semibold text-gray-900 mb-3">${personSchema.label || '人员信息'}</h4>`;
         html += '<div class="bg-gray-50 rounded-lg p-4 space-y-2">';
         
         const personFields = personSchema.fields || {};
-        for (const [fieldName, fieldDef] of Object.entries(personFields)) {
+        // 使用 Object.keys() 确保按照 schema 定义的顺序遍历
+        const personFieldNames = Object.keys(personFields); // 保持 schema 定义的顺序
+        for (const fieldName of personFieldNames) {
+            const fieldDef = personFields[fieldName];
             // 跳过 reference 类型的字段（如 person_id）
             if (fieldDef.type === 'reference') continue;
             
@@ -591,12 +611,16 @@ async function showPersonParticipation(projectId, personId) {
         html += '</div></div>';
         
         // 项目信息 - 基于 schema 动态渲染
+        // 字段顺序与 schema.yaml 中定义的顺序保持一致
         html += '<div>';
         html += `<h4 class="text-md font-semibold text-gray-900 mb-3">${projectSchema.label || '项目信息'}</h4>`;
         html += '<div class="bg-gray-50 rounded-lg p-4 space-y-2">';
         
         const projectFields = projectSchema.fields || {};
-        for (const [fieldName, fieldDef] of Object.entries(projectFields)) {
+        // 使用 Object.keys() 确保按照 schema 定义的顺序遍历
+        const projectFieldNames = Object.keys(projectFields); // 保持 schema 定义的顺序
+        for (const fieldName of projectFieldNames) {
+            const fieldDef = projectFields[fieldName];
             // 跳过 reference 类型的字段
             if (fieldDef.type === 'reference') continue;
             
@@ -629,6 +653,7 @@ async function showPersonParticipation(projectId, personId) {
         }
         
         html += '</div></div>';
+        html += '</div>'; // 关闭 grid 容器
         
         // 参与历史记录
         if (data.participations && data.participations.length > 0) {
@@ -675,9 +700,10 @@ async function showPersonParticipation(projectId, personId) {
             });
             
             // 基于 schema 动态生成表格列（复用之前声明的 participationFields）
+            // 字段顺序与 schema.yaml 中定义的顺序保持一致
             const displayFields = [];
             
-            // 排除 reference 类型的字段（person_id, project_id）
+            // 排除 reference 类型的字段（person_id, project_id），但保持其他字段的顺序
             for (const [fieldName, fieldDef] of Object.entries(participationFields)) {
                 if (fieldDef.type !== 'reference') {
                     displayFields.push({ name: fieldName, def: fieldDef });
@@ -996,14 +1022,32 @@ let currentEditProjectId = null;
 let currentProjectId = null;
 
 // 基于 Schema 动态渲染项目表单字段
+// 注意：字段顺序与 schema.yaml 中定义的顺序保持一致
 function renderProjectFormFields(data = {}) {
     const fields = schema.fields || {};
     const formFields = document.getElementById('project-form-fields');
     formFields.innerHTML = '';
     
-    for (const [fieldName, fieldDef] of Object.entries(fields)) {
+    // 使用 Object.keys() 确保按照 schema 定义的顺序遍历
+    // Python 3.7+ 字典是有序的，YAML 解析使用 OrderedDict 保持顺序
+    const fieldNames = Object.keys(fields); // 保持 schema 定义的顺序
+    for (const fieldName of fieldNames) {
+        const fieldDef = fields[fieldName];
         const label = fieldDef.label || fieldName;
-        const value = data[fieldName] || '';
+        let value = data[fieldName] || '';
+        
+        // 如果字段有 auto 属性且值为空，自动填充
+        if (!value && fieldDef.auto) {
+            if (fieldDef.auto === 'date') {
+                // 自动填充当前日期（YYYY-MM-DD）
+                value = new Date().toISOString().split('T')[0];
+            } else if (fieldDef.auto === 'timestamp' || fieldDef.auto === 'now' || fieldDef.auto === 'datetime') {
+                // 自动填充当前时间戳（YYYY-MM-DDTHH:MM:SS）
+                const now = new Date();
+                value = now.toISOString().slice(0, 19);
+            }
+        }
+        
         const required = fieldDef.required || false;
         const fieldType = fieldDef.type || 'string';
         const uiComponent = fieldDef.ui?.component || 'text_input';
@@ -1069,7 +1113,10 @@ function validateProjectForm(formData) {
     const fields = schema.fields || {};
     const errors = {};
     
-    for (const [fieldName, fieldDef] of Object.entries(fields)) {
+    // 使用 Object.keys() 确保按照 schema 定义的顺序遍历
+    const fieldNames = Object.keys(fields); // 保持 schema 定义的顺序
+    for (const fieldName of fieldNames) {
+        const fieldDef = fields[fieldName];
         const value = formData.get(fieldName);
         const validation = fieldDef.validation || {};
         
@@ -1169,7 +1216,9 @@ async function submitProjectForm(event) {
     // 构建数据对象
     const data = {};
     const fields = schema.fields || {};
-    for (const [fieldName] of Object.entries(fields)) {
+    // 使用 Object.keys() 确保按照 schema 定义的顺序遍历
+    const fieldNames = Object.keys(fields); // 保持 schema 定义的顺序
+    for (const fieldName of fieldNames) {
         const value = formData.get(fieldName);
         if (value !== null && value !== '') {
             // 对于数字类型，转换为数字
@@ -1223,13 +1272,20 @@ let allPersons = [];
 let allProjects = [];
 
 // 基于 Schema 动态渲染参与关系表单字段
+// 注意：字段顺序与 schema.yaml 中定义的顺序保持一致
 function renderParticipationFormFields(data = {}) {
     const fields = participationSchema.fields || {};
     const formFields = document.getElementById('participation-form-fields');
     formFields.innerHTML = '';
     
-    for (const [fieldName, fieldDef] of Object.entries(fields)) {
-        // 跳过 reference 类型的字段（person_id, project_id），它们需要特殊处理
+    // Object.entries() 在 ES2017+ 中保持对象属性的插入顺序
+    // 使用 Object.keys() 确保按照 schema 定义的顺序遍历
+    // Python 3.7+ 字典是有序的，YAML 解析使用 OrderedDict 保持顺序
+    // 按照 schema 中定义的顺序渲染所有字段（包括 reference 类型）
+    const fieldNames = Object.keys(fields); // 保持 schema 定义的顺序
+    for (const fieldName of fieldNames) {
+        const fieldDef = fields[fieldName];
+        // reference 类型的字段（person_id, project_id）需要特殊处理，但仍保持 schema 中的顺序
         if (fieldDef.type === 'reference' && fieldDef.storage === 'foreign_key') {
             const label = fieldDef.label || fieldName;
             const value = data[fieldName] || '';
@@ -1267,7 +1323,20 @@ function renderParticipationFormFields(data = {}) {
         
         // 处理其他字段（status, change_date, labor_price）
         const label = fieldDef.label || fieldName;
-        const value = data[fieldName] || '';
+        let value = data[fieldName] || '';
+        
+        // 如果字段有 auto 属性且值为空，自动填充
+        if (!value && fieldDef.auto) {
+            if (fieldDef.auto === 'date') {
+                // 自动填充当前日期（YYYY-MM-DD）
+                value = new Date().toISOString().split('T')[0];
+            } else if (fieldDef.auto === 'timestamp' || fieldDef.auto === 'now' || fieldDef.auto === 'datetime') {
+                // 自动填充当前时间戳（YYYY-MM-DDTHH:MM:SS）
+                const now = new Date();
+                value = now.toISOString().slice(0, 19);
+            }
+        }
+        
         const required = fieldDef.required || false;
         const fieldType = fieldDef.type || 'string';
         const uiComponent = fieldDef.ui?.component || 'text_input';
@@ -1333,7 +1402,10 @@ function validateParticipationForm(formData) {
     const fields = participationSchema.fields || {};
     const errors = {};
     
-    for (const [fieldName, fieldDef] of Object.entries(fields)) {
+    // 使用 Object.keys() 确保按照 schema 定义的顺序遍历
+    const fieldNames = Object.keys(fields); // 保持 schema 定义的顺序
+    for (const fieldName of fieldNames) {
+        const fieldDef = fields[fieldName];
         const value = formData.get(fieldName);
         const validation = fieldDef.validation || {};
         
@@ -1432,7 +1504,9 @@ async function submitParticipationForm(event) {
     // 构建数据对象
     const data = {};
     const fields = participationSchema.fields || {};
-    for (const [fieldName] of Object.entries(fields)) {
+    // 使用 Object.keys() 确保按照 schema 定义的顺序遍历
+    const fieldNames = Object.keys(fields); // 保持 schema 定义的顺序
+    for (const fieldName of fieldNames) {
         const value = formData.get(fieldName);
         if (value !== null && value !== '') {
             // 对于数字类型，转换为数字

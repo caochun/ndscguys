@@ -4,6 +4,7 @@ Twin Service - 通用 Twin 服务层
 from __future__ import annotations
 
 from typing import List, Dict, Any, Optional
+from datetime import datetime
 
 from app.daos.twins.twin_dao import TwinDAO
 from app.daos.twins.state_dao import TwinStateDAO
@@ -23,6 +24,49 @@ class TwinService:
         """判断是否为 Activity Twin"""
         schema = self.schema_loader.get_twin_schema(twin_name)
         return schema and schema.get("type") == "activity"
+    
+    def _apply_auto_fields(self, twin_name: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        应用自动字段（auto fields）
+        
+        根据 schema 定义，自动填充未提供的 auto 字段
+        
+        Args:
+            twin_name: Twin 名称
+            data: 状态数据字典
+        
+        Returns:
+            填充了自动字段的数据字典
+        """
+        schema = self.schema_loader.get_twin_schema(twin_name)
+        if not schema or not schema.get("fields"):
+            return data
+        
+        result = data.copy()
+        fields = schema.get("fields", {})
+        
+        for field_name, field_def in fields.items():
+            # 跳过 reference 类型和已存在的字段
+            if field_def.get("type") == "reference":
+                continue
+            if field_name in result and result[field_name] is not None:
+                continue
+            
+            # 检查是否有 auto 属性
+            auto_type = field_def.get("auto")
+            if not auto_type:
+                continue
+            
+            # 根据 auto 类型生成值
+            if auto_type in ("timestamp", "now", "datetime"):
+                # ISO 格式的时间戳：YYYY-MM-DDTHH:MM:SS
+                result[field_name] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+            elif auto_type == "date":
+                # 日期格式：YYYY-MM-DD
+                result[field_name] = datetime.utcnow().strftime("%Y-%m-%d")
+            # 未来可以扩展其他类型，如 uuid、increment 等
+        
+        return result
     
     def list_twins(
         self, 
@@ -90,6 +134,7 @@ class TwinService:
         
         Returns:
             Twin 详情，包含 id、current（当前状态）、history（历史记录）
+           注意：字段顺序由前端根据 schema.fields 的顺序控制
         """
         # 检查 Twin 是否存在
         if not self.twin_dao.twin_exists(twin_name, twin_id):
@@ -179,6 +224,9 @@ class TwinService:
         if not schema:
             raise ValueError(f"Twin schema not found: {twin_name}")
         
+        # 应用自动字段
+        data = self._apply_auto_fields(twin_name, data)
+        
         # 创建 Twin
         if schema.get("type") == "entity":
             twin_id = self.twin_dao.create_entity_twin(twin_name)
@@ -217,6 +265,9 @@ class TwinService:
         # 检查 Twin 是否存在
         if not self.twin_dao.twin_exists(twin_name, twin_id):
             raise ValueError(f"Twin not found: {twin_name}:{twin_id}")
+        
+        # 应用自动字段
+        data = self._apply_auto_fields(twin_name, data)
         
         # 追加新状态
         self.state_dao.append(twin_name, twin_id, data)

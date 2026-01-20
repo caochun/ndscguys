@@ -4,6 +4,7 @@ Schema Loader - 加载和解析 Twin Schema
 from __future__ import annotations
 
 import yaml
+from collections import OrderedDict
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -19,10 +20,22 @@ class SchemaLoader:
         self._schema: Optional[Dict[str, Any]] = None
     
     def load(self) -> Dict[str, Any]:
-        """加载 Schema"""
+        """加载 Schema，使用 OrderedDict 保持字段顺序"""
         if self._schema is None:
+            # 定义 OrderedLoader 类，用于保持 YAML 字段顺序
+            class OrderedLoader(yaml.SafeLoader):
+                pass
+            
+            def construct_mapping(loader, node):
+                loader.flatten_mapping(node)
+                return OrderedDict(loader.construct_pairs(node))
+            
+            OrderedLoader.add_constructor(
+                yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+                construct_mapping)
+            
             with open(self.schema_path, "r", encoding="utf-8") as f:
-                self._schema = yaml.safe_load(f)
+                self._schema = yaml.load(f, OrderedLoader)
         return self._schema
     
     def get_twin_schema(self, twin_name: str) -> Optional[Dict[str, Any]]:

@@ -9,6 +9,32 @@
         <p class="mt-1 text-sm text-gray-500">根据 Schema 动态渲染的雇佣关系信息</p>
     </div>
 
+    <!-- 过滤器区域 -->
+    <div id="filter-section" class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-medium text-gray-700">筛选条件</h3>
+            <button id="toggle-filter" class="text-sm text-indigo-600 hover:text-indigo-700">
+                <span id="filter-toggle-text">展开</span>
+                <svg id="filter-toggle-icon" class="inline-block w-4 h-4 ml-1 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+        </div>
+        <div id="filter-content" class="hidden">
+            <div id="filter-fields" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- 动态生成过滤器字段 -->
+            </div>
+            <div class="flex justify-end gap-3 mt-4 pt-4 border-t">
+                <button id="reset-filter-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                    重置
+                </button>
+                <button id="apply-filter-btn" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                    应用筛选
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- 加载状态 -->
     <div id="loading" class="text-center py-12">
         <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -74,15 +100,32 @@ const schema = {{ schema | tojson }};
 // 显示人员的所有雇佣关系
 async function showPersonEmployments(personId) {
     try {
-        const response = await fetch(`/api/persons/${personId}/employments`);
-        const result = await response.json();
+        // 并行获取人员信息和雇佣关系
+        const [personResponse, employmentsResponse] = await Promise.all([
+            fetch(`/api/twins/person/${personId}`),
+            fetch(`/api/twins/person_company_employment?person_id=${personId}&enrich=person,company`)
+        ]);
         
-        if (!result.success) {
-            alert('加载失败: ' + result.error);
+        const personResult = await personResponse.json();
+        const employmentsResult = await employmentsResponse.json();
+        
+        if (!personResult.success) {
+            alert('加载人员信息失败: ' + personResult.error);
+            return;
+        }
+        if (!employmentsResult.success) {
+            alert('加载雇佣关系失败: ' + employmentsResult.error);
             return;
         }
         
-        const data = result.data;
+        const person = personResult.data;
+        const employments = employmentsResult.data || [];
+        
+        // 构建数据对象以兼容原有代码
+        const data = {
+            person: person.current,
+            employments: employments
+        };
         const modal = document.getElementById('employment-modal');
         const content = document.getElementById('employment-detail-content');
         
@@ -262,14 +305,95 @@ function renderTable(employments) {
     });
 }
 
+// 当前过滤条件
+let currentFilters = {};
+
+// 基于 Schema 动态渲染过滤器字段
+function renderFilterFields() {
+    const fields = schema.fields || {};
+    const filterFields = document.getElementById('filter-fields');
+    filterFields.innerHTML = '';
+    
+    // 定义适合过滤的字段（排除 reference 类型和不需要过滤的字段）
+    const filterableFields = {
+        'person_name': { label: '姓名', type: 'text' },
+        'company_name': { label: '公司', type: 'text' },
+        'position': { label: '职位', type: 'text' },
+        'department': { label: '部门', type: 'text' },
+        'employee_type': { label: '员工类别', type: 'select', options: ['正式员工', '试用期员工', '实习生', '部门负责人', '其他'] },
+        'change_type': { label: '变动类型', type: 'select', options: ['入职', '转岗', '调部门', '转公司', '停薪留职', '返岗', '离职'] }
+    };
+    
+    // 使用 Object.keys() 确保按照 schema 定义的顺序遍历
+    const fieldNames = Object.keys(filterableFields);
+    for (const fieldName of fieldNames) {
+        const fieldConfig = filterableFields[fieldName];
+        const label = fieldConfig.label || fieldName;
+        const value = currentFilters[fieldName] || '';
+        
+        let fieldHtml = '<div class="flex flex-col">';
+        fieldHtml += `<label for="filter-${fieldName}" class="text-sm font-medium text-gray-700 mb-1">${label}</label>`;
+        
+        if (fieldConfig.type === 'select') {
+            fieldHtml += `<select id="filter-${fieldName}" name="${fieldName}" class="px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors">`;
+            fieldHtml += `<option value="">全部</option>`;
+            fieldConfig.options.forEach(option => {
+                const selected = value === option ? 'selected' : '';
+                fieldHtml += `<option value="${option}" ${selected}>${option}</option>`;
+            });
+            fieldHtml += '</select>';
+        } else {
+            fieldHtml += `<input type="text" id="filter-${fieldName}" name="${fieldName}" value="${value}" placeholder="请输入${label}" class="px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors">`;
+        }
+        
+        fieldHtml += '</div>';
+        filterFields.innerHTML += fieldHtml;
+    }
+}
+
+// 应用筛选
+function applyFilters() {
+    const filterFields = document.getElementById('filter-fields');
+    const filters = {};
+    
+    // 收集所有过滤字段的值
+    filterFields.querySelectorAll('input, select').forEach(input => {
+        const value = input.value.trim();
+        if (value) {
+            filters[input.name] = value;
+        }
+    });
+    
+    currentFilters = filters;
+    loadEmployments(filters);
+}
+
+// 重置筛选
+function resetFilters() {
+    currentFilters = {};
+    renderFilterFields();
+    loadEmployments();
+}
+
 // 加载雇佣关系列表（表格形式）
-async function loadEmployments() {
+async function loadEmployments(filters = {}) {
     const loading = document.getElementById('loading');
     const error = document.getElementById('error');
     const container = document.getElementById('employments-container');
     
     try {
-        const response = await fetch('/api/twins/person_company_employment?enrich=true');
+        // 构建查询参数
+        const params = new URLSearchParams();
+        params.append('enrich', 'true');
+        
+        // 添加过滤条件
+        for (const [key, value] of Object.entries(filters)) {
+            if (value) {
+                params.append(key, value);
+            }
+        }
+        
+        const response = await fetch(`/api/twins/person_company_employment?${params.toString()}`);
         const result = await response.json();
         
         loading.classList.add('hidden');
@@ -296,7 +420,47 @@ async function loadEmployments() {
     }
 }
 
-// 页面加载时获取数据
-window.addEventListener('DOMContentLoaded', loadEmployments);
+// 切换过滤器显示/隐藏
+document.getElementById('toggle-filter').onclick = () => {
+    const content = document.getElementById('filter-content');
+    const icon = document.getElementById('filter-toggle-icon');
+    const text = document.getElementById('filter-toggle-text');
+    
+    if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        icon.classList.add('rotate-180');
+        text.textContent = '收起';
+    } else {
+        content.classList.add('hidden');
+        icon.classList.remove('rotate-180');
+        text.textContent = '展开';
+    }
+};
+
+// 应用筛选按钮
+document.getElementById('apply-filter-btn').onclick = applyFilters;
+
+// 重置筛选按钮
+document.getElementById('reset-filter-btn').onclick = resetFilters;
+
+// 过滤器输入框支持回车键应用
+document.addEventListener('DOMContentLoaded', () => {
+    // 初始化过滤器字段
+    renderFilterFields();
+    
+    // 为过滤器输入框添加回车键事件
+    const filterFields = document.getElementById('filter-fields');
+    if (filterFields) {
+        filterFields.addEventListener('keypress', (e) => {
+            if (e.target.tagName === 'INPUT' && e.key === 'Enter') {
+                e.preventDefault();
+                applyFilters();
+            }
+        });
+    }
+    
+    // 页面加载时获取数据
+    loadEmployments();
+});
 </script>
 {% endblock %}

@@ -125,9 +125,13 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/js/schema-utils.js"></script>
 <script>
 // Schema 定义（从后端传递）
 const schema = {{ schema | tojson }};
+
+// 确保字段顺序
+ensureFieldOrder(schema);
 
 // 渲染人员卡片
 function renderPersonCard(person) {
@@ -149,7 +153,10 @@ function renderPersonCard(person) {
     html += '<div class="space-y-2">';
     
     // 遍历 Schema 定义的字段
-    for (const [fieldName, fieldDef] of Object.entries(fields)) {
+    // 使用 Object.keys() 确保按照 schema 定义的顺序遍历
+    const fieldNames = Object.keys(fields); // 保持 schema 定义的顺序
+    for (const fieldName of fieldNames) {
+        const fieldDef = fields[fieldName];
         const value = person[fieldName];
         if (value !== undefined && value !== null && value !== '') {
             const label = fieldDef.label || fieldName;
@@ -196,8 +203,12 @@ async function showPersonDetail(personId) {
         html += '<h4 class="text-md font-semibold text-gray-900 mb-3">当前信息</h4>';
         html += '<div class="bg-gray-50 rounded-lg p-4 space-y-3">';
         
+        // 字段顺序与 schema.yaml 中定义的顺序保持一致
+        // 使用 Object.keys() 确保按照 schema 定义的顺序遍历
         const fields = schema.fields || {};
-        for (const [fieldName, fieldDef] of Object.entries(fields)) {
+        const fieldNames = Object.keys(fields); // 保持 schema 定义的顺序
+        for (const fieldName of fieldNames) {
+            const fieldDef = fields[fieldName];
             const value = person.current[fieldName];
             if (value !== undefined && value !== null && value !== '') {
                 const label = fieldDef.label || fieldName;
@@ -222,7 +233,10 @@ async function showPersonDetail(personId) {
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">时间</th>';
             
             // 动态生成字段列
-            for (const [fieldName, fieldDef] of Object.entries(fields)) {
+            // 使用 Object.keys() 确保按照 schema 定义的顺序遍历
+            const fieldNames = Object.keys(fields); // 保持 schema 定义的顺序
+            for (const fieldName of fieldNames) {
+                const fieldDef = fields[fieldName];
                 const label = fieldDef.label || fieldName;
                 html += `<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">${label}</th>`;
             }
@@ -235,7 +249,8 @@ async function showPersonDetail(personId) {
                 html += `<td class="px-4 py-3 text-sm text-gray-900">${record.version}</td>`;
                 html += `<td class="px-4 py-3 text-sm text-gray-500">${record.ts}</td>`;
                 
-                for (const fieldName of Object.keys(fields)) {
+                // 使用相同的 fieldNames 顺序
+                for (const fieldName of fieldNames) {
                     const value = record.data[fieldName] || '';
                     html += `<td class="px-4 py-3 text-sm text-gray-900">${value}</td>`;
                 }
@@ -264,14 +279,32 @@ document.getElementById('close-modal').onclick = () => {
 let currentEditPersonId = null;
 
 // 基于 Schema 动态渲染表单字段
+// 注意：字段顺序与 schema.yaml 中定义的顺序保持一致
 function renderFormFields(data = {}) {
     const fields = schema.fields || {};
     const formFields = document.getElementById('form-fields');
     formFields.innerHTML = '';
     
-    for (const [fieldName, fieldDef] of Object.entries(fields)) {
+    // 使用 Object.keys() 确保按照 schema 定义的顺序遍历
+    // Python 3.7+ 字典是有序的，YAML 解析使用 OrderedDict 保持顺序
+    const fieldNames = Object.keys(fields); // 保持 schema 定义的顺序
+    for (const fieldName of fieldNames) {
+        const fieldDef = fields[fieldName];
         const label = fieldDef.label || fieldName;
-        const value = data[fieldName] || '';
+        let value = data[fieldName] || '';
+        
+        // 如果字段有 auto 属性且值为空，自动填充
+        if (!value && fieldDef.auto) {
+            if (fieldDef.auto === 'date') {
+                // 自动填充当前日期（YYYY-MM-DD）
+                value = new Date().toISOString().split('T')[0];
+            } else if (fieldDef.auto === 'timestamp' || fieldDef.auto === 'now' || fieldDef.auto === 'datetime') {
+                // 自动填充当前时间戳（YYYY-MM-DDTHH:MM:SS）
+                const now = new Date();
+                value = now.toISOString().slice(0, 19);
+            }
+        }
+        
         const required = fieldDef.required || false;
         const fieldType = fieldDef.type || 'string';
         const uiComponent = fieldDef.ui?.component || 'text_input';
@@ -339,7 +372,10 @@ function validateForm(formData) {
     const fields = schema.fields || {};
     const errors = {};
     
-    for (const [fieldName, fieldDef] of Object.entries(fields)) {
+    // 使用 Object.keys() 确保按照 schema 定义的顺序遍历
+    const fieldNames = Object.keys(fields); // 保持 schema 定义的顺序
+    for (const fieldName of fieldNames) {
+        const fieldDef = fields[fieldName];
         const value = formData.get(fieldName);
         const validation = fieldDef.validation || {};
         
@@ -458,7 +494,9 @@ async function submitForm(event) {
     // 构建数据对象
     const data = {};
     const fields = schema.fields || {};
-    for (const [fieldName] of Object.entries(fields)) {
+    // 使用 Object.keys() 确保按照 schema 定义的顺序遍历
+    const fieldNames = Object.keys(fields); // 保持 schema 定义的顺序
+    for (const fieldName of fieldNames) {
         const value = formData.get(fieldName);
         if (value !== null && value !== '') {
             data[fieldName] = value.trim();
@@ -548,28 +586,30 @@ function renderFilterFields() {
     // 只显示适合过滤的字段（排除 avatar 等不适合过滤的字段）
     const filterableFields = ['name', 'phone', 'email', 'id_card', 'address'];
     
-    for (const [fieldName, fieldDef] of Object.entries(fields)) {
+    // 使用 Object.keys() 确保按照 schema 定义的顺序遍历
+    const fieldNames = Object.keys(fields); // 保持 schema 定义的顺序
+    for (const fieldName of fieldNames) {
         // 跳过不适合过滤的字段
         if (!filterableFields.includes(fieldName)) {
             continue;
         }
+        const fieldDef = fields[fieldName];
         
         const label = fieldDef.label || fieldName;
         const value = currentFilters[fieldName] || '';
-        const fieldType = fieldDef.type || 'string';
         const uiComponent = fieldDef.ui?.component || 'text_input';
         
-        let fieldHtml = '<div class="space-y-1">';
-        fieldHtml += `<label for="filter-${fieldName}" class="block text-xs font-medium text-gray-700">${label}</label>`;
+        let fieldHtml = '<div class="flex flex-col">';
+        fieldHtml += `<label for="filter-${fieldName}" class="text-sm font-medium text-gray-700 mb-1">${label}</label>`;
         
         // 根据字段类型渲染不同的输入控件
         if (uiComponent === 'email_input') {
-            fieldHtml += `<input type="email" id="filter-${fieldName}" name="filter-${fieldName}" value="${value}" placeholder="输入${label}..." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">`;
+            fieldHtml += `<input type="email" id="filter-${fieldName}" name="filter-${fieldName}" value="${value}" placeholder="请输入${label}" class="px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors">`;
         } else if (uiComponent === 'tel_input') {
-            fieldHtml += `<input type="tel" id="filter-${fieldName}" name="filter-${fieldName}" value="${value}" placeholder="输入${label}..." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">`;
+            fieldHtml += `<input type="tel" id="filter-${fieldName}" name="filter-${fieldName}" value="${value}" placeholder="请输入${label}" class="px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors">`;
         } else {
             // 默认文本输入（支持模糊搜索）
-            fieldHtml += `<input type="text" id="filter-${fieldName}" name="filter-${fieldName}" value="${value}" placeholder="输入${label}..." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">`;
+            fieldHtml += `<input type="text" id="filter-${fieldName}" name="filter-${fieldName}" value="${value}" placeholder="请输入${label}" class="px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors">`;
         }
         
         fieldHtml += '</div>';

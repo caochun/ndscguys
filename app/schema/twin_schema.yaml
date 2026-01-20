@@ -354,7 +354,8 @@ twins:
         type: date
         required: true
         label: "变动日期"
-        description: "记录状态变更的日期（入项或出项的日期）"
+        description: "记录状态变更的日期（入项或出项的日期），保存时自动设置为当前日期"
+        auto: date  # 自动设置为当前日期（YYYY-MM-DD）
         ui:
           component: date_picker
       
