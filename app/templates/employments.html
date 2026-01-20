@@ -269,7 +269,7 @@ async function loadEmployments() {
     const container = document.getElementById('employments-container');
     
     try {
-        const response = await fetch('/api/employments');
+        const response = await fetch('/api/twins/person_company_employment?enrich=true');
         const result = await response.json();
         
         loading.classList.add('hidden');

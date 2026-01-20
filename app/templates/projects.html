@@ -9,16 +9,26 @@
         <p class="mt-1 text-sm text-gray-500">根据 Schema 动态渲染的项目信息</p>
     </div>
 
-    <!-- Tab 导航 -->
+    <!-- Tab 导航和操作按钮 -->
     <div class="border-b border-gray-200 mb-6">
-        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-            <button id="tab-projects" class="tab-button border-indigo-500 text-indigo-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                项目列表
-            </button>
-            <button id="tab-person-status" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                人员在项
-            </button>
-        </nav>
+        <div class="flex justify-between items-center">
+            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                <button id="tab-projects" class="tab-button border-indigo-500 text-indigo-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    项目列表
+                </button>
+                <button id="tab-person-status" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    人员在项
+                </button>
+            </nav>
+            <div class="flex items-center">
+                <button id="add-project-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm text-sm">
+                    + 新增项目
+                </button>
+                <button id="add-participation-btn" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm text-sm">
+                    + 新增参与
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Tab 内容：项目列表 -->
@@ -103,11 +113,16 @@
             <div class="mt-3">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium text-gray-900">项目详情</h3>
-                    <button id="close-modal" class="text-gray-400 hover:text-gray-500">
-                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
+                    <div class="flex gap-2">
+                        <button id="edit-project-btn" class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
+                            编辑
+                        </button>
+                        <button id="close-modal" class="text-gray-400 hover:text-gray-500">
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 
                 <div id="project-detail-content">
@@ -136,6 +151,68 @@
             </div>
         </div>
     </div>
+
+    <!-- 项目表单模态框（新增/编辑） -->
+    <div id="project-form-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 id="project-form-modal-title" class="text-lg font-medium text-gray-900">新增项目</h3>
+                    <button id="close-project-form-modal" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form id="project-form" class="space-y-4">
+                    <div id="project-form-fields">
+                        <!-- 动态生成表单字段 -->
+                    </div>
+                    
+                    <div class="flex justify-end gap-3 pt-4 border-t">
+                        <button type="button" id="cancel-project-form-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                            取消
+                        </button>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 人员参与表单模态框（新增） -->
+    <div id="participation-form-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">新增人员参与项目</h3>
+                    <button id="close-participation-form-modal" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form id="participation-form" class="space-y-4">
+                    <div id="participation-form-fields">
+                        <!-- 动态生成表单字段 -->
+                    </div>
+                    
+                    <div class="flex justify-end gap-3 pt-4 border-t">
+                        <button type="button" id="cancel-participation-form-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                            取消
+                        </button>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -143,6 +220,7 @@
 <script>
 // Schema 定义（从后端传递）
 const schema = {{ schema | tojson }};
+const participationSchema = {{ participation_schema | tojson }};
 
 // 渲染表格
 function renderTable(projects) {
@@ -224,7 +302,7 @@ function renderTable(projects) {
 // 显示项目详情
 async function showProjectDetail(projectId) {
     try {
-        const response = await fetch(`/api/projects/${projectId}`);
+        const response = await fetch(`/api/twins/project/${projectId}`);
         const result = await response.json();
         
         if (!result.success) {
@@ -233,8 +311,27 @@ async function showProjectDetail(projectId) {
         }
         
         const project = result.data;
+        currentProjectId = projectId;
         const modal = document.getElementById('project-modal');
         const content = document.getElementById('project-detail-content');
+        
+        // 设置编辑按钮事件
+        document.getElementById('edit-project-btn').onclick = () => {
+            modal.classList.add('hidden');
+            openEditProjectForm(projectId);
+        };
+        
+        // 获取该项目的所有参与人员（使用 enrich API）
+        let participations = [];
+        try {
+            const partResponse = await fetch(`/api/twins/person_project_participation?project_id=${projectId}&enrich=person`);
+            const partResult = await partResponse.json();
+            if (partResult.success && partResult.data) {
+                participations = partResult.data;
+            }
+        } catch (err) {
+            console.error('加载参与人员失败:', err);
+        }
         
         let html = '<div class="space-y-6">';
         
@@ -265,7 +362,7 @@ async function showProjectDetail(projectId) {
         html += '</div></div>';
         
         // 参与人员列表
-        if (project.participations && project.participations.length > 0) {
+        if (participations && participations.length > 0) {
             html += '<div>';
             html += '<h4 class="text-md font-semibold text-gray-900 mb-3">参与人员</h4>';
             html += '<div class="overflow-x-auto">';
@@ -280,7 +377,7 @@ async function showProjectDetail(projectId) {
             html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
             
             // 按变动日期排序（最新的在前）
-            const sortedParticipations = [...project.participations].sort((a, b) => {
+            const sortedParticipations = [...participations].sort((a, b) => {
                 const dateA = a.change_date || '';
                 const dateB = b.change_date || '';
                 return dateB.localeCompare(dateA);
@@ -394,19 +491,73 @@ document.getElementById('close-person-modal').onclick = () => {
 // 显示人员参与详情
 async function showPersonParticipation(projectId, personId) {
     try {
-        const response = await fetch(`/api/projects/${projectId}/persons/${personId}/participations`);
-        const result = await response.json();
+        // 并行获取所有需要的数据
+        const [personResponse, projectResponse, participationsResponse] = await Promise.all([
+            fetch(`/api/twins/person/${personId}`),
+            fetch(`/api/twins/project/${projectId}`),
+            fetch(`/api/twins/person_project_participation?person_id=${personId}&project_id=${projectId}`)
+        ]);
         
-        if (!result.success) {
-            alert('加载失败: ' + result.error);
+        const personResult = await personResponse.json();
+        const projectResult = await projectResponse.json();
+        const participationsResult = await participationsResponse.json();
+        
+        if (!personResult.success) {
+            alert('加载人员信息失败: ' + personResult.error);
+            return;
+        }
+        if (!projectResult.success) {
+            alert('加载项目信息失败: ' + projectResult.error);
+            return;
+        }
+        if (!participationsResult.success) {
+            alert('加载参与记录失败: ' + participationsResult.error);
             return;
         }
         
-        const data = result.data;
-        const schemas = data.schemas || {};
-        const personSchema = schemas.person || { fields: {} };
-        const projectSchema = schemas.project || { fields: {} };
-        const participationSchema = schemas.participation || { fields: {} };
+        const person = personResult.data;
+        const project = projectResult.data;
+        const participations = participationsResult.data || [];
+        
+        // 获取每个参与记录的完整历史
+        const enrichedParticipations = [];
+        for (const part of participations) {
+            const activityId = part.id;
+            if (activityId) {
+                const activityResponse = await fetch(`/api/twins/person_project_participation/${activityId}`);
+                const activityResult = await activityResponse.json();
+                if (activityResult.success) {
+                    enrichedParticipations.push({
+                        activity_id: activityId,
+                        history: activityResult.data.history || [],
+                        current: activityResult.data.current || {}
+                    });
+                }
+            }
+        }
+        
+        // 使用页面已加载的 schema（schema 和 participationSchema 已在页面顶部定义）
+        // 注意：person schema 需要单独获取或使用默认值
+        const personSchema = { 
+            name: 'person', 
+            label: '人员信息', 
+            fields: {
+                name: { type: 'string', label: '姓名' },
+                phone: { type: 'string', label: '电话' },
+                email: { type: 'string', label: '邮箱' },
+                address: { type: 'string', label: '地址' },
+                avatar: { type: 'string', label: '头像URL' }
+            }
+        };
+        const projectSchema = schema; // 使用页面已加载的 schema
+        const participationSchemaForDisplay = participationSchema; // 使用页面已加载的 participationSchema
+        
+        // 构建数据对象以兼容原有代码
+        const data = {
+            person: person.current,
+            project: project.current,
+            participations: enrichedParticipations
+        };
         
         const modal = document.getElementById('person-participation-modal');
         const content = document.getElementById('person-participation-content');
@@ -491,7 +642,7 @@ async function showPersonParticipation(projectId, personId) {
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">时间</th>';
             
             // 基于 schema 动态生成表头
-            const participationFields = participationSchema.fields || {};
+            const participationFields = participationSchemaForDisplay.fields || {};
             for (const [fieldName, fieldDef] of Object.entries(participationFields)) {
                 // 排除 reference 类型的字段
                 if (fieldDef.type !== 'reference') {
@@ -602,7 +753,7 @@ async function loadProjects() {
             return;
         }
         
-        const response = await fetch('/api/projects');
+        const response = await fetch('/api/twins/project');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -670,6 +821,20 @@ function switchTab(tabName) {
         button.classList.remove('border-transparent', 'text-gray-500');
     }
     
+    // 根据 tab 切换显示对应的操作按钮
+    const addProjectBtn = document.getElementById('add-project-btn');
+    const addParticipationBtn = document.getElementById('add-participation-btn');
+    
+    if (tabName === 'projects') {
+        // 显示"新增项目"按钮，隐藏"新增参与"按钮
+        if (addProjectBtn) addProjectBtn.classList.remove('hidden');
+        if (addParticipationBtn) addParticipationBtn.classList.add('hidden');
+    } else if (tabName === 'person-status') {
+        // 显示"新增参与"按钮，隐藏"新增项目"按钮
+        if (addProjectBtn) addProjectBtn.classList.add('hidden');
+        if (addParticipationBtn) addParticipationBtn.classList.remove('hidden');
+    }
+    
     // 根据 tab 加载相应数据
     if (tabName === 'projects') {
         loadProjects();
@@ -698,7 +863,7 @@ async function loadPersonProjectStatus() {
         error.classList.add('hidden');
         container.classList.add('hidden');
         
-        const response = await fetch('/api/person-project-status');
+        const response = await fetch('/api/twins/person_project_participation?enrich=person,project');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -754,13 +919,13 @@ function renderPersonStatusTable(data) {
     headerRow.innerHTML = '';
     tbody.innerHTML = '';
     
-    // 定义表格列
+    // 定义表格列（使用 enrich API 返回的字段名）
     const columns = [
         { key: 'person_name', label: '姓名' },
         { key: 'person_phone', label: '电话' },
-        { key: 'project_name', label: '项目名称' },
-        { key: 'project_code', label: '项目编号' },
-        { key: 'project_type', label: '项目类型' },
+        { key: 'project_internal_project_name', label: '项目名称' },
+        { key: 'project_project_code', label: '项目编号' },
+        { key: 'project_project_type', label: '项目类型' },
         { key: 'status', label: '参与状态' },
         { key: 'change_date', label: '变动日期' },
         { key: 'labor_price', label: '劳务定价' },
@@ -787,7 +952,7 @@ function renderPersonStatusTable(data) {
             let value = item[col.key] || '';
             
             // 特殊处理项目类型
-            if (col.key === 'project_type' && value) {
+            if (col.key === 'project_project_type' && value) {
                 const typeColors = {
                     '劳务型': 'bg-blue-100 text-blue-800',
                     '专项型': 'bg-purple-100 text-purple-800'
@@ -807,7 +972,7 @@ function renderPersonStatusTable(data) {
             // 特殊处理劳务定价
             else if (col.key === 'labor_price') {
                 // 专项型项目显示 N/A
-                if (item.project_type === '专项型') {
+                if (item.project_project_type === '专项型') {
                     td.textContent = 'N/A';
                 } else if (value) {
                     td.textContent = `¥${parseFloat(value).toLocaleString()}/天`;
@@ -825,6 +990,509 @@ function renderPersonStatusTable(data) {
         tbody.appendChild(tr);
     });
 }
+
+// 当前编辑的项目ID（null 表示新增）
+let currentEditProjectId = null;
+let currentProjectId = null;
+
+// 基于 Schema 动态渲染项目表单字段
+function renderProjectFormFields(data = {}) {
+    const fields = schema.fields || {};
+    const formFields = document.getElementById('project-form-fields');
+    formFields.innerHTML = '';
+    
+    for (const [fieldName, fieldDef] of Object.entries(fields)) {
+        const label = fieldDef.label || fieldName;
+        const value = data[fieldName] || '';
+        const required = fieldDef.required || false;
+        const fieldType = fieldDef.type || 'string';
+        const uiComponent = fieldDef.ui?.component || 'text_input';
+        
+        // 两栏布局：标签在左，输入框在右
+        let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
+        
+        // 左侧：标签（右对齐）
+        fieldHtml += `<div class="md:col-span-1">
+            <label for="project-${fieldName}" class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>`;
+        
+        // 添加验证提示（在标签下方，右对齐）
+        if (fieldDef.validation) {
+            const validation = fieldDef.validation;
+            if (validation.min !== undefined || validation.max !== undefined) {
+                const min = validation.min !== undefined ? validation.min : '';
+                const max = validation.max !== undefined ? validation.max : '';
+                fieldHtml += `<p class="text-xs text-gray-500 mt-1 text-right">范围: ${min ? min + ' ≤ ' : ''}值${max ? ' ≤ ' + max : ''}</p>`;
+            }
+        }
+        fieldHtml += '</div>';
+        
+        // 右侧：输入框
+        fieldHtml += '<div class="md:col-span-2">';
+        
+        // 统一的输入框样式：白色背景、更明显的边框、内边距、阴影、hover 效果
+        const inputBaseClasses = "block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors";
+        
+        if (uiComponent === 'textarea') {
+            fieldHtml += `<textarea id="project-${fieldName}" name="${fieldName}" rows="3" class="${inputBaseClasses}" ${required ? 'required' : ''}>${value}</textarea>`;
+        } else if (fieldType === 'enum' && fieldDef.options) {
+            fieldHtml += `<select id="project-${fieldName}" name="${fieldName}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            fieldHtml += '<option value="">请选择</option>';
+            for (const option of fieldDef.options) {
+                fieldHtml += `<option value="${option}" ${value === option ? 'selected' : ''}>${option}</option>`;
+            }
+            fieldHtml += '</select>';
+        } else if (fieldType === 'date') {
+            fieldHtml += `<input type="date" id="project-${fieldName}" name="${fieldName}" value="${value}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+        } else if (fieldType === 'decimal' || fieldType === 'number') {
+            fieldHtml += `<div class="flex items-center gap-2">`;
+            fieldHtml += `<input type="number" id="project-${fieldName}" name="${fieldName}" value="${value}" step="${fieldType === 'decimal' ? '0.01' : '1'}" min="${fieldDef.validation?.min || ''}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            if (fieldDef.ui?.suffix) {
+                fieldHtml += `<span class="text-sm text-gray-500 whitespace-nowrap">${fieldDef.ui.suffix}</span>`;
+            }
+            fieldHtml += `</div>`;
+        } else {
+            // 默认文本输入
+            fieldHtml += `<input type="text" id="project-${fieldName}" name="${fieldName}" value="${value}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+        }
+        
+        // 错误提示
+        fieldHtml += `<div id="project-${fieldName}-error" class="text-sm text-red-600 mt-1 hidden"></div>`;
+        fieldHtml += '</div>';
+        fieldHtml += '</div>';
+        
+        formFields.innerHTML += fieldHtml;
+    }
+}
+
+// 项目表单验证
+function validateProjectForm(formData) {
+    const fields = schema.fields || {};
+    const errors = {};
+    
+    for (const [fieldName, fieldDef] of Object.entries(fields)) {
+        const value = formData.get(fieldName);
+        const validation = fieldDef.validation || {};
+        
+        // 必填验证
+        if (fieldDef.required && (!value || value.trim() === '')) {
+            errors[fieldName] = `${fieldDef.label || fieldName} 是必填项`;
+            continue;
+        }
+        
+        // 如果值为空且不是必填，跳过其他验证
+        if (!value || value.trim() === '') {
+            continue;
+        }
+        
+        // 数值范围验证
+        if (fieldDef.type === 'decimal' || fieldDef.type === 'number') {
+            const numValue = parseFloat(value);
+            if (isNaN(numValue)) {
+                errors[fieldName] = `${fieldDef.label || fieldName} 必须是数字`;
+                continue;
+            }
+            if (validation.min !== undefined && numValue < validation.min) {
+                errors[fieldName] = `${fieldDef.label || fieldName} 不能小于 ${validation.min}`;
+                continue;
+            }
+            if (validation.max !== undefined && numValue > validation.max) {
+                errors[fieldName] = `${fieldDef.label || fieldName} 不能大于 ${validation.max}`;
+                continue;
+            }
+        }
+    }
+    
+    return errors;
+}
+
+// 显示项目表单错误
+function showProjectFormErrors(errors) {
+    // 清除所有错误提示
+    document.querySelectorAll('[id^="project-"][id$="-error"]').forEach(el => {
+        el.classList.add('hidden');
+        el.textContent = '';
+    });
+    
+    // 显示新的错误
+    for (const [fieldName, errorMsg] of Object.entries(errors)) {
+        const errorEl = document.getElementById(`project-${fieldName}-error`);
+        if (errorEl) {
+            errorEl.textContent = errorMsg;
+            errorEl.classList.remove('hidden');
+        }
+    }
+}
+
+// 打开新增项目表单
+function openAddProjectForm() {
+    currentEditProjectId = null;
+    document.getElementById('project-form-modal-title').textContent = '新增项目';
+    renderProjectFormFields({});
+    document.getElementById('project-form-modal').classList.remove('hidden');
+}
+
+// 打开编辑项目表单
+function openEditProjectForm(projectId) {
+    currentEditProjectId = projectId;
+    document.getElementById('project-form-modal-title').textContent = '编辑项目';
+    
+    // 加载项目数据
+    fetch(`/api/twins/project/${projectId}`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                renderProjectFormFields(result.data.current);
+                document.getElementById('project-form-modal').classList.remove('hidden');
+            } else {
+                alert('加载失败: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('加载失败: ' + error.message);
+        });
+}
+
+// 提交项目表单
+async function submitProjectForm(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    // 验证表单
+    const errors = validateProjectForm(formData);
+    if (Object.keys(errors).length > 0) {
+        showProjectFormErrors(errors);
+        return;
+    }
+    
+    // 构建数据对象
+    const data = {};
+    const fields = schema.fields || {};
+    for (const [fieldName] of Object.entries(fields)) {
+        const value = formData.get(fieldName);
+        if (value !== null && value !== '') {
+            // 对于数字类型，转换为数字
+            const fieldDef = fields[fieldName];
+            if (fieldDef.type === 'decimal' || fieldDef.type === 'number') {
+                data[fieldName] = parseFloat(value);
+            } else {
+                data[fieldName] = value.trim();
+            }
+        }
+    }
+    
+    try {
+        const url = currentEditProjectId 
+            ? `/api/twins/project/${currentEditProjectId}`
+            : '/api/twins/project';
+        const method = currentEditProjectId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('保存失败: ' + result.error);
+            return;
+        }
+        
+        // 关闭表单模态框
+        document.getElementById('project-form-modal').classList.add('hidden');
+        
+        // 重新加载项目列表
+        loadProjects();
+        
+        // 如果是编辑，也关闭详情模态框
+        if (currentEditProjectId) {
+            document.getElementById('project-modal').classList.add('hidden');
+        }
+    } catch (error) {
+        alert('保存失败: ' + error.message);
+    }
+}
+
+// 全局变量：存储人员和项目列表
+let allPersons = [];
+let allProjects = [];
+
+// 基于 Schema 动态渲染参与关系表单字段
+function renderParticipationFormFields(data = {}) {
+    const fields = participationSchema.fields || {};
+    const formFields = document.getElementById('participation-form-fields');
+    formFields.innerHTML = '';
+    
+    for (const [fieldName, fieldDef] of Object.entries(fields)) {
+        // 跳过 reference 类型的字段（person_id, project_id），它们需要特殊处理
+        if (fieldDef.type === 'reference' && fieldDef.storage === 'foreign_key') {
+            const label = fieldDef.label || fieldName;
+            const value = data[fieldName] || '';
+            const required = fieldDef.required || false;
+            
+            let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
+            fieldHtml += `<div class="md:col-span-1">
+                <label for="participation-${fieldName}" class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>
+            </div>`;
+            fieldHtml += '<div class="md:col-span-2">';
+            
+            // 根据 reference_entity 加载对应的选项
+            if (fieldName === 'person_id') {
+                fieldHtml += `<select id="participation-${fieldName}" name="${fieldName}" class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors" ${required ? 'required' : ''}>`;
+                fieldHtml += '<option value="">请选择人员</option>';
+                allPersons.forEach(person => {
+                    fieldHtml += `<option value="${person.id}" ${value == person.id ? 'selected' : ''}>${person.name || `人员 ${person.id}`}</option>`;
+                });
+                fieldHtml += '</select>';
+            } else if (fieldName === 'project_id') {
+                fieldHtml += `<select id="participation-${fieldName}" name="${fieldName}" class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors" ${required ? 'required' : ''}>`;
+                fieldHtml += '<option value="">请选择项目</option>';
+                allProjects.forEach(project => {
+                    const projectName = project.internal_project_name || project.external_project_name || `项目 ${project.id}`;
+                    fieldHtml += `<option value="${project.id}" ${value == project.id ? 'selected' : ''}>${projectName}</option>`;
+                });
+                fieldHtml += '</select>';
+            }
+            
+            fieldHtml += `<div id="participation-${fieldName}-error" class="text-sm text-red-600 mt-1 hidden"></div>`;
+            fieldHtml += '</div></div>';
+            formFields.innerHTML += fieldHtml;
+            continue;
+        }
+        
+        // 处理其他字段（status, change_date, labor_price）
+        const label = fieldDef.label || fieldName;
+        const value = data[fieldName] || '';
+        const required = fieldDef.required || false;
+        const fieldType = fieldDef.type || 'string';
+        const uiComponent = fieldDef.ui?.component || 'text_input';
+        
+        // 两栏布局：标签在左，输入框在右
+        let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
+        
+        // 左侧：标签（右对齐）
+        fieldHtml += `<div class="md:col-span-1">
+            <label for="participation-${fieldName}" class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>`;
+        
+        // 添加验证提示（在标签下方，右对齐）
+        if (fieldDef.validation) {
+            const validation = fieldDef.validation;
+            if (validation.min !== undefined || validation.max !== undefined) {
+                const min = validation.min !== undefined ? validation.min : '';
+                const max = validation.max !== undefined ? validation.max : '';
+                fieldHtml += `<p class="text-xs text-gray-500 mt-1 text-right">范围: ${min ? min + ' ≤ ' : ''}值${max ? ' ≤ ' + max : ''}</p>`;
+            }
+        }
+        fieldHtml += '</div>';
+        
+        // 右侧：输入框
+        fieldHtml += '<div class="md:col-span-2">';
+        
+        // 统一的输入框样式
+        const inputBaseClasses = "block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors";
+        
+        if (uiComponent === 'textarea') {
+            fieldHtml += `<textarea id="participation-${fieldName}" name="${fieldName}" rows="3" class="${inputBaseClasses}" ${required ? 'required' : ''}>${value}</textarea>`;
+        } else if (fieldType === 'enum' && fieldDef.options) {
+            fieldHtml += `<select id="participation-${fieldName}" name="${fieldName}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            fieldHtml += '<option value="">请选择</option>';
+            for (const option of fieldDef.options) {
+                fieldHtml += `<option value="${option}" ${value === option ? 'selected' : ''}>${option}</option>`;
+            }
+            fieldHtml += '</select>';
+        } else if (fieldType === 'date') {
+            fieldHtml += `<input type="date" id="participation-${fieldName}" name="${fieldName}" value="${value}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+        } else if (fieldType === 'decimal' || fieldType === 'number') {
+            fieldHtml += `<div class="flex items-center gap-2">`;
+            fieldHtml += `<input type="number" id="participation-${fieldName}" name="${fieldName}" value="${value}" step="${fieldType === 'decimal' ? '0.01' : '1'}" min="${fieldDef.validation?.min || ''}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            if (fieldDef.ui?.suffix) {
+                fieldHtml += `<span class="text-sm text-gray-500 whitespace-nowrap">${fieldDef.ui.suffix}</span>`;
+            }
+            fieldHtml += `</div>`;
+        } else {
+            // 默认文本输入
+            fieldHtml += `<input type="text" id="participation-${fieldName}" name="${fieldName}" value="${value}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+        }
+        
+        // 错误提示
+        fieldHtml += `<div id="participation-${fieldName}-error" class="text-sm text-red-600 mt-1 hidden"></div>`;
+        fieldHtml += '</div>';
+        fieldHtml += '</div>';
+        
+        formFields.innerHTML += fieldHtml;
+    }
+}
+
+// 参与关系表单验证
+function validateParticipationForm(formData) {
+    const fields = participationSchema.fields || {};
+    const errors = {};
+    
+    for (const [fieldName, fieldDef] of Object.entries(fields)) {
+        const value = formData.get(fieldName);
+        const validation = fieldDef.validation || {};
+        
+        // 必填验证
+        if (fieldDef.required && (!value || value.trim() === '')) {
+            errors[fieldName] = `${fieldDef.label || fieldName} 是必填项`;
+            continue;
+        }
+        
+        // 如果值为空且不是必填，跳过其他验证
+        if (!value || value.trim() === '') {
+            continue;
+        }
+        
+        // 数值范围验证
+        if (fieldDef.type === 'decimal' || fieldDef.type === 'number') {
+            const numValue = parseFloat(value);
+            if (isNaN(numValue)) {
+                errors[fieldName] = `${fieldDef.label || fieldName} 必须是数字`;
+                continue;
+            }
+            if (validation.min !== undefined && numValue < validation.min) {
+                errors[fieldName] = `${fieldDef.label || fieldName} 不能小于 ${validation.min}`;
+                continue;
+            }
+            if (validation.max !== undefined && numValue > validation.max) {
+                errors[fieldName] = `${fieldDef.label || fieldName} 不能大于 ${validation.max}`;
+                continue;
+            }
+        }
+    }
+    
+    return errors;
+}
+
+// 显示参与关系表单错误
+function showParticipationFormErrors(errors) {
+    // 清除所有错误提示
+    document.querySelectorAll('[id^="participation-"][id$="-error"]').forEach(el => {
+        el.classList.add('hidden');
+        el.textContent = '';
+    });
+    
+    // 显示新的错误
+    for (const [fieldName, errorMsg] of Object.entries(errors)) {
+        const errorEl = document.getElementById(`participation-${fieldName}-error`);
+        if (errorEl) {
+            errorEl.textContent = errorMsg;
+            errorEl.classList.remove('hidden');
+        }
+    }
+}
+
+// 打开新增参与关系表单
+async function openAddParticipationForm() {
+    // 加载所有人员和项目列表
+    try {
+        const [personsResponse, projectsResponse] = await Promise.all([
+            fetch('/api/twins/person'),
+            fetch('/api/twins/project')
+        ]);
+        
+        const personsResult = await personsResponse.json();
+        const projectsResult = await projectsResponse.json();
+        
+        if (!personsResult.success || !projectsResult.success) {
+            alert('加载数据失败，请刷新页面重试');
+            return;
+        }
+        
+        allPersons = personsResult.data || [];
+        allProjects = projectsResult.data || [];
+        
+        // 渲染表单
+        renderParticipationFormFields({});
+        document.getElementById('participation-form-modal').classList.remove('hidden');
+    } catch (error) {
+        alert('加载数据失败: ' + error.message);
+    }
+}
+
+// 提交参与关系表单
+async function submitParticipationForm(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    // 验证表单
+    const errors = validateParticipationForm(formData);
+    if (Object.keys(errors).length > 0) {
+        showParticipationFormErrors(errors);
+        return;
+    }
+    
+    // 构建数据对象
+    const data = {};
+    const fields = participationSchema.fields || {};
+    for (const [fieldName] of Object.entries(fields)) {
+        const value = formData.get(fieldName);
+        if (value !== null && value !== '') {
+            // 对于数字类型，转换为数字
+            const fieldDef = fields[fieldName];
+            if (fieldDef.type === 'decimal' || fieldDef.type === 'number') {
+                data[fieldName] = parseFloat(value);
+            } else if (fieldDef.type === 'reference') {
+                // reference 类型转换为整数
+                data[fieldName] = parseInt(value);
+            } else {
+                data[fieldName] = value.trim();
+            }
+        }
+    }
+    
+    try {
+        const response = await fetch('/api/twins/person_project_participation', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('保存失败: ' + result.error);
+            return;
+        }
+        
+        // 关闭表单模态框
+        document.getElementById('participation-form-modal').classList.add('hidden');
+        
+        // 重新加载人员在项列表
+        loadPersonProjectStatus();
+    } catch (error) {
+        alert('保存失败: ' + error.message);
+    }
+}
+
+// 绑定项目表单事件
+document.getElementById('add-project-btn').onclick = openAddProjectForm;
+document.getElementById('close-project-form-modal').onclick = () => {
+    document.getElementById('project-form-modal').classList.add('hidden');
+};
+document.getElementById('cancel-project-form-btn').onclick = () => {
+    document.getElementById('project-form-modal').classList.add('hidden');
+};
+document.getElementById('project-form').onsubmit = submitProjectForm;
+
+// 绑定参与关系表单事件
+document.getElementById('add-participation-btn').onclick = openAddParticipationForm;
+document.getElementById('close-participation-form-modal').onclick = () => {
+    document.getElementById('participation-form-modal').classList.add('hidden');
+};
+document.getElementById('cancel-participation-form-btn').onclick = () => {
+    document.getElementById('participation-form-modal').classList.add('hidden');
+};
+document.getElementById('participation-form').onsubmit = submitParticipationForm;
 
 // 页面加载时获取数据
 if (document.readyState === 'loading') {

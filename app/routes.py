@@ -70,9 +70,12 @@ def projects():
     """项目列表页"""
     schema_loader = SchemaLoader()
     project_schema = schema_loader.get_twin_schema("project")
+    participation_schema = schema_loader.get_twin_schema("person_project_participation")
     
     if not project_schema:
         project_schema = {}
+    if not participation_schema:
+        participation_schema = {}
     
     schema_dict = {
         "name": "project",
@@ -80,4 +83,11 @@ def projects():
         "fields": project_schema.get("fields", {})
     }
     
-    return render_template("projects.html", schema=schema_dict)
+    participation_schema_dict = {
+        "name": "person_project_participation",
+        "label": participation_schema.get("label", "人员项目参与"),
+        "fields": participation_schema.get("fields", {}),
+        "related_entities": participation_schema.get("related_entities", [])
+    }
+    
+    return render_template("projects.html", schema=schema_dict, participation_schema=participation_schema_dict)

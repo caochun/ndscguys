@@ -1,5 +1,6 @@
 """
 API 路由 - REST API 端点
+统一基于 Twin 的 API 接口
 """
 from __future__ import annotations
 
@@ -18,190 +19,127 @@ def get_twin_service() -> TwinService:
     return TwinService(db_path=str(Config.DATABASE_PATH))
 
 
-@api_bp.route("/persons", methods=["GET"])
-def list_persons():
-    """获取人员列表"""
+def get_schema_loader() -> SchemaLoader:
+    """获取 SchemaLoader 实例"""
+    return SchemaLoader()
+
+
+def standard_response(success: bool, data=None, error: str = None, status_code: int = 200):
+    """标准响应格式"""
+    response = {"success": success}
+    if data is not None:
+        response["data"] = data
+    if error:
+        response["error"] = error
+    if isinstance(data, list):
+        response["count"] = len(data)
+    return jsonify(response), status_code
+
+
+# ==================== 统一的 Twin API 接口 ====================
+
+@api_bp.route("/twins/<twin_name>", methods=["GET"])
+def list_twins(twin_name: str):
+    """
+    列出所有指定类型的 Twin（支持过滤和 enrich）
+    
+    GET /api/twins/<twin_name>?field1=value1&field2=value2&enrich=true
+    GET /api/twins/<twin_name>?enrich=person,project
+    
+    参数：
+    - field1, field2, ...: 过滤条件
+    - enrich: enrich 参数，支持 "true"（enrich 所有 related_entities）或实体列表（如 "person,project"），仅对 Activity Twin 有效
+    """
+    try:
+        # 从查询参数构建过滤条件
+        filters = {}
+        enrich = None
+        
+        for key, value in request.args.items():
+            if key == "enrich":
+                enrich = value.strip() if value else None
+            elif value and value.strip():  # 只添加非空的过滤条件
+                filters[key] = value.strip()
+        
+        service = get_twin_service()
+        twins = service.list_twins(
+            twin_name, 
+            filters=filters if filters else None,
+            enrich=enrich
+        )
+        return standard_response(True, twins)
+    except ValueError as e:
+        return standard_response(False, error=str(e), status_code=400)
+    except Exception as e:
+        return standard_response(False, error=str(e), status_code=500)
+
+
+@api_bp.route("/twins/<twin_name>/<int:twin_id>", methods=["GET"])
+def get_twin(twin_name: str, twin_id: int):
+    """
+    获取指定 Twin 的详情（包含历史）
+    
+    GET /api/twins/<twin_name>/<twin_id>
+    """
     try:
         service = get_twin_service()
-        persons = service.list_twins("person")
-        return jsonify({
-            "success": True,
-            "data": persons,
-            "count": len(persons)
-        })
+        twin = service.get_twin(twin_name, twin_id)
+        
+        if not twin:
+            return standard_response(False, error=f"{twin_name} not found", status_code=404)
+        
+        return standard_response(True, twin)
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        return standard_response(False, error=str(e), status_code=500)
 
 
-@api_bp.route("/persons/<int:person_id>", methods=["GET"])
-def get_person(person_id: int):
-    """获取人员详情"""
+@api_bp.route("/twins/<twin_name>", methods=["POST"])
+def create_twin(twin_name: str):
+    """
+    创建新的 Twin
+    
+    POST /api/twins/<twin_name>
+    Body: JSON 对象，包含字段值
+    """
     try:
+        data = request.get_json()
+        if not data:
+            return standard_response(False, error="Request body is required", status_code=400)
+        
         service = get_twin_service()
-        person = service.get_twin("person", person_id)
+        twin = service.create_twin(twin_name, data)
         
-        if not person:
-            return jsonify({
-                "success": False,
-                "error": "Person not found"
-            }), 404
-        
-        return jsonify({
-            "success": True,
-            "data": person
-        })
+        return standard_response(True, twin, status_code=201)
+    except ValueError as e:
+        return standard_response(False, error=str(e), status_code=400)
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        return standard_response(False, error=str(e), status_code=500)
 
 
-@api_bp.route("/employments", methods=["GET"])
-def list_employments():
-    """获取雇佣关系列表（包含关联的人员和公司信息）"""
+@api_bp.route("/twins/<twin_name>/<int:twin_id>", methods=["PUT"])
+def update_twin(twin_name: str, twin_id: int):
+    """
+    更新 Twin 状态（追加新状态）
+    
+    PUT /api/twins/<twin_name>/<twin_id>
+    Body: JSON 对象，包含要更新的字段值
+    """
     try:
+        data = request.get_json()
+        if not data:
+            return standard_response(False, error="Request body is required", status_code=400)
+        
         service = get_twin_service()
-        employments = service.list_twins("person_company_employment")
+        twin = service.update_twin(twin_name, twin_id, data)
         
-        # 获取所有人员和公司信息用于关联
-        persons = service.list_twins("person")
-        companies = service.list_twins("company")
-        
-        # 构建映射表
-        person_map = {p["id"]: p for p in persons}
-        company_map = {c["id"]: c for c in companies}
-        
-        # 合并关联数据
-        enriched_employments = []
-        for emp in employments:
-            enriched = {**emp}
-            
-            # 添加人员信息（只添加姓名，联系方式在详情中显示）
-            person_id = emp.get("person_id")
-            if person_id and person_id in person_map:
-                person = person_map[person_id]
-                enriched["person_name"] = person.get("name", "")
-            
-            # 添加公司信息
-            company_id = emp.get("company_id")
-            if company_id and company_id in company_map:
-                company = company_map[company_id]
-                enriched["company_name"] = company.get("name", "")
-            
-            enriched_employments.append(enriched)
-        
-        return jsonify({
-            "success": True,
-            "data": enriched_employments,
-            "count": len(enriched_employments)
-        })
+        return standard_response(True, twin)
+    except ValueError as e:
+        return standard_response(False, error=str(e), status_code=400)
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        return standard_response(False, error=str(e), status_code=500)
 
 
-@api_bp.route("/employments/<int:employment_id>", methods=["GET"])
-def get_employment(employment_id: int):
-    """获取雇佣关系详情"""
-    try:
-        service = get_twin_service()
-        employment = service.get_twin("person_company_employment", employment_id)
-        
-        if not employment:
-            return jsonify({
-                "success": False,
-                "error": "Employment not found"
-            }), 404
-        
-        return jsonify({
-            "success": True,
-            "data": employment
-        })
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
-
-
-@api_bp.route("/persons/<int:person_id>/employments", methods=["GET"])
-def get_person_employments(person_id: int):
-    """获取指定人员的所有雇佣关系（包含关联的公司信息）"""
-    try:
-        service = get_twin_service()
-        filters = {"person_id": person_id}
-        employments = service.list_twins("person_company_employment", filters=filters)
-        
-        # 获取人员信息
-        person = service.get_twin("person", person_id)
-        if not person:
-            return jsonify({
-                "success": False,
-                "error": "Person not found"
-            }), 404
-        
-        # 获取所有公司信息用于关联
-        companies = service.list_twins("company")
-        company_map = {c["id"]: c for c in companies}
-        
-        # 合并关联数据
-        enriched_employments = []
-        for emp in employments:
-            enriched = {**emp}
-            
-            # 添加人员信息
-            enriched["person_name"] = person["current"].get("name", "")
-            enriched["person_phone"] = person["current"].get("phone", "")
-            enriched["person_email"] = person["current"].get("email", "")
-            
-            # 添加公司信息
-            company_id = emp.get("company_id")
-            if company_id and company_id in company_map:
-                company = company_map[company_id]
-                enriched["company_name"] = company.get("name", "")
-            
-            enriched_employments.append(enriched)
-        
-        return jsonify({
-            "success": True,
-            "data": {
-                "person": person["current"],
-                "employments": enriched_employments
-            },
-            "count": len(enriched_employments)
-        })
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
-
-
-
-
-@api_bp.route("/projects", methods=["GET"])
-def list_projects():
-    """获取项目列表"""
-    try:
-        service = get_twin_service()
-        projects = service.list_twins("project")
-        return jsonify({
-            "success": True,
-            "data": projects,
-            "count": len(projects)
-        })
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
-
+# ==================== 特殊业务端点（数据增强和复杂查询）====================
 
 @api_bp.route("/projects/<int:project_id>", methods=["GET"])
 def get_project(project_id: int):
@@ -211,10 +149,7 @@ def get_project(project_id: int):
         project = service.get_twin("project", project_id)
         
         if not project:
-            return jsonify({
-                "success": False,
-                "error": "Project not found"
-            }), 404
+            return standard_response(False, error="Project not found", status_code=404)
         
         # 获取该项目的所有参与人员
         filters = {"project_id": project_id}
@@ -241,93 +176,90 @@ def get_project(project_id: int):
         # 将参与人员信息添加到项目数据中
         project["participations"] = enriched_participations
         
-        return jsonify({
-            "success": True,
-            "data": project
-        })
+        return standard_response(True, project)
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        return standard_response(False, error=str(e), status_code=500)
 
 
-@api_bp.route("/projects/<int:project_id>/persons/<int:person_id>/participations", methods=["GET"])
-def get_person_project_participations(project_id: int, person_id: int):
-    """获取指定人员在指定项目中的所有参与记录"""
+@api_bp.route("/employments", methods=["GET"])
+def list_employments():
+    """获取雇佣关系列表（包含关联的人员和公司信息）"""
     try:
         service = get_twin_service()
+        employments = service.list_twins("person_company_employment")
         
-        # 获取该人员在项目中的所有参与记录
-        filters = {"project_id": project_id, "person_id": person_id}
-        participations = service.list_twins("person_project_participation", filters=filters)
+        # 获取所有人员和公司信息用于关联
+        persons = service.list_twins("person")
+        companies = service.list_twins("company")
+        
+        # 构建映射表
+        person_map = {p["id"]: p for p in persons}
+        company_map = {c["id"]: c for c in companies}
+        
+        # 合并关联数据
+        enriched_employments = []
+        for emp in employments:
+            enriched = {**emp}
+            
+            # 添加人员信息
+            person_id = emp.get("person_id")
+            if person_id and person_id in person_map:
+                person = person_map[person_id]
+                enriched["person_name"] = person.get("name", "")
+            
+            # 添加公司信息
+            company_id = emp.get("company_id")
+            if company_id and company_id in company_map:
+                company = company_map[company_id]
+                enriched["company_name"] = company.get("name", "")
+            
+            enriched_employments.append(enriched)
+        
+        return standard_response(True, enriched_employments)
+    except Exception as e:
+        return standard_response(False, error=str(e), status_code=500)
+
+@api_bp.route("/persons/<int:person_id>/employments", methods=["GET"])
+def get_person_employments(person_id: int):
+    """获取指定人员的所有雇佣关系（包含关联的公司信息）"""
+    try:
+        service = get_twin_service()
+        filters = {"person_id": person_id}
+        employments = service.list_twins("person_company_employment", filters=filters)
         
         # 获取人员信息
         person = service.get_twin("person", person_id)
         if not person:
-            return jsonify({
-                "success": False,
-                "error": "Person not found"
-            }), 404
+            return standard_response(False, error="Person not found", status_code=404)
         
-        # 获取项目信息
-        project = service.get_twin("project", project_id)
-        if not project:
-            return jsonify({
-                "success": False,
-                "error": "Project not found"
-            }), 404
+        # 获取所有公司信息用于关联
+        companies = service.list_twins("company")
+        company_map = {c["id"]: c for c in companies}
         
-        # 获取每个参与活动的完整历史记录
-        enriched_participations = []
-        for part in participations:
-            # 获取该参与活动的完整历史
-            activity_id = part.get("id")
-            if activity_id:
-                activity_detail = service.get_twin("person_project_participation", activity_id)
-                if activity_detail:
-                    enriched_participations.append({
-                        "activity_id": activity_id,
-                        "history": activity_detail.get("history", []),
-                        "current": activity_detail.get("current", {})
-                    })
+        # 合并关联数据
+        enriched_employments = []
+        for emp in employments:
+            enriched = {**emp}
+            
+            # 添加人员信息
+            enriched["person_name"] = person["current"].get("name", "")
+            enriched["person_phone"] = person["current"].get("phone", "")
+            enriched["person_email"] = person["current"].get("email", "")
+            
+            # 添加公司信息
+            company_id = emp.get("company_id")
+            if company_id and company_id in company_map:
+                company = company_map[company_id]
+                enriched["company_name"] = company.get("name", "")
+            
+            enriched_employments.append(enriched)
         
-        # 获取相关 schema
-        schema_loader = SchemaLoader()
-        person_schema = schema_loader.get_twin_schema("person")
-        project_schema = schema_loader.get_twin_schema("project")
-        participation_schema = schema_loader.get_twin_schema("person_project_participation")
-        
-        return jsonify({
-            "success": True,
-            "data": {
-                "person": person["current"],
-                "project": project["current"],
-                "participations": enriched_participations,
-                "schemas": {
-                    "person": {
-                        "name": "person",
-                        "label": person_schema.get("label", "人员") if person_schema else "人员",
-                        "fields": person_schema.get("fields", {}) if person_schema else {}
-                    },
-                    "project": {
-                        "name": "project",
-                        "label": project_schema.get("label", "项目") if project_schema else "项目",
-                        "fields": project_schema.get("fields", {}) if project_schema else {}
-                    },
-                    "participation": {
-                        "name": "person_project_participation",
-                        "label": participation_schema.get("label", "参与活动") if participation_schema else "参与活动",
-                        "fields": participation_schema.get("fields", {}) if participation_schema else {}
-                    }
-                }
-            }
+        return standard_response(True, {
+            "person": person["current"],
+            "employments": enriched_employments
         })
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        return standard_response(False, error=str(e), status_code=500)
 
 
 @api_bp.route("/person-project-status", methods=["GET"])
@@ -383,13 +315,6 @@ def get_person_project_status():
             
             result_list.append(enriched)
         
-        return jsonify({
-            "success": True,
-            "data": result_list,
-            "count": len(result_list)
-        })
+        return standard_response(True, result_list)
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        return standard_response(False, error=str(e), status_code=500)

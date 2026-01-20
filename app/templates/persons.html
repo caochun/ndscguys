@@ -4,9 +4,40 @@
 
 {% block content %}
 <div class="px-4 py-6 sm:px-0">
-    <div class="mb-6">
-        <h2 class="text-2xl font-bold text-gray-900">人员列表</h2>
-        <p class="mt-1 text-sm text-gray-500">根据 Schema 动态渲染的人员信息</p>
+    <div class="mb-6 flex justify-between items-center">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">人员列表</h2>
+            <p class="mt-1 text-sm text-gray-500">根据 Schema 动态渲染的人员信息</p>
+        </div>
+        <button id="add-person-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm">
+            + 新增人员
+        </button>
+    </div>
+
+    <!-- 过滤器区域 -->
+    <div id="filter-section" class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-medium text-gray-700">筛选条件</h3>
+            <button id="toggle-filter" class="text-sm text-indigo-600 hover:text-indigo-700">
+                <span id="filter-toggle-text">展开</span>
+                <svg id="filter-toggle-icon" class="inline-block w-4 h-4 ml-1 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+        </div>
+        <div id="filter-content" class="hidden">
+            <div id="filter-fields" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- 动态生成过滤器字段 -->
+            </div>
+            <div class="flex justify-end gap-3 mt-4 pt-4 border-t">
+                <button id="reset-filter-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                    重置
+                </button>
+                <button id="apply-filter-btn" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                    应用筛选
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- 加载状态 -->
@@ -41,16 +72,52 @@
             <div class="mt-3">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium text-gray-900">人员详情</h3>
-                    <button id="close-modal" class="text-gray-400 hover:text-gray-500">
+                    <div class="flex gap-2">
+                        <button id="edit-person-btn" class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
+                            编辑
+                        </button>
+                        <button id="close-modal" class="text-gray-400 hover:text-gray-500">
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="person-detail-content">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 人员表单模态框（新增/编辑） -->
+    <div id="person-form-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 id="form-modal-title" class="text-lg font-medium text-gray-900">新增人员</h3>
+                    <button id="close-form-modal" class="text-gray-400 hover:text-gray-500">
                         <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
                     </button>
                 </div>
                 
-                <div id="person-detail-content">
-                    <!-- 动态生成 -->
-                </div>
+                <form id="person-form" class="space-y-4">
+                    <div id="form-fields">
+                        <!-- 动态生成表单字段 -->
+                    </div>
+                    
+                    <div class="flex justify-end gap-3 pt-4 border-t">
+                        <button type="button" id="cancel-form-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                            取消
+                        </button>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                            保存
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -103,7 +170,7 @@ function renderPersonCard(person) {
 // 显示人员详情
 async function showPersonDetail(personId) {
     try {
-        const response = await fetch(`/api/persons/${personId}`);
+        const response = await fetch(`/api/twins/person/${personId}`);
         const result = await response.json();
         
         if (!result.success) {
@@ -112,8 +179,15 @@ async function showPersonDetail(personId) {
         }
         
         const person = result.data;
+        currentPersonId = personId;
         const modal = document.getElementById('person-modal');
         const content = document.getElementById('person-detail-content');
+        
+        // 设置编辑按钮事件
+        document.getElementById('edit-person-btn').onclick = () => {
+            modal.classList.add('hidden');
+            openEditForm(personId);
+        };
         
         let html = '<div class="space-y-6">';
         
@@ -186,6 +260,376 @@ document.getElementById('close-modal').onclick = () => {
     document.getElementById('person-modal').classList.add('hidden');
 };
 
+// 当前编辑的人员ID（null 表示新增）
+let currentEditPersonId = null;
+
+// 基于 Schema 动态渲染表单字段
+function renderFormFields(data = {}) {
+    const fields = schema.fields || {};
+    const formFields = document.getElementById('form-fields');
+    formFields.innerHTML = '';
+    
+    for (const [fieldName, fieldDef] of Object.entries(fields)) {
+        const label = fieldDef.label || fieldName;
+        const value = data[fieldName] || '';
+        const required = fieldDef.required || false;
+        const fieldType = fieldDef.type || 'string';
+        const uiComponent = fieldDef.ui?.component || 'text_input';
+        
+        // 两栏布局：标签在左，输入框在右
+        let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
+        
+        // 左侧：标签（右对齐）
+        fieldHtml += `<div class="md:col-span-1">
+            <label for="${fieldName}" class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>`;
+        
+        // 添加验证提示（在标签下方，右对齐）
+        if (fieldDef.validation) {
+            const validation = fieldDef.validation;
+            if (validation.pattern) {
+                fieldHtml += `<p class="text-xs text-gray-500 mt-1 text-right">格式: ${validation.pattern}</p>`;
+            }
+            if (validation.min_length || validation.max_length) {
+                const min = validation.min_length || 0;
+                const max = validation.max_length || '';
+                fieldHtml += `<p class="text-xs text-gray-500 mt-1 text-right">长度: ${min}${max ? '-' + max : '+'} 字符</p>`;
+            }
+        }
+        fieldHtml += '</div>';
+        
+        // 右侧：输入框
+        fieldHtml += '<div class="md:col-span-2">';
+        
+        // 统一的输入框样式：白色背景、更明显的边框、内边距、阴影、hover 效果
+        const inputBaseClasses = "block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors";
+        
+        if (uiComponent === 'textarea') {
+            fieldHtml += `<textarea id="${fieldName}" name="${fieldName}" rows="3" class="${inputBaseClasses}" ${required ? 'required' : ''}>${value}</textarea>`;
+        } else if (fieldType === 'enum' && fieldDef.options) {
+            fieldHtml += `<select id="${fieldName}" name="${fieldName}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            fieldHtml += '<option value="">请选择</option>';
+            for (const option of fieldDef.options) {
+                fieldHtml += `<option value="${option}" ${value === option ? 'selected' : ''}>${option}</option>`;
+            }
+            fieldHtml += '</select>';
+        } else if (uiComponent === 'email_input') {
+            fieldHtml += `<input type="email" id="${fieldName}" name="${fieldName}" value="${value}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+        } else if (uiComponent === 'tel_input') {
+            fieldHtml += `<input type="tel" id="${fieldName}" name="${fieldName}" value="${value}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+        } else if (fieldType === 'date') {
+            fieldHtml += `<input type="date" id="${fieldName}" name="${fieldName}" value="${value}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+        } else if (fieldType === 'decimal' || fieldType === 'number') {
+            fieldHtml += `<input type="number" id="${fieldName}" name="${fieldName}" value="${value}" step="${fieldType === 'decimal' ? '0.01' : '1'}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+        } else {
+            // 默认文本输入
+            fieldHtml += `<input type="text" id="${fieldName}" name="${fieldName}" value="${value}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+        }
+        
+        // 错误提示
+        fieldHtml += `<div id="${fieldName}-error" class="text-sm text-red-600 mt-1 hidden"></div>`;
+        fieldHtml += '</div>';
+        fieldHtml += '</div>';
+        
+        formFields.innerHTML += fieldHtml;
+    }
+}
+
+// 表单验证
+function validateForm(formData) {
+    const fields = schema.fields || {};
+    const errors = {};
+    
+    for (const [fieldName, fieldDef] of Object.entries(fields)) {
+        const value = formData.get(fieldName);
+        const validation = fieldDef.validation || {};
+        
+        // 必填验证
+        if (fieldDef.required && (!value || value.trim() === '')) {
+            errors[fieldName] = `${fieldDef.label || fieldName} 是必填项`;
+            continue;
+        }
+        
+        // 如果值为空且不是必填，跳过其他验证
+        if (!value || value.trim() === '') {
+            continue;
+        }
+        
+        // 长度验证
+        if (validation.min_length && value.length < validation.min_length) {
+            errors[fieldName] = `${fieldDef.label || fieldName} 至少需要 ${validation.min_length} 个字符`;
+            continue;
+        }
+        if (validation.max_length && value.length > validation.max_length) {
+            errors[fieldName] = `${fieldDef.label || fieldName} 最多 ${validation.max_length} 个字符`;
+            continue;
+        }
+        
+        // 正则表达式验证
+        if (validation.pattern) {
+            const regex = new RegExp(validation.pattern);
+            if (!regex.test(value)) {
+                errors[fieldName] = `${fieldDef.label || fieldName} 格式不正确`;
+                continue;
+            }
+        }
+        
+        // 数值范围验证
+        if (fieldDef.type === 'decimal' || fieldDef.type === 'number') {
+            const numValue = parseFloat(value);
+            if (isNaN(numValue)) {
+                errors[fieldName] = `${fieldDef.label || fieldName} 必须是数字`;
+                continue;
+            }
+            if (validation.min !== undefined && numValue < validation.min) {
+                errors[fieldName] = `${fieldDef.label || fieldName} 不能小于 ${validation.min}`;
+                continue;
+            }
+            if (validation.max !== undefined && numValue > validation.max) {
+                errors[fieldName] = `${fieldDef.label || fieldName} 不能大于 ${validation.max}`;
+                continue;
+            }
+        }
+    }
+    
+    return errors;
+}
+
+// 显示表单错误
+function showFormErrors(errors) {
+    // 清除所有错误提示
+    document.querySelectorAll('[id$="-error"]').forEach(el => {
+        el.classList.add('hidden');
+        el.textContent = '';
+    });
+    
+    // 显示新的错误
+    for (const [fieldName, errorMsg] of Object.entries(errors)) {
+        const errorEl = document.getElementById(`${fieldName}-error`);
+        if (errorEl) {
+            errorEl.textContent = errorMsg;
+            errorEl.classList.remove('hidden');
+        }
+    }
+}
+
+// 打开新增表单
+function openAddForm() {
+    currentEditPersonId = null;
+    document.getElementById('form-modal-title').textContent = '新增人员';
+    renderFormFields({});
+    document.getElementById('person-form-modal').classList.remove('hidden');
+}
+
+// 打开编辑表单
+function openEditForm(personId) {
+    currentEditPersonId = personId;
+    document.getElementById('form-modal-title').textContent = '编辑人员';
+    
+    // 加载人员数据
+    fetch(`/api/twins/person/${personId}`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                renderFormFields(result.data.current);
+                document.getElementById('person-form-modal').classList.remove('hidden');
+            } else {
+                alert('加载失败: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('加载失败: ' + error.message);
+        });
+}
+
+// 提交表单
+async function submitForm(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    // 验证表单
+    const errors = validateForm(formData);
+    if (Object.keys(errors).length > 0) {
+        showFormErrors(errors);
+        return;
+    }
+    
+    // 构建数据对象
+    const data = {};
+    const fields = schema.fields || {};
+    for (const [fieldName] of Object.entries(fields)) {
+        const value = formData.get(fieldName);
+        if (value !== null && value !== '') {
+            data[fieldName] = value.trim();
+        }
+    }
+    
+    try {
+        const url = currentEditPersonId 
+            ? `/api/twins/person/${currentEditPersonId}`
+            : '/api/twins/person';
+        const method = currentEditPersonId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('保存失败: ' + result.error);
+            return;
+        }
+        
+        // 关闭表单模态框
+        document.getElementById('person-form-modal').classList.add('hidden');
+        
+        // 重新加载人员列表
+        loadPersons();
+        
+        // 如果是编辑，也关闭详情模态框
+        if (currentEditPersonId) {
+            document.getElementById('person-modal').classList.add('hidden');
+        }
+    } catch (error) {
+        alert('保存失败: ' + error.message);
+    }
+}
+
+// 绑定事件
+document.getElementById('add-person-btn').onclick = openAddForm;
+document.getElementById('close-form-modal').onclick = () => {
+    document.getElementById('person-form-modal').classList.add('hidden');
+};
+document.getElementById('cancel-form-btn').onclick = () => {
+    document.getElementById('person-form-modal').classList.add('hidden');
+};
+document.getElementById('person-form').onsubmit = submitForm;
+
+// 过滤器事件
+document.getElementById('toggle-filter').onclick = toggleFilter;
+document.getElementById('apply-filter-btn').onclick = applyFilters;
+document.getElementById('reset-filter-btn').onclick = resetFilters;
+
+// 过滤器输入框支持回车键应用
+document.addEventListener('DOMContentLoaded', () => {
+    // 初始化过滤器字段
+    renderFilterFields();
+    
+    // 为过滤器输入框添加回车键事件
+    const filterFields = document.getElementById('filter-fields');
+    if (filterFields) {
+        filterFields.addEventListener('keypress', (e) => {
+            if (e.target.tagName === 'INPUT' && e.key === 'Enter') {
+                e.preventDefault();
+                applyFilters();
+            }
+        });
+    }
+});
+
+// 在详情模态框中添加编辑按钮事件（需要在 showPersonDetail 中设置）
+let currentPersonId = null;
+
+// 当前过滤条件
+let currentFilters = {};
+
+// 基于 Schema 动态渲染过滤器字段
+function renderFilterFields() {
+    const fields = schema.fields || {};
+    const filterFields = document.getElementById('filter-fields');
+    filterFields.innerHTML = '';
+    
+    // 只显示适合过滤的字段（排除 avatar 等不适合过滤的字段）
+    const filterableFields = ['name', 'phone', 'email', 'id_card', 'address'];
+    
+    for (const [fieldName, fieldDef] of Object.entries(fields)) {
+        // 跳过不适合过滤的字段
+        if (!filterableFields.includes(fieldName)) {
+            continue;
+        }
+        
+        const label = fieldDef.label || fieldName;
+        const value = currentFilters[fieldName] || '';
+        const fieldType = fieldDef.type || 'string';
+        const uiComponent = fieldDef.ui?.component || 'text_input';
+        
+        let fieldHtml = '<div class="space-y-1">';
+        fieldHtml += `<label for="filter-${fieldName}" class="block text-xs font-medium text-gray-700">${label}</label>`;
+        
+        // 根据字段类型渲染不同的输入控件
+        if (uiComponent === 'email_input') {
+            fieldHtml += `<input type="email" id="filter-${fieldName}" name="filter-${fieldName}" value="${value}" placeholder="输入${label}..." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">`;
+        } else if (uiComponent === 'tel_input') {
+            fieldHtml += `<input type="tel" id="filter-${fieldName}" name="filter-${fieldName}" value="${value}" placeholder="输入${label}..." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">`;
+        } else {
+            // 默认文本输入（支持模糊搜索）
+            fieldHtml += `<input type="text" id="filter-${fieldName}" name="filter-${fieldName}" value="${value}" placeholder="输入${label}..." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">`;
+        }
+        
+        fieldHtml += '</div>';
+        filterFields.innerHTML += fieldHtml;
+    }
+}
+
+// 获取当前过滤条件
+function getFilterValues() {
+    const filters = {};
+    const fields = schema.fields || {};
+    
+    for (const fieldName of Object.keys(fields)) {
+        const filterInput = document.getElementById(`filter-${fieldName}`);
+        if (filterInput && filterInput.value && filterInput.value.trim()) {
+            filters[fieldName] = filterInput.value.trim();
+        }
+    }
+    
+    return filters;
+}
+
+// 应用过滤器
+function applyFilters() {
+    currentFilters = getFilterValues();
+    loadPersons();
+}
+
+// 重置过滤器
+function resetFilters() {
+    currentFilters = {};
+    const fields = schema.fields || {};
+    
+    for (const fieldName of Object.keys(fields)) {
+        const filterInput = document.getElementById(`filter-${fieldName}`);
+        if (filterInput) {
+            filterInput.value = '';
+        }
+    }
+    
+    loadPersons();
+}
+
+// 切换过滤器展开/收起
+function toggleFilter() {
+    const filterContent = document.getElementById('filter-content');
+    const toggleText = document.getElementById('filter-toggle-text');
+    const toggleIcon = document.getElementById('filter-toggle-icon');
+    
+    if (filterContent.classList.contains('hidden')) {
+        filterContent.classList.remove('hidden');
+        toggleText.textContent = '收起';
+        toggleIcon.classList.add('rotate-180');
+    } else {
+        filterContent.classList.add('hidden');
+        toggleText.textContent = '展开';
+        toggleIcon.classList.remove('rotate-180');
+    }
+}
+
 // 加载人员列表
 async function loadPersons() {
     const loading = document.getElementById('loading');
@@ -193,7 +637,15 @@ async function loadPersons() {
     const container = document.getElementById('persons-container');
     
     try {
-        const response = await fetch('/api/persons');
+        // 构建查询 URL（包含过滤条件）
+        const url = new URL('/api/twins/person', window.location.origin);
+        for (const [key, value] of Object.entries(currentFilters)) {
+            if (value) {
+                url.searchParams.append(key, value);
+            }
+        }
+        
+        const response = await fetch(url);
         const result = await response.json();
         
         loading.classList.add('hidden');

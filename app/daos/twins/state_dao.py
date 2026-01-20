@@ -241,8 +241,13 @@ class TwinStateDAO(BaseDAO):
             else:
                 # 存储在 data JSON 中，使用 JSON 函数查询
                 json_path = f"$.{field_name}"
-                conditions.append(f"json_extract(data, '{json_path}') = ?")
-                params.append(field_value)
+                # 对于字符串类型，使用 LIKE 进行模糊搜索；其他类型使用精确匹配
+                if field_def.type == "string":
+                    conditions.append(f"json_extract(data, '{json_path}') LIKE ?")
+                    params.append(f"%{field_value}%")
+                else:
+                    conditions.append(f"json_extract(data, '{json_path}') = ?")
+                    params.append(field_value)
         
         if conditions:
             where_clause = " AND ".join(conditions)
@@ -481,3 +486,216 @@ class TwinStateDAO(BaseDAO):
             TwinState.from_row(dict(row) if not isinstance(row, dict) else row, twin_name, twin_type)
             for row in rows
         ]
+    
+    def query_latest_states_with_enrich(
+        self,
+        twin_name: str,
+        filters: Optional[Dict[str, Any]] = None,
+        enrich_entities: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        查询每个 Twin 的最新状态，并 enrich 关联的 Entity Twin 信息（通过 JOIN）
+        
+        Args:
+            twin_name: Twin 名称（必须是 Activity Twin）
+            filters: 过滤条件
+            enrich_entities: 要 enrich 的实体列表（如 ["person", "project"]），None 表示 enrich 所有 related_entities
+        
+        Returns:
+            包含 enrich 数据的字典列表，每个字典包含 Activity Twin 的状态数据和关联 Entity 的字段
+        """
+        schema = self._get_twin_schema(twin_name)
+        
+        # 只支持 Activity Twin 的 enrich
+        if schema.type != "activity":
+            raise ValueError(f"Enrichment is only supported for Activity Twins, got: {twin_name}")
+        
+        if not schema.related_entities:
+            raise ValueError(f"Activity Twin {twin_name} has no related_entities to enrich")
+        
+        # 确定要 enrich 的实体
+        if enrich_entities is None:
+            # enrich 所有 related_entities
+            entities_to_enrich = [rel.entity for rel in schema.related_entities]
+        else:
+            # 只 enrich 指定的实体
+            entities_to_enrich = enrich_entities
+        
+        # 验证要 enrich 的实体是否存在于 related_entities 中
+        valid_entities = {rel.entity for rel in schema.related_entities}
+        for entity in entities_to_enrich:
+            if entity not in valid_entities:
+                raise ValueError(f"Entity {entity} is not a related_entity of {twin_name}")
+        
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        # 分离 related_entity 过滤条件和状态过滤条件
+        related_entity_filters = {}
+        state_filters = {}
+        
+        if filters:
+            related_keys = {rel.key for rel in schema.related_entities}
+            for key, value in filters.items():
+                if key in related_keys:
+                    related_entity_filters[key] = value
+                else:
+                    state_filters[key] = value
+        
+        # 构建基础查询：获取 Activity Twin 的最新状态
+        activity_alias = "act"
+        state_alias = "s1"
+        state_table = schema.state_table
+        activity_table = schema.table
+        
+        # 构建 JOIN 子句和 SELECT 字段
+        joins = []
+        select_fields = [
+            f"{state_alias}.id",
+            f"{state_alias}.twin_id",
+            f"{state_alias}.version",
+            f"{state_alias}.ts",
+            f"{state_alias}.data",
+        ]
+        
+        # 添加 Activity 注册表的字段（用于获取关联实体 ID）
+        for rel_entity in schema.related_entities:
+            select_fields.append(f"{activity_alias}.{rel_entity.key}")
+        
+        # 为每个要 enrich 的实体添加 JOIN
+        entity_schemas = {}
+        for rel_entity in schema.related_entities:
+            if rel_entity.entity in entities_to_enrich:
+                entity_schema = self._get_twin_schema(rel_entity.entity)
+                entity_schemas[rel_entity.entity] = entity_schema
+                
+                entity_alias = f"e_{rel_entity.entity}"
+                entity_state_alias = f"es_{rel_entity.entity}"
+                
+                # JOIN Activity 注册表获取关联实体 ID
+                joins.append(f"""
+                    LEFT JOIN {entity_schema.table} {entity_alias}
+                        ON {activity_alias}.{rel_entity.key} = {entity_alias}.id
+                """)
+                
+                # JOIN Entity 状态表获取最新状态
+                if entity_schema.mode == "versioned":
+                    joins.append(f"""
+                        LEFT JOIN (
+                            SELECT es1.* FROM {entity_schema.state_table} es1
+                            INNER JOIN (
+                                SELECT twin_id, MAX(version) AS max_version
+                                FROM {entity_schema.state_table}
+                                GROUP BY twin_id
+                            ) es2 ON es1.twin_id = es2.twin_id AND es1.version = es2.max_version
+                        ) {entity_state_alias}
+                        ON {entity_alias}.id = {entity_state_alias}.twin_id
+                    """)
+                else:  # time_series
+                    joins.append(f"""
+                        LEFT JOIN (
+                            SELECT es1.* FROM {entity_schema.state_table} es1
+                            INNER JOIN (
+                                SELECT twin_id, MAX(time_key) AS max_time_key
+                                FROM {entity_schema.state_table}
+                                GROUP BY twin_id
+                            ) es2 ON es1.twin_id = es2.twin_id AND es1.time_key = es2.max_time_key
+                        ) {entity_state_alias}
+                        ON {entity_alias}.id = {entity_state_alias}.twin_id
+                    """)
+                
+                # 添加 Entity 状态数据的字段（从 JSON 中提取所有字段）
+                if entity_schema.fields:
+                    for field_name in entity_schema.fields.keys():
+                        select_fields.append(f"json_extract({entity_state_alias}.data, '$.{field_name}') AS {rel_entity.entity}_{field_name}")
+        
+        # 构建 WHERE 子句
+        where_conditions = []
+        params = []
+        
+        # Activity 注册表的过滤条件
+        if related_entity_filters:
+            for key, value in related_entity_filters.items():
+                where_conditions.append(f"{activity_alias}.{key} = ?")
+                params.append(value)
+        
+        # 状态表的过滤条件
+        if state_filters:
+            state_where, state_params = self._build_where_clause(schema, state_filters)
+            if state_where:
+                # 移除 "WHERE " 前缀，只保留条件
+                conditions = state_where.replace("WHERE ", "")
+                where_conditions.append(f"({conditions})")
+                params.extend(state_params)
+        
+        # 构建获取最新状态的子查询
+        if schema.mode == "versioned":
+            latest_state_subquery = f"""
+                SELECT s1.* FROM {state_table} s1
+                INNER JOIN (
+                    SELECT twin_id, MAX(version) AS max_version
+                    FROM {state_table}
+                    GROUP BY twin_id
+                ) s2 ON s1.twin_id = s2.twin_id AND s1.version = s2.max_version
+            """
+        else:  # time_series
+            latest_state_subquery = f"""
+                SELECT s1.* FROM {state_table} s1
+                INNER JOIN (
+                    SELECT twin_id, MAX(time_key) AS max_time_key
+                    FROM {state_table}
+                    GROUP BY twin_id
+                ) s2 ON s1.twin_id = s2.twin_id AND s1.time_key = s2.max_time_key
+            """
+        
+        # 构建完整查询
+        where_clause = ""
+        if where_conditions:
+            where_clause = "WHERE " + " AND ".join(where_conditions)
+        
+        query = f"""
+            SELECT {', '.join(select_fields)}
+            FROM ({latest_state_subquery}) {state_alias}
+            INNER JOIN {activity_table} {activity_alias} ON {state_alias}.twin_id = {activity_alias}.id
+            {''.join(joins)}
+            {where_clause}
+        """
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        conn.close()
+        
+        # 转换结果为字典列表
+        import json
+        results = []
+        for row in rows:
+            row_dict = dict(row)
+            
+            # 解析 Activity Twin 的状态数据（JSON）
+            activity_data = json.loads(row_dict["data"])
+            
+            # 构建结果字典
+            result = {
+                "id": row_dict["twin_id"],
+                "twin_id": row_dict["twin_id"],
+                "version": row_dict.get("version"),
+                "ts": row_dict["ts"],
+                **activity_data  # 展开 Activity 状态数据
+            }
+            
+            # 添加关联实体 ID（从 Activity 注册表）
+            for rel_entity in schema.related_entities:
+                result[rel_entity.key] = row_dict.get(rel_entity.key)
+            
+            # 添加 enrich 的字段
+            for rel_entity in schema.related_entities:
+                if rel_entity.entity in entities_to_enrich:
+                    entity_prefix = rel_entity.entity
+                    # 添加所有以 entity_prefix 开头的字段
+                    for key, value in row_dict.items():
+                        if key.startswith(f"{entity_prefix}_") and value is not None:
+                            result[key] = value
+            
+            results.append(result)
+        
+        return results
