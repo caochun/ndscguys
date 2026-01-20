@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}雇佣关系管理 - HRMS{% endblock %}
+{% block title %}聘用管理 - HRMS{% endblock %}
 
 {% block content %}
 <div class="px-4 py-6 sm:px-0">
     <div class="mb-6">
-        <h2 class="text-2xl font-bold text-gray-900">雇佣关系列表</h2>
-        <p class="mt-1 text-sm text-gray-500">根据 Schema 动态渲染的雇佣关系信息</p>
+        <h2 class="text-2xl font-bold text-gray-900">聘用管理</h2>
+        <p class="mt-1 text-sm text-gray-500">根据 Schema 动态渲染的聘用管理信息</p>
     </div>
 
     <!-- 过滤器区域 -->
@@ -56,7 +56,7 @@
         </div>
     </div>
 
-    <!-- 雇佣关系表格 -->
+    <!-- 聘用管理表格 -->
     <div id="employments-container" class="hidden overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
         <table class="min-w-full divide-y divide-gray-300">
             <thead class="bg-gray-50">
@@ -70,12 +70,12 @@
         </table>
     </div>
 
-    <!-- 雇佣关系详情模态框 -->
+    <!-- 聘用管理详情模态框 -->
     <div id="employment-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
         <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
             <div class="mt-3">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-medium text-gray-900">雇佣关系详情</h3>
+                    <h3 class="text-lg font-medium text-gray-900">聘用详情</h3>
                     <button id="close-modal" class="text-gray-400 hover:text-gray-500">
                         <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -97,10 +97,10 @@
 // Schema 定义（从后端传递）
 const schema = {{ schema | tojson }};
 
-// 显示人员的所有雇佣关系
+// 显示人员的所有聘用记录
 async function showPersonEmployments(personId) {
     try {
-        // 并行获取人员信息和雇佣关系
+        // 并行获取人员信息和聘用记录
         const [personResponse, employmentsResponse] = await Promise.all([
             fetch(`/api/twins/person/${personId}`),
             fetch(`/api/twins/person_company_employment?person_id=${personId}&enrich=person,company`)
@@ -114,7 +114,7 @@ async function showPersonEmployments(personId) {
             return;
         }
         if (!employmentsResult.success) {
-            alert('加载雇佣关系失败: ' + employmentsResult.error);
+            alert('加载聘用记录失败: ' + employmentsResult.error);
             return;
         }
         
@@ -149,9 +149,9 @@ async function showPersonEmployments(personId) {
         </div>`;
         html += '</div></div>';
         
-        // 所有雇佣记录
+        // 所有聘用记录
         html += '<div>';
-        html += '<h4 class="text-md font-semibold text-gray-900 mb-3">雇佣记录</h4>';
+        html += '<h4 class="text-md font-semibold text-gray-900 mb-3">聘用记录</h4>';
         
         if (data.employments && data.employments.length > 0) {
             html += '<div class="overflow-x-auto">';
@@ -200,7 +200,7 @@ async function showPersonEmployments(personId) {
             
             html += '</tbody></table></div>';
         } else {
-            html += '<p class="text-sm text-gray-500">暂无雇佣记录</p>';
+            html += '<p class="text-sm text-gray-500">暂无聘用记录</p>';
         }
         
         html += '</div>';
@@ -227,7 +227,7 @@ function renderTable(employments) {
     headerRow.innerHTML = '';
     tbody.innerHTML = '';
     
-    // 定义表格列（只显示雇佣关系相关信息，人员联系方式在详情中显示）
+    // 定义表格列（只显示聘用管理相关信息，人员联系方式在详情中显示）
     const columns = [
         { key: 'person_name', label: '姓名', type: 'person' },
         { key: 'company_name', label: '公司', type: 'company' },
@@ -247,7 +247,7 @@ function renderTable(employments) {
         headerRow.appendChild(th);
     });
     
-    // 按 person_id 分组，只保留最新的雇佣关系
+    // 按 person_id 分组，只保留最新的聘用记录
     const employmentByPerson = {};
     employments.forEach(emp => {
         const personId = emp.person_id;
@@ -375,7 +375,7 @@ function resetFilters() {
     loadEmployments();
 }
 
-// 加载雇佣关系列表（表格形式）
+// 加载聘用管理（表格形式）
 async function loadEmployments(filters = {}) {
     const loading = document.getElementById('loading');
     const error = document.getElementById('error');

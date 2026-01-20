@@ -76,11 +76,11 @@ def generate_test_data(db_path: Optional[str] = None):
             })
             print(f"    基础信息变更: 电话和地址更新")
     
-    # 生成雇佣关系数据
-    print("\n生成雇佣关系数据...")
+    # 生成聘用管理数据
+    print("\n生成聘用管理数据...")
     employments = []
     
-    # 90% 的人员有雇佣关系
+    # 90% 的人员有聘用记录
     employed_persons = random.sample(persons, int(len(persons) * 0.9))
     
     for person_id in employed_persons:
@@ -113,9 +113,9 @@ def generate_test_data(db_path: Optional[str] = None):
             "change_date": (datetime.now() - timedelta(days=random.randint(30, 365))).strftime("%Y-%m-%d"),
         })
         employments.append((employment_id, person_id, company_id))
-        print(f"  创建雇佣关系: Person {person_id} -> Company {company_id}")
+        print(f"  创建聘用记录: Person {person_id} -> Company {company_id}")
         
-        # 50% 的雇佣关系有岗位变动
+        # 50% 的聘用记录有岗位变动
         if random.random() < 0.5:
             # 追加岗位变动记录
             new_position = random.choice(positions)
@@ -127,7 +127,7 @@ def generate_test_data(db_path: Optional[str] = None):
                 new_employee_number_prefix = "SCG" if new_company_id == companies[0] else "SCE"
                 new_employee_number = f"{new_employee_number_prefix}{random.randint(1000, 9999)}"
                 
-                # 创建新的雇佣关系（跨公司）
+                # 创建新的聘用记录（跨公司）
                 new_employment_id = twin_dao.create_activity_twin(
                     "person_company_employment",
                     {
@@ -166,7 +166,7 @@ def generate_test_data(db_path: Optional[str] = None):
     attendance_count = 0
     attendance_activities = {}  # {(person_id, company_id): activity_id}
     
-    # 为有雇佣关系的人员生成最近7天的打卡记录
+    # 为有聘用记录的人员生成最近7天的打卡记录
     for employment_id, person_id, company_id in employments[:10]:  # 只生成前10个人的打卡记录
         # 为每个 person-company 组合创建一个打卡活动
         if (person_id, company_id) not in attendance_activities:
@@ -312,13 +312,67 @@ def generate_test_data(db_path: Optional[str] = None):
     
     print(f"  生成参与记录: {participation_count} 条")
     
+    # 生成考核数据
+    print("\n生成考核数据...")
+    assessment_count = 0
+    assessment_grades = ["优秀", "良好", "合格", "不合格"]
+    assessment_periods = [
+        "2024年第一季度", "2024年第二季度", "2024年第三季度", "2024年第四季度",
+        "2023年年度", "2024年年度"
+    ]
+    
+    # 为 60% 的人员生成考核记录
+    assessed_persons = random.sample(persons, int(len(persons) * 0.6))
+    
+    for person_id in assessed_persons:
+        # 每个人可能有 1-3 次考核记录
+        num_assessments = random.randint(1, 3)
+        
+        for _ in range(num_assessments):
+            assessment_id = twin_dao.create_activity_twin(
+                "person_assessment",
+                {
+                    "person_id": person_id,
+                }
+            )
+            
+            # 生成考核日期（过去一年内）
+            assessment_date = (datetime.now() - timedelta(days=random.randint(0, 365))).strftime("%Y-%m-%d")
+            assessment_period = random.choice(assessment_periods)
+            grade = random.choice(assessment_grades)
+            
+            # 生成评语（根据等级）
+            comments_map = {
+                "优秀": "工作表现突出，业绩显著，值得表扬。",
+                "良好": "工作表现良好，能够完成工作任务。",
+                "合格": "工作表现符合要求，基本完成任务。",
+                "不合格": "工作表现有待改进，需要加强学习和提升。"
+            }
+            comments = comments_map.get(grade, "")
+            
+            # 30% 的概率有自定义评语
+            if random.random() < 0.3:
+                comments = f"{comments} 具体表现：在项目中表现积极，与团队协作良好。"
+            
+            state_dao.append("person_assessment", assessment_id, {
+                "person_id": person_id,
+                "assessment_period": assessment_period,
+                "assessment_date": assessment_date,
+                "grade": grade,
+                "comments": comments if random.random() < 0.8 else None,  # 80% 有评语
+            })
+            assessment_count += 1
+    
+    print(f"  生成考核记录: {assessment_count} 条")
+    
     print("\n测试数据生成完成！")
     print(f"  公司: {len(companies)} 个")
     print(f"  人员: {len(persons)} 个")
-    print(f"  雇佣关系: {len(employments)} 个")
+    print(f"  聘用记录: {len(employments)} 个")
     print(f"  打卡记录: {attendance_count} 条")
     print(f"  项目: {len(projects)} 个")
     print(f"  项目参与记录: {participation_count} 条")
+    print(f"  考核记录: {assessment_count} 条")
 
 
 if __name__ == "__main__":

@@ -53,8 +53,8 @@ def persons():
 
 @web_bp.route("/employments")
 def employments():
-    """雇佣关系列表页"""
-    schema_dict = build_schema_dict("person_company_employment", "雇佣关系")
+    """聘用管理列表页"""
+    schema_dict = build_schema_dict("person_company_employment", "聘用管理")
     return render_template("employments.html", schema=schema_dict)
 
 
@@ -70,3 +70,10 @@ def projects():
         participation_schema_dict["related_entities"] = participation_schema.get("related_entities", [])
     
     return render_template("projects.html", schema=schema_dict, participation_schema=participation_schema_dict)
+
+
+@web_bp.route("/assessments")
+def assessments():
+    """考核列表页"""
+    schema_dict = build_schema_dict("person_assessment", "考核")
+    return render_template("assessments.html", schema=schema_dict)

@@ -55,11 +55,11 @@ def example_query_with_filters():
     state_dao = TwinStateDAO(db_path=":memory:")
     query_dao = TwinStateDAO(db_path=":memory:")
     
-    # 创建公司和雇佣关系
+    # 创建公司和聘用记录
     person_id = twin_dao.create_entity_twin("person")
     company_id = twin_dao.create_entity_twin("company")
     
-    # 创建雇佣活动
+    # 创建聘用活动
     employment_id1 = twin_dao.create_activity_twin(
         "person_company_employment",
         {"person_id": person_id, "company_id": company_id}

@@ -169,8 +169,8 @@ twins:
   # ========== Activity Twins ==========
   person_company_employment:
     type: activity
-    label: "人员-公司雇佣活动"
-    description: "记录人员与公司的雇佣关系活动"
+    label: "人员-公司聘用活动"
+    description: "记录人员与公司的聘用管理活动"
     table: "person_company_employment_activities"
     
     related_entities:
@@ -373,3 +373,58 @@ twins:
             field: "project_type"
             value: "劳务型"
             operator: "equals"
+
+  person_assessment:
+    type: activity
+    label: "人员考核活动"
+    description: "记录针对人员的考核情况，包括考核周期、考核日期、考核等级和评语"
+    table: "person_assessment_activities"
+    
+    related_entities:
+      - entity: person
+        role: assessee
+        key: person_id
+        required: true
+    
+    state_table: "person_assessment_history"
+    mode: versioned
+    unique_key: [activity_id, version]
+    
+    fields:
+      person_id:
+        type: reference
+        reference_entity: person
+        required: true
+        storage: foreign_key
+      
+      assessment_period:
+        type: string
+        required: true
+        label: "考核周期"
+        description: "考核所属的周期，如'2024年第一季度'、'2024年度'等"
+        ui:
+          component: text_input
+      
+      assessment_date:
+        type: date
+        required: true
+        label: "考核日期"
+        description: "进行考核的日期"
+        ui:
+          component: date_picker
+      
+      grade:
+        type: enum
+        required: true
+        label: "考核等级"
+        options: ["优秀", "良好", "合格", "不合格"]
+        ui:
+          component: select
+      
+      comments:
+        type: string
+        required: false
+        label: "考核评语"
+        description: "考核的详细评语和意见"
+        ui:
+          component: textarea

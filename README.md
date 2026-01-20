@@ -43,7 +43,7 @@
 #### Activity Twin（活动孪生）
 
 代表现实世界中的**活动/关系**，如：
-- `person_company_employment`（人员-公司雇佣关系）
+- `person_company_employment`（人员-公司聘用管理）
 - `person_project_participation`（人员-项目参与活动）
 - `person_company_attendance`（人员-公司考勤记录）
 
@@ -131,7 +131,7 @@ person:
 ```yaml
 person_company_employment:
   type: activity
-  label: "人员-公司雇佣活动"
+  label: "人员-公司聘用活动"
   table: "person_company_employment_activities"  # 注册表名
   
   # 关联的 Entity Twin
@@ -445,7 +445,7 @@ CREATE TABLE person_company_employment_history (
   - 支持 CRUD 操作（GET、POST、PUT）
   - 支持查询参数过滤
   - 支持 `enrich` 参数自动关联数据
-- **Web UI**：基于 Schema 动态渲染的页面（人员列表、雇佣关系、项目列表）
+- **Web UI**：基于 Schema 动态渲染的页面（人员列表、聘用管理、项目列表）
   - 人员管理：新增、编辑、过滤
   - 项目管理：新增、编辑、参与人员管理
   - 动态表单渲染和验证
@@ -526,10 +526,10 @@ GET /api/twins/<twin_name>?field1=value1&field2=value2&enrich=true
 # 获取所有人员
 GET /api/twins/person
 
-# 获取所有雇佣关系（enrich 人员姓名和公司名称）
+# 获取所有聘用记录（enrich 人员姓名和公司名称）
 GET /api/twins/person_company_employment?enrich=true
 
-# 获取指定人员的雇佣关系
+# 获取指定人员的聘用记录
 GET /api/twins/person_company_employment?person_id=1&enrich=person,company
 
 # 获取项目参与记录（enrich 人员和项目信息）
@@ -583,7 +583,7 @@ Content-Type: application/json
 
 ### 特殊业务端点（保留用于特定场景）
 
-- `GET /api/persons/<person_id>/employments` - 获取指定人员的所有雇佣关系（包含公司信息）
+- `GET /api/persons/<person_id>/employments` - 获取指定人员的所有聘用记录（包含公司信息）
 - `GET /api/projects/<project_id>` - 获取项目详情（包含参与人员列表）
 
 **注意**：这些端点主要用于向后兼容，新功能建议使用统一的 Twin API。

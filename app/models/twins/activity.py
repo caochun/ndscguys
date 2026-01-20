@@ -12,7 +12,7 @@ from .base import Twin, TwinType
 
 @dataclass
 class ActivityTwin(Twin):
-    """Activity Twin - 代表现实世界中的活动（打卡、发薪、雇佣等）"""
+    """Activity Twin - 代表现实世界中的活动（打卡、发薪、聘用等）"""
     
     # 关联的 Entity Twin ID（存储在 related_entity_ids 中）
     related_entity_ids: Dict[str, int] = field(default_factory=dict)  # {"person_id": 1, "company_id": 2}
