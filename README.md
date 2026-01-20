@@ -1,486 +1,433 @@
-# 人力资源管理系统 (HRMS)
+## 概览
 
-一个基于 **Schema Driven（Schema 驱动）** 和 **Twin（数字孪生）** 概念的人力资源管理系统。系统通过外部 DSL（YAML Schema）定义所有实体和活动的类型系统，实现完全由 Schema 驱动的数据模型、数据访问、业务逻辑和用户界面。
+这是一个基于 **Schema Driven（Schema 驱动）** 和 **Twin（数字孪生）** 核心设计之上的人力资源管理系统（HRMS）示例项目。
 
-## 核心设计理念
+整个系统可以分成两层来看：
 
-### Schema Driven（Schema 驱动）
+- **核心平台层**：一个通用的 Schema 驱动 Twin 平台（不依赖具体业务，只依赖 `twin_schema.yaml`）。
+- **HR 业务层**：在该平台之上实现的人力资源业务（人员、聘用、项目、社保、公积金、专项附加扣除、工资等）。
 
-**核心思想**：系统的所有行为都基于外部 DSL（`app/schema/twin_schema.yaml`）定义的类型系统，而不是硬编码在代码中。
+下面先讲清楚“平台能力”，再说明“在这个平台上实现了哪些 HR 业务”。
 
-#### Schema 驱动的层次
+---
 
-1. **数据模型层**：Schema 定义决定了数据库表结构（注册表和状态表）
-2. **数据访问层（DAO）**：通用的 `TwinDAO` 和 `TwinStateDAO` 根据 Schema 动态操作不同类型的数据
-3. **业务逻辑层（Service）**：通用的 `TwinService` 基于 Schema 提供统一的业务接口
-4. **API 层**：API 端点基于 Schema 动态处理请求，无需为每种类型编写专门代码
-5. **用户界面层**：前端模板根据 Schema 动态渲染表单、列表和详情页
+## 一、核心设计：Schema Driven Twin 平台
 
-#### Schema 定义的内容
+### 1.1 Schema Driven（Schema 驱动）
 
-- **Twin 类型**：Entity（实体）或 Activity（活动）
-- **字段定义**：字段类型、验证规则、UI 组件、存储方式
-- **状态流模式**：版本化（Versioned）或时间序列（Time-Series）
-- **关联关系**：Activity Twin 关联的 Entity Twin
-- **元数据**：标签、描述、表名等
+**核心思想**：系统的所有行为都基于外部 DSL（`app/schema/twin_schema.yaml`）定义的类型系统，而不是硬编码在 Python / HTML / SQL 中。
 
-### Twin（数字孪生）
+#### 1.1.1 Schema 驱动的五个层次
 
-**Twin** 是对现实世界中观察对象的抽象表示。系统将所有实体和活动都统一抽象为 Twin，使用统一的数据访问模式。
+1. **数据模型层**  
+   - Schema 决定数据库表结构（注册表 + 状态表）
+   - 例如 `person`、`person_company_employment` 对应不同的表组合
 
-#### Entity Twin（实体孪生）
+2. **数据访问层（DAO）**  
+   - `TwinDAO` 负责 Twin 注册表（entity / activity 实例）
+   - `TwinStateDAO` 负责 Twin 状态表（历史版本 / 时间序列）
 
-代表现实世界中的**实体对象**，如：
+3. **业务逻辑层（Service）**  
+   - `TwinService`：完全通用的 Twin 业务接口
+   - 只依赖 Schema，不依赖具体业务字段
+
+4. **API 层（REST）**  
+   - 统一的 `/api/twins/<twin_name>` 接口
+   - 不需要为每个业务类型写一套 CRUD
+
+5. **用户界面层（Templates + JS）**  
+   - 模板接收 Schema JSON
+   - JS 根据 `schema.fields` 动态绘制表格、表单、详情
+
+#### 1.1.2 Schema 中定义了什么
+
+- **Twin 类型**：`type: entity | activity`
+- **字段**：类型、label、验证、UI 组件、存储方式（JSON / 外键 / 唯一键）
+- **状态流模式**：`mode: versioned | time_series`
+- **唯一键**：如 `[person_id, version]` 或 `[activity_id, period]`
+- **关联关系**：Activity Twin 的 `related_entities`（person / company / project 等）
+
+Schema 一改：
+
+- 表结构自动重建（`init_db`）
+- DAO、Service、API 自动适配
+- 前端 UI 自动感知（字段新增/删除、label、枚举等）
+
+---
+
+### 1.2 Twin（数字孪生）模型
+
+Twin 把“实体”和“活动”统一抽象，统一用一套 DAO/Service/API/UI。
+
+#### 1.2.1 Entity Twin（实体孪生）
+
+代表静态或相对稳定的对象，例如：
+
 - `person`（人员）
 - `company`（公司）
 - `project`（项目）
 
-**特点**：
-- 有独立的注册表（如 `persons` 表），存储 `twin_id`
-- 有独立的状态流表（如 `person_history`），记录状态变更历史
-- 状态数据存储在 JSON 字段中，支持灵活扩展
+**存储结构：**
 
-#### Activity Twin（活动孪生）
+- 注册表：如 `persons`，只存 `id`
+- 状态表：如 `person_history`，存 `twin_id + version/time_key + data(JSON)`
 
-代表现实世界中的**活动/关系**，如：
-- `person_company_employment`（人员-公司聘用管理）
-- `person_project_participation`（人员-项目参与活动）
-- `person_company_attendance`（人员-公司考勤记录）
+#### 1.2.2 Activity Twin（活动孪生）
 
-**特点**：
-- 有独立的注册表（如 `person_company_employment_activities`），存储 `activity_id` 和关联的 Entity Twin ID
-- 有独立的状态流表（如 `person_company_employment_history`），记录活动状态变更历史
-- 通过 `related_entities` 定义关联的 Entity Twin（如 `person_id`、`company_id`）
+代表“行为 / 关系 / 事件”，例如：
 
-### 状态流（State Stream）
+- `person_company_employment`（人员-公司聘用）
+- `person_project_participation`（人员-项目参与）
+- `person_company_attendance`（人员考勤）
+- `person_company_payroll`（人员工资发放）
 
-每个 Twin 都有自己的**状态流**，记录状态的变更历史。状态流有两种模式：
+**存储结构：**
 
-#### 版本化状态流（Versioned）
+- 注册表：如 `person_company_employment_activities`  
+  存 `id` + `person_id` + `company_id` 等外键
+- 状态表：如 `person_company_employment_history`  
+  存 `twin_id + version/time_key + data(JSON)`（只存业务属性，不存外键）
 
-- **版本号**：使用递增的 `version` 作为版本号
-- **唯一键**：`(twin_id, version)`
-- **适用场景**：基础信息变更、岗位信息变更、薪资配置变更等需要完整历史记录的场景
-- **特点**：Append-only，每次变更追加新版本，保留完整历史
+Activity Twin 通过 `related_entities` 描述与 Entity Twin 的关系。
 
-**示例**：人员基本信息变更
+---
+
+### 1.3 状态流（State Stream）
+
+每个 Twin 都有自己的状态流，记录历史：
+
+#### 1.3.1 版本化状态流（Versioned）
+
+- 键：`(twin_id, version)`
+- 场景：基本信息、岗位变更、薪资配置、参与项目状态等
+- 特点：append-only，每次变更生成新版本
+
+示例（person）：
+
 ```yaml
 person:
   mode: versioned
   unique_key: [person_id, version]
 ```
 
-#### 时间序列状态流（Time-Series）
+#### 1.3.2 时间序列状态流（Time-Series）
 
-- **时间键**：使用时间维度（如 `date`、`batch_period`）作为唯一键
-- **唯一键**：`(twin_id, time_key)`
-- **适用场景**：打卡记录、薪酬记录等时间序列事件
-- **特点**：每个时间点一条记录，记录该时间点的事件
+- 键：`(twin_id, time_key)`（例如 date、batch_period、period）
+- 场景：打卡、工资单等“按时间点/周期”的记录
 
-**示例**：考勤记录
+示例（考勤）：
+
 ```yaml
 person_company_attendance:
   mode: time_series
-  unique_key: [person_id, company_id, date]
+  unique_key: [activity_id, date]
 ```
 
-## Schema 定义示例
-
-### Entity Twin Schema
+示例（工资单）：
 
 ```yaml
-person:
-  type: entity
-  label: "人员"
-  description: "人员实体"
-  table: "persons"                    # 注册表名
-  state_table: "person_history"        # 状态流表名
-  mode: versioned                      # 状态流模式
-  unique_key: [person_id, version]    # 唯一键
-  
-  fields:
-    name:
-      type: string
-      required: true
-      label: "姓名"
-      validation:
-        min_length: 1
-        max_length: 50
-      ui:
-        component: text_input
-    
-    phone:
-      type: string
-      required: false
-      label: "电话"
-      validation:
-        pattern: "^1[3-9]\\d{9}$"
-      ui:
-        component: tel_input
-    
-    avatar:
-      type: string
-      required: false
-      label: "头像"
-      ui:
-        component: image_url
+person_company_payroll:
+  mode: time_series
+  unique_key: [activity_id, period]
 ```
 
-### Activity Twin Schema
+---
 
-```yaml
-person_company_employment:
-  type: activity
-  label: "人员-公司聘用活动"
-  table: "person_company_employment_activities"  # 注册表名
-  
-  # 关联的 Entity Twin
-  related_entities:
-    - entity: person
-      role: employee
-      key: person_id
-      required: true
-    - entity: company
-      role: employer
-      key: company_id
-      required: true
-  
-  state_table: "person_company_employment_history"  # 状态流表名
-  mode: versioned
-  unique_key: [activity_id, version]
-  
-  fields:
-    person_id:
-      type: reference
-      reference_entity: person
-      required: true
-      storage: foreign_key              # 存储在注册表中
-    
-    company_id:
-      type: reference
-      reference_entity: company
-      required: true
-      storage: foreign_key
-    
-    position:
-      type: string
-      required: false
-      label: "职位"
-      ui:
-        component: text_input
-    
-    change_type:
-      type: enum
-      required: true
-      label: "变动类型"
-      options: ["入职", "转岗", "离职"]
-      ui:
-        component: select
-    
-    change_date:
-      type: date
-      required: true
-      label: "变动日期"
-      ui:
-        component: date_picker
+### 1.4 核心组件
+
+#### 1.4.1 Schema Loader（`app/schema/loader.py`）
+
+**职责：**
+
+- 读取 `twin_schema.yaml`
+- 解析为 `TwinSchema / FieldDefinition` 对象
+- 提供查询函数：`get_twin_schema(name)` / `list_entity_twins()` / `list_activity_twins()`
+
+#### 1.4.2 TwinDAO（`app/daos/twins/twin_dao.py`）
+
+**职责：**
+
+- 创建 Entity Twin：在对应注册表插入一条记录，返回 `id`
+- 创建 Activity Twin：在注册表插入记录并写入关联的 entity id
+- 查询 Twin 是否存在、获取注册信息
+
+#### 1.4.3 TwinStateDAO（`app/daos/twins/state_dao.py`）
+
+**核心接口：**
+
+- `append(twin_name, twin_id, data, time_key=None)`  
+  自动根据 `mode` 选择 version / time_key
+- `get_latest(twin_name, twin_id)`  
+  获取某个 Twin 的最新状态
+- `list_states(twin_name, twin_id)`  
+  获取历史记录
+- `query_states(...)` / `query_latest_states(...)`  
+  按字段过滤、按版本/时间排序
+- `query_latest_states_with_enrich(...)`  
+  对 Activity Twin 做 **JOIN enrich**：
+  - 根据 `related_entities` JOIN 对应 Entity 注册表和状态表
+  - 支持 versioned 和 time_series 两种模式
+  - 返回字段形如：`person_name`、`company_name`
+
+#### 1.4.4 TwinService（`app/services/twin_service.py`）
+
+**完全通用的 Service 层：**
+
+- `list_twins(twin_name, filters=None, enrich=None)`
+- `get_twin(twin_name, twin_id)`
+- `create_twin(twin_name, data)`
+- `update_twin(twin_name, twin_id, data)`
+- `_apply_auto_fields(...)`：根据 `auto: date/timestamp` 自动补充字段
+
+Service 不写任何业务 if/else，全靠 Schema。
+
+#### 1.4.5 API 层（`app/api.py`）
+
+**统一的 Twin API：**
+
+- `GET /api/twins/<twin_name>`  
+  - 支持查询参数过滤  
+  - 支持 `enrich=true` 或 `enrich=person,company`
+- `GET /api/twins/<twin_name>/<id>`
+- `POST /api/twins/<twin_name>`
+- `PUT /api/twins/<twin_name>/<id>`
+
+**统一响应格式：**
+
+```json
+{
+  "success": true,
+  "data": [...],
+  "count": 10
+}
 ```
 
-## 架构设计
+#### 1.4.6 前端模板层（`app/templates/*.html`）
 
-### 分层架构
+通用思路：
 
-```
-┌─────────────────────────────────────────┐
-│         用户界面层（Templates）          │
-│   基于 Schema 动态渲染表单、列表、详情    │
-└─────────────────────────────────────────┘
-                    ↓
-┌─────────────────────────────────────────┐
-│            API 层（api.py）              │
-│   统一的 REST API，基于 Schema 处理请求   │
-└─────────────────────────────────────────┘
-                    ↓
-┌─────────────────────────────────────────┐
-│        服务层（TwinService）             │
-│   通用的业务逻辑，基于 Schema 操作 Twin   │
-└─────────────────────────────────────────┘
-                    ↓
-┌─────────────────────────────────────────┐
-│   数据访问层（TwinDAO, TwinStateDAO）    │
-│   通用的数据访问，基于 Schema 操作数据库   │
-└─────────────────────────────────────────┘
-                    ↓
-┌─────────────────────────────────────────┐
-│         Schema 层（SchemaLoader）        │
-│   加载和解析 YAML Schema 定义            │
-└─────────────────────────────────────────┘
-                    ↓
-┌─────────────────────────────────────────┐
-│         数据库层（SQLite）               │
-│   根据 Schema 动态创建的表结构            │
-└─────────────────────────────────────────┘
-```
+- 后端把 Twin 的 Schema 通过 `schema | tojson` 注入模板
+- JS 使用 schema 的字段定义：
+  - 动态生成表头和列
+  - 根据 `type` / `enum` / `ui.component` 渲染展示和格式化
+  - 表单校验可以基于 `validation` 定义逐步完善
 
-### 核心组件
+---
 
-#### 1. Schema Loader（`app/schema/loader.py`）
+### 1.5 数据库存储模式（抽象层）
 
-负责加载和解析 YAML Schema 文件：
+#### 1.5.1 Entity Twin
 
-```python
-schema_loader = SchemaLoader()
-person_schema = schema_loader.get_twin_schema("person")
-```
+- 注册表：`<entity_table>(id)`
+- 状态表：`<state_table>(twin_id, version/time_key, ts, data JSON)`
 
-**功能**：
-- 加载 `twin_schema.yaml` 文件
-- 解析 Twin 定义
-- 提供查询接口（获取指定 Twin 的 Schema、列出所有 Entity/Activity Twin）
+#### 1.5.2 Activity Twin
 
-#### 2. Twin DAO（`app/daos/twins/twin_dao.py`）
+- 注册表：`<activity_table>(id, person_id, company_id, ...)`
+- 状态表：`<state_table>(twin_id, version/time_key, ts, data JSON)`
+- `related_entities` 字段（person_id、company_id 等）**只在注册表中存一份**，状态表只保存业务属性
 
-通用的 Twin 数据访问对象，处理所有 Twin 类型的创建和查询：
+---
 
-```python
-twin_dao = TwinDAO(db_path)
-person_id = twin_dao.create_entity_twin("person")
-employment_id = twin_dao.create_activity_twin(
-    "person_company_employment",
-    {"person_id": 1, "company_id": 2}
-)
-```
+## 二、HR 业务：在 Twin 平台上的具体实现
 
-**特点**：
-- 根据 Schema 动态创建 Entity 或 Activity Twin
-- 自动处理注册表的插入
-- 支持查询 Twin 信息
+在以上通用设计之上，本项目实现了一套“人力资源管理”业务，所有业务对象都通过 Twin 来描述和驱动。
 
-#### 3. Twin State DAO（`app/daos/twins/state_dao.py`）
+### 2.1 核心业务 Twin 一览
 
-通用的状态流数据访问对象，处理所有 Twin 的状态变更：
+#### 2.1.1 Entity Twins
 
-```python
-state_dao = TwinStateDAO(db_path)
-state_dao.append("person", person_id, {"name": "张三", "phone": "13800138000"})
-latest_state = state_dao.get_latest("person", person_id)
-all_states = state_dao.list_states("person", person_id)
-```
+- **`person`**：人员基础信息（姓名、证件、联系方式、头像等）
+- **`company`**：公司基础信息
+- **`project`**：项目（类型、内部/外部项目名、项目编号、状态、起止日期、预算等）
 
-**功能**：
-- `append()`：追加状态变更（自动处理版本号或时间键）
-- `get_latest()`：获取最新状态
-- `list_states()`：列出所有历史状态
-- `query_latest_states()`：查询最新状态（支持过滤）
-- `query_latest_states_with_enrich()`：查询最新状态并 enrich 关联的 Entity Twin 数据（通过 SQL JOIN）
+#### 2.1.2 Activity Twins
 
-**智能过滤**：
-- 对于 Entity Twin：直接过滤 `data` JSON 字段（支持 `LIKE` 操作符用于字符串字段的模糊搜索）
-- 对于 Activity Twin：自动识别 `related_entities` 的 key（如 `person_id`），先查询注册表获取 `twin_id` 列表，再过滤状态表
+- **就业与任职： `person_company_employment`**
+  - 关联：`person`、`company`
+  - 字段：职位、部门、员工号、员工类别、薪资类型（年薪/月薪/日薪）、薪资金额、变动类型、变动日期等
+  - 模式：`mode: versioned`，记录历次变更（入职、转岗、离职等）
 
-**Enrich 机制**：
-- 仅对 Activity Twin 有效
-- 通过 SQL JOIN 自动关联相关 Entity Twin 的最新状态
-- 返回的数据中包含关联实体的所有字段（字段名前缀为 `{entity_name}_`，如 `person_name`、`company_name`）
-- 支持 enrich 所有 related_entities（`enrich=true`）或指定实体（`enrich=person,project`）
+- **项目参与： `person_project_participation`**
+  - 关联：`person`、`project`
+  - 字段：参与状态（入项 / 出项）、变动日期、劳务定价（劳务型项目适用）
+  - 模式：`versioned`
 
-#### 4. Twin Service（`app/services/twin_service.py`）
+- **考勤： `person_company_attendance`**
+  - 关联：`person`、`company`
+  - 字段：日期、上下班时间、工时等
+  - 模式：`time_series`，按天记录
 
-通用的业务逻辑层，提供统一的业务接口：
+- **人员考核： `person_assessment`**
+  - 关联：`person`
+  - 字段：考核周期、日期、等级（优秀/良好/合格/不合格）、评语等
+  - 模式：`versioned`
 
-```python
-service = TwinService(db_path)
-persons = service.list_twins("person")
-person = service.get_twin("person", person_id)
-employments = service.list_twins("person_company_employment", filters={"person_id": 1})
-```
+- **社保基数： `person_company_social_security_base`**
+  - 关联：`person`、`company`
+  - 字段：缴费基数、生效日期等
+  - 模式：`versioned`
 
-**功能**：
-- `list_twins()`：列出所有 Twin 及其最新状态（支持过滤和 enrich）
-- `get_twin()`：获取指定 Twin 的详情（包含完整历史）
-- `create_twin()`：创建新的 Twin（Entity 或 Activity）
-- `update_twin()`：更新 Twin（追加新状态版本）
-- `query_twins()`：基于过滤条件查询 Twin
+- **公积金基数： `person_company_housing_fund_base`**
+  - 关联：`person`、`company`
+  - 字段：缴费基数、生效日期等
 
-**特点**：
-- 自动处理 Entity 和 Activity Twin 的差异
-- 自动展开状态数据
-- 自动添加 Activity Twin 的关联实体 ID
-- **Enrich 机制**：Activity Twin 查询时可通过 `enrich` 参数自动关联 Entity Twin 数据
+- **专项附加扣除： `person_tax_deduction`**
+  - 关联：`person`
+  - 字段：扣除类型、金额、生效/失效日期、状态、备注等
 
-#### 5. API 层（`app/api.py`）
+- **工资单： `person_company_payroll`**
+  - 关联：`person`、`company`
+  - 模式：`time_series`，按 `period=YYYY-MM` 记录
+  - 字段分两类：
+    - **计算依据快照**：`base_salary`、`salary_type`、`assessment_grade`、`social_security_base`、`housing_fund_base`、`tax_deduction_total`
+    - **计算结果**：`base_amount`、`performance_bonus`、`social_security_deduction`、`housing_fund_deduction`、`taxable_income`、`tax_deduction`、`total_amount`
+    - **状态信息**：`payment_date`、`status`、`remarks`
 
-统一的 REST API 端点，基于 Schema 处理请求：
+以上所有 Twin 定义都只存在于 `twin_schema.yaml` 中，其余层（DAO/Service/API/UI）全部是通用代码。
 
-```python
-# 统一的 Twin API
-@api_bp.route("/twins/<twin_name>", methods=["GET"])
-def list_twins(twin_name: str):
-    service = get_twin_service()
-    twins = service.list_twins(twin_name, filters=filters, enrich=enrich)
-    return standard_response(True, twins)
-```
+---
 
-**统一的 Twin API 接口**：
-- `GET /api/twins/<twin_name>` - 列出所有指定类型的 Twin（支持过滤和 enrich）
-- `GET /api/twins/<twin_name>/<id>` - 获取指定 Twin 的详情（包含历史）
-- `POST /api/twins/<twin_name>` - 创建新的 Twin
-- `PUT /api/twins/<twin_name>/<id>` - 更新 Twin（追加新状态）
+### 2.2 业务服务层：PayrollService 等
 
-**特点**：
-- 所有 Twin 类型使用统一的 API 接口，无需为每种类型编写专门代码
-- 支持查询参数过滤（如 `?person_id=1&project_id=2`）
-- 支持 `enrich` 参数自动关联 Entity Twin 数据（仅对 Activity Twin 有效）
-- 统一的错误处理和响应格式
+在通用 `TwinService` 之上，项目增加了一个**少量业务逻辑更强的服务**：
 
-#### 6. 用户界面层（`app/templates/`）
+#### 2.2.1 `PayrollService`（`app/services/payroll_service.py`）
 
-基于 Schema 动态渲染的 HTML 模板：
+**职责：**
 
-```html
-<!-- 前端 JavaScript 根据 Schema 动态生成表格 -->
-<script>
-  const schema = {{ schema | tojson }};
-  // 根据 schema.fields 动态生成表头和表格行
-</script>
-```
+- 从各类 Activity Twin 中读取“最新有效状态”：
+  - 最新聘用薪资（`person_company_employment`）
+  - 最新考核（`person_assessment`）
+  - 最新社保、公积金基数（`person_company_social_security_base` / `person_company_housing_fund_base`）
+  - 当前有效的专项附加扣除（`person_tax_deduction`）
+- 按既定规则计算当月工资（预览 / 入库）：
+  - 绩效奖金（根据考核等级）
+  - 社保、公积金扣除（按基数按比例计算）
+  - 个税应纳税所得额 + 个税金额
+  - 实发工资合计
+- 将当期用于计算的“输入值”以快照形式写入 `person_company_payroll`，保证**历史可追溯**，不依赖后续 Activity Twin 的修改。
 
-**特点**：
-- 模板接收 Schema 对象
-- JavaScript 根据 Schema 动态渲染表单、列表、详情页
-- 支持字段类型、验证规则、UI 组件的动态渲染
+**对平台的复用：**
 
-## 项目结构
+- 所有底层读写仍通过 `TwinService` + `TwinDAO` + `TwinStateDAO`
+- 业务只负责“如何用现有 Twin 组合出工资单”
 
-```
+---
+
+### 2.3 业务 API
+
+除了统一的 `/api/twins/<twin_name>` 接口外，针对工资做了两个业务 API：
+
+- `POST /api/payroll/calculate`  
+  - 入参：`person_id`, `company_id`, `period`（YYYY-MM）  
+  - 行为：调用 `PayrollService.calculate_payroll`，只算不落库
+
+- `POST /api/payroll/generate`  
+  - 入参同上  
+  - 行为：调用 `PayrollService.generate_payroll`，生成一条 `person_company_payroll` Activity Twin + 对应 state
+
+其他页面（聘用列表、项目参与、社保/公积金/专项扣除）主要通过统一的 Twin API + enrich 实现。
+
+---
+
+### 2.4 业务 UI 页面
+
+UI 层全部是“在 Schema + Twin 平台之上”的具体业务实现。
+
+#### 2.4.1 人员管理（`persons.html`）
+
+- 使用 `person` Schema 驱动：
+  - 人员卡片列表（头像、姓名、核心信息）
+  - 详情弹窗：当前信息 + 历史记录（根据 TwinState 历史）
+  - 布局针对 HR 场景做了优化（紧凑、4 列卡片、头像 URL 在编辑表单中维护）
+
+#### 2.4.2 聘用管理（`employments.html`）
+
+- 使用 `person_company_employment` Schema：
+  - 主表格：按 `person` 聚合，只显示每人最新聘用状态
+  - 点击行：弹窗展示该人员全部聘用历史
+  - 显示薪资类型 + 薪资金额（格式化为 “¥金额 / 年|月|日”）
+
+#### 2.4.3 项目管理（`projects.html`）
+
+- 使用 `project` + `person_project_participation` Schema：
+  - Tab1：项目列表（基本字段 +状态）
+  - Tab2：“人员在项”：按人维度查看各项目参与状态
+  - 点击项目行：展示该项目参与人员列表
+  - 点击人员参与记录：展示该人该项目的完整参与历史
+  - 对“专项型”项目，劳务价展示为 “N/A”
+
+#### 2.4.4 缴费与扣除（`contributions.html`）
+
+统一页面下的三个标签：
+
+- “社保基数” Tab → `person_company_social_security_base`
+- “公积金基数” Tab → `person_company_housing_fund_base`
+- “专项附加扣除” Tab → `person_tax_deduction`
+
+实现方式：
+
+- 每个板块内部本质上是一个“小页面”：有自己的过滤栏、表格、详情弹窗、表单
+- 但不再使用 iframe，而是把三块内容嵌入同一 DOM 中，通过 Tab 控制显示/隐藏
+- 所有表格和表单字段都由对应 Schema 决定
+
+#### 2.4.5 工资管理（`payroll.html`）
+
+两个标签页：
+
+1. **“生成工资单”**
+   - 选择周期、公司、人员
+   - 调用 `/api/payroll/calculate` 展示“计算依据 + 计算结果”
+   - 用户确认后调用 `/api/payroll/generate` 落库
+
+2. **“工资单列表”**
+   - 使用 `person_company_payroll` Schema + enrich（person, company）
+   - 过滤条件：周期、公司名、人员名、状态
+   - 列表展示关键字段：周期、人员、公司、应发、实发、状态、发放日期
+   - 详情弹窗展示完整快照（输入 & 结果），用于审计和追溯
+
+---
+
+## 三、项目结构（平台 + 业务混合）
+
+```text
 app/
-├── __init__.py                 # Flask 应用工厂
+├── __init__.py                  # Flask 应用工厂，注册 web / api 蓝图
+├── db.py                        # 根据 Schema 初始化数据库
+├── seed.py                      # 基于 Schema 生成测试数据
+├── schema/
+│   ├── twin_schema.yaml         # Twin 类型系统定义（平台 + HR 业务）
+│   ├── loader.py                # SchemaLoader（平台核心）
+│   └── models.py                # Schema 数据结构
 ├── models/
-│   └── twins/                  # Twin 模型
-│       ├── base.py             # Twin 基类
+│   └── twins/
+│       ├── base.py              # Twin 基类
 │       ├── entity.py            # Entity Twin
 │       ├── activity.py          # Activity Twin
 │       └── state.py             # Twin State（状态记录）
-├── schema/
-│   ├── twin_schema.yaml         # Twin 类型系统定义（YAML DSL）
-│   ├── loader.py                # Schema 加载器
-│   └── models.py                # Schema 数据结构（FieldDefinition, TwinSchema）
 ├── daos/
-│   ├── base_dao.py              # 基础 DAO
+│   ├── base_dao.py
 │   └── twins/
-│       ├── twin_dao.py          # Twin DAO（创建、查询 Twin）
-│       └── state_dao.py         # 状态流 DAO（管理状态变更、查询）
+│       ├── twin_dao.py          # TwinDAO（平台）
+│       └── state_dao.py         # TwinStateDAO（平台）
 ├── services/
-│   └── twin_service.py          # 通用 Twin 服务层
-├── api.py                       # REST API 端点
-├── routes.py                    # Web 页面路由
-├── db.py                        # 数据库初始化（基于 Schema）
-├── seed.py                      # 测试数据生成
-└── templates/                   # HTML 模板（基于 Schema 动态渲染）
-    ├── base.html
-    ├── persons.html
-    ├── employments.html
-    └── projects.html
+│   ├── twin_service.py          # 通用 TwinService（平台）
+│   └── payroll_service.py       # PayrollService（HR 业务）
+├── api.py                       # 统一 Twin API + payroll 专用 API
+├── routes.py                    # Web 页面路由（HR 业务 UI）
+└── templates/
+    ├── base.html                # 通用布局 + 导航
+    ├── persons.html             # 人员管理（HR 业务）
+    ├── employments.html         # 聘用管理
+    ├── projects.html            # 项目 & 人员在项
+    ├── contributions.html       # 社保 / 公积金 / 专项扣除 标签页
+    └── payroll.html             # 工资管理
 ```
 
-## 数据存储设计
+---
 
-### Entity Twin 存储
-
-**注册表**（如 `persons`）：
-```sql
-CREATE TABLE persons (
-    id INTEGER PRIMARY KEY AUTOINCREMENT
-);
-```
-
-**状态流表**（如 `person_history`）：
-```sql
-CREATE TABLE person_history (
-    twin_id INTEGER NOT NULL,
-    version INTEGER NOT NULL,
-    ts TEXT NOT NULL,
-    data TEXT NOT NULL,  -- JSON 格式
-    PRIMARY KEY (twin_id, version),
-    FOREIGN KEY (twin_id) REFERENCES persons(id)
-);
-```
-
-### Activity Twin 存储
-
-**注册表**（如 `person_company_employment_activities`）：
-```sql
-CREATE TABLE person_company_employment_activities (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    person_id INTEGER NOT NULL,
-    company_id INTEGER NOT NULL,
-    FOREIGN KEY (person_id) REFERENCES persons(id),
-    FOREIGN KEY (company_id) REFERENCES companies(id)
-);
-```
-
-**状态流表**（如 `person_company_employment_history`）：
-```sql
-CREATE TABLE person_company_employment_history (
-    twin_id INTEGER NOT NULL,
-    version INTEGER NOT NULL,
-    ts TEXT NOT NULL,
-    data TEXT NOT NULL,  -- JSON 格式（不包含 person_id, company_id）
-    PRIMARY KEY (twin_id, version),
-    FOREIGN KEY (twin_id) REFERENCES person_company_employment_activities(id)
-);
-```
-
-**注意**：`related_entities` 的字段（如 `person_id`、`company_id`）存储在注册表中，而不是状态表的 `data` JSON 中。
-
-## 核心功能
-
-### ✅ 已实现
-
-- **Schema 系统**：YAML Schema 定义、加载器、解析器
-- **Twin 模型**：Entity Twin、Activity Twin、Twin State
-- **数据访问层**：通用的 TwinDAO 和 TwinStateDAO
-- **Enrich 机制**：Activity Twin 自动关联 Entity Twin 数据（通过 SQL JOIN）
-- **服务层**：通用的 TwinService（支持 enrich 参数）
-- **统一 API 层**：统一的 `/api/twins/<twin_name>` REST API 接口
-  - 支持 CRUD 操作（GET、POST、PUT）
-  - 支持查询参数过滤
-  - 支持 `enrich` 参数自动关联数据
-- **Web UI**：基于 Schema 动态渲染的页面（人员列表、聘用管理、项目列表）
-  - 人员管理：新增、编辑、过滤
-  - 项目管理：新增、编辑、参与人员管理
-  - 动态表单渲染和验证
-- **数据库初始化**：根据 Schema 自动创建表结构
-- **测试数据生成**：基于 Schema 生成测试数据
-
-### ⏳ 待实现
-
-- **字段验证器**：基于 Schema 的字段验证（类型、格式、必填等）
-- **创建/编辑功能**：基于 Schema 动态生成表单，支持创建和编辑 Twin
-- **高级查询**：更复杂的过滤和排序功能
-- **权限控制**：基于角色的访问控制
-
-## Schema Driven 的优势
-
-1. **无需修改代码即可扩展**：添加新的 Twin 类型只需在 Schema 文件中定义，系统自动支持
-2. **统一的访问模式**：所有 Twin 类型使用相同的 DAO、Service 和 API 接口
-3. **Enrich 机制**：Activity Twin 查询时自动关联 Entity Twin 数据，避免 N+1 查询问题
-4. **类型安全**：基于 Schema 的字段验证和类型检查
-5. **动态 UI**：前端根据 Schema 自动渲染表单和列表，无需为每种类型编写专门代码
-6. **灵活的数据模型**：JSON 字段存储状态数据，支持灵活扩展，无需频繁修改表结构
-7. **完整的历史记录**：状态流模式自动记录所有变更历史
-8. **易于维护**：Schema 集中管理，修改类型定义只需更新 YAML 文件
-9. **性能优化**：通过 SQL JOIN 实现 enrich，在数据库层面完成数据关联，减少网络请求
-
-## 技术栈
-
-- **Python 3.9+**
-- **Flask 3.0.0** - Web 框架
-- **SQLite** - 数据库（支持 JSON1 扩展）
-- **PyYAML 6.0.1** - YAML Schema 解析
-- **Tailwind CSS** - 前端样式框架（CDN）
-- **pytest 8.3.3** - 测试框架
-
-## 安装和运行
+## 四、安装与运行
 
 ```bash
 # 1. 创建虚拟环境
@@ -490,157 +437,114 @@ source venv/bin/activate
 # 2. 安装依赖
 pip install -r requirements.txt
 
-# 3. 初始化数据库（自动根据 Schema 创建表结构）
+# 3. 初始化数据库（根据 Schema 自动建表）
 python -c "from app.db import init_db; from config import Config; init_db(str(Config.DATABASE_PATH))"
 
 # 4. 生成测试数据（可选）
-python -c "from app.seed import generate_test_data; from config import Config; generate_test_data(str(Config.DATABASE_PATH))"
+python -c \"from app.seed import generate_test_data; from config import Config; generate_test_data(str(Config.DATABASE_PATH))\"
 
-# 5. 运行应用
+# 5. 启动应用
 python main.py
 # 或指定端口
 PORT=5001 python main.py
 ```
 
-访问 `http://localhost:5000`（或指定端口）查看 Web UI。
+访问 `http://localhost:5000` 或 `http://localhost:5001` 查看 Web UI。
 
-## API 端点
+---
 
-### 统一的 Twin API（推荐使用）
+## 五、统一 Twin API 使用说明
 
-所有 Twin 类型都使用统一的 API 接口：
+### 5.1 列出 Twin
 
-#### 列出 Twin
-```
+```text
 GET /api/twins/<twin_name>?field1=value1&field2=value2&enrich=true
 ```
 
-**参数**：
-- `field1`, `field2`, ...：过滤条件（字段名=值）
-- `enrich`：enrich 参数，仅对 Activity Twin 有效
-  - `enrich=true`：enrich 所有 related_entities
-  - `enrich=person,project`：只 enrich 指定的实体
+**参数：**
 
-**示例**：
-```bash
-# 获取所有人员
+- `field1`, `field2`：字段过滤（支持 entity / activity）
+- `enrich`（仅对 Activity Twin 有效）：
+  - `enrich=true`：enrich 所有关联实体
+  - `enrich=person,company`：只 enrich 指定实体
+
+**示例：**
+
+```text
+# 所有人
 GET /api/twins/person
 
-# 获取所有聘用记录（enrich 人员姓名和公司名称）
+# 所有聘用记录（enrich 人员和公司）
 GET /api/twins/person_company_employment?enrich=true
 
-# 获取指定人员的聘用记录
+# 某人所有聘用记录
 GET /api/twins/person_company_employment?person_id=1&enrich=person,company
 
-# 获取项目参与记录（enrich 人员和项目信息）
+# 某项目所有参与记录
 GET /api/twins/person_project_participation?project_id=1&enrich=person,project
 ```
 
-#### 获取 Twin 详情
-```
+### 5.2 获取 Twin 详情
+
+```text
 GET /api/twins/<twin_name>/<twin_id>
 ```
 
-返回 Twin 的完整信息，包括：
+返回：
+
 - `id`：Twin ID
-- `current`：当前状态数据
-- `history`：历史状态记录数组
+- `current`：当前状态
+- `history`：历史状态数组（包含 version / ts / data）
 
-#### 创建 Twin
-```
+### 5.3 创建 / 更新 Twin
+
+```text
 POST /api/twins/<twin_name>
+PUT  /api/twins/<twin_name>/<twin_id>
 Content-Type: application/json
-
-{
-  "field1": "value1",
-  "field2": "value2",
-  ...
-}
 ```
 
-对于 Activity Twin，需要在数据中包含关联的 Entity Twin ID：
+对于 Activity Twin，请在 body 中包含所有 required 的 `related_entities` id，比如：
+
 ```json
 {
   "person_id": 1,
-  "project_id": 2,
-  "status": "入项",
+  "company_id": 2,
+  "change_type": "入职",
   "change_date": "2024-01-01"
-    }
+}
 ```
 
-#### 更新 Twin
-```
-PUT /api/twins/<twin_name>/<twin_id>
-Content-Type: application/json
+更新会**追加新状态**，不会覆盖历史。
 
-{
-  "field1": "new_value1",
-  ...
-    }
-```
+### 5.4 业务专用端点（示例）
 
-更新会追加新的状态版本，不会覆盖历史记录。
+- `GET /api/persons/<person_id>/employments`  
+  获取某人的所有聘用记录（包含公司信息）
+- `GET /api/projects/<project_id>`  
+  获取项目详情（包含参与人员列表）
+- `POST /api/payroll/calculate` / `POST /api/payroll/generate`  
+  工资计算与生成（见上文说明）
 
-### 特殊业务端点（保留用于特定场景）
+---
 
-- `GET /api/persons/<person_id>/employments` - 获取指定人员的所有聘用记录（包含公司信息）
-- `GET /api/projects/<project_id>` - 获取项目详情（包含参与人员列表）
+## 六、扩展指南：在平台上加新业务
 
-**注意**：这些端点主要用于向后兼容，新功能建议使用统一的 Twin API。
+1. 在 `twin_schema.yaml` 中新增 Twin 定义（entity 或 activity）。
+2. 重新执行数据库初始化（或迁移）。
+3. 使用 `TwinService` / `/api/twins/<twin_name>` 即可进行 CRUD。
+4. 如有复杂业务规则，可增加专用 Service（类似 `PayrollService`）。
+5. 如需前端界面，在 `routes.py` 新增路由，传入对应 Schema，前端 JS 按同样模式动态渲染即可。
 
-## 开发指南
+---
 
-### 添加新的 Twin 类型
+## 七、技术栈
 
-1. **在 `app/schema/twin_schema.yaml` 中添加定义**：
+- **Python 3.9+**
+- **Flask 3.0.0**
+- **SQLite + JSON1 扩展**
+- **PyYAML 6.0.1**
+- **Tailwind CSS（通过 CDN 用于示例 UI）**
+- **pytest 8.3.3**
 
-```yaml
-my_new_twin:
-  type: entity  # 或 activity
-  label: "我的新 Twin"
-  table: "my_new_twins"
-  state_table: "my_new_twin_history"
-  mode: versioned
-  unique_key: [twin_id, version]
-  fields:
-    field1:
-      type: string
-      required: true
-      label: "字段1"
-```
-
-2. **重新初始化数据库**（会自动创建新表）：
-```bash
-python -c "from app.db import init_db; from config import Config; init_db(str(Config.DATABASE_PATH))"
-```
-
-3. **使用通用接口操作**：
-```python
-service = TwinService()
-twins = service.list_twins("my_new_twin")
-```
-
-4. **通过统一 API 访问**（无需添加专门端点）：
-```bash
-# 列出所有
-GET /api/twins/my_new_twin
-
-# 获取详情
-GET /api/twins/my_new_twin/1
-
-# 创建
-POST /api/twins/my_new_twin
-Content-Type: application/json
-{"field1": "value1"}
-
-# 更新
-PUT /api/twins/my_new_twin/1
-Content-Type: application/json
-{"field1": "new_value"}
-```
-
-5. **（可选）添加 Web UI**：在 `routes.py` 中添加页面路由，传递 Schema 给模板即可
-
-## 许可证
-
-（待定）
+（本项目主要目的是演示一个“Schema Driven Twin 平台 + HR 业务”的整体设计，并非生产级 HRMS。） 
