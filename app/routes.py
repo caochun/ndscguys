@@ -77,3 +77,43 @@ def assessments():
     """考核列表页"""
     schema_dict = build_schema_dict("person_assessment", "考核")
     return render_template("assessments.html", schema=schema_dict)
+
+
+@web_bp.route("/social-bases")
+def social_bases():
+    """社保基数列表页"""
+    schema_dict = build_schema_dict("person_company_social_security_base", "社保基数")
+    return render_template("social_bases.html", schema=schema_dict)
+
+
+@web_bp.route("/housing-fund-bases")
+def housing_fund_bases():
+    """公积金基数列表页"""
+    schema_dict = build_schema_dict("person_company_housing_fund_base", "公积金基数")
+    return render_template("housing_fund_bases.html", schema=schema_dict)
+
+
+@web_bp.route("/tax-deductions")
+def tax_deductions():
+    """专项附加扣除列表页"""
+    schema_dict = build_schema_dict("person_tax_deduction", "专项附加扣除")
+    return render_template("tax_deductions.html", schema=schema_dict)
+
+
+@web_bp.route("/contributions")
+def contributions():
+    """缴费与专项附加扣除汇总页（Tab 视图）"""
+    social_schema = build_schema_dict("person_company_social_security_base", "社保基数")
+    housing_schema = build_schema_dict("person_company_housing_fund_base", "公积金基数")
+    tax_schema = build_schema_dict("person_tax_deduction", "专项附加扣除")
+    return render_template("contributions.html", 
+                          social_schema=social_schema,
+                          housing_schema=housing_schema,
+                          tax_schema=tax_schema)
+
+
+@web_bp.route("/payroll")
+def payroll():
+    """工资管理页"""
+    schema_dict = build_schema_dict("person_company_payroll", "工资管理")
+    return render_template("payroll.html", schema=schema_dict)

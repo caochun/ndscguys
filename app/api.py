@@ -9,6 +9,7 @@ from typing import Optional
 
 from app.services.twin_service import TwinService
 from app.schema.loader import SchemaLoader
+from app.services.payroll_service import PayrollService
 from config import Config
 
 api_bp = Blueprint("api", __name__)
@@ -19,11 +20,12 @@ def get_twin_service() -> TwinService:
     return TwinService(db_path=str(Config.DATABASE_PATH))
 
 
-def get_schema_loader() -> SchemaLoader:
-    """获取 SchemaLoader 实例"""
     return SchemaLoader()
 
 
+def get_payroll_service() -> PayrollService:
+    """获取 PayrollService 实例"""
+    return PayrollService(db_path=str(Config.DATABASE_PATH))
 def standard_response(success: bool, data=None, error: str = None, status_code: int = 200):
     """标准响应格式"""
     response = {"success": success}
@@ -139,3 +141,57 @@ def update_twin(twin_name: str, twin_id: int):
         return standard_response(False, error=str(e), status_code=500)
 
 
+
+
+# ==================== 工资计算与发放 API ====================
+
+@api_bp.route("/payroll/calculate", methods=["POST"])
+def calculate_payroll():
+    """
+    计算单个人员在指定周期的工资（仅计算，不写库）
+    
+    POST /api/payroll/calculate
+    Body: { "person_id": 1, "company_id": 2, "period": "2024-01" }
+    """
+    try:
+        payload = request.get_json() or {}
+        person_id = payload.get("person_id")
+        company_id = payload.get("company_id")
+        period = payload.get("period")
+        
+        if not all([person_id, company_id, period]):
+            return standard_response(False, error="person_id, company_id, period 为必填字段", status_code=400)
+        
+        service = get_payroll_service()
+        result = service.calculate_payroll(int(person_id), int(company_id), str(period))
+        return standard_response(True, result)
+    except ValueError as e:
+        return standard_response(False, error=str(e), status_code=400)
+    except Exception as e:
+        return standard_response(False, error=str(e), status_code=500)
+
+
+@api_bp.route("/payroll/generate", methods=["POST"])
+def generate_payroll():
+    """
+    计算并生成工资单（person_company_payroll）
+    
+    POST /api/payroll/generate
+    Body: { "person_id": 1, "company_id": 2, "period": "2024-01" }
+    """
+    try:
+        payload = request.get_json() or {}
+        person_id = payload.get("person_id")
+        company_id = payload.get("company_id")
+        period = payload.get("period")
+        
+        if not all([person_id, company_id, period]):
+            return standard_response(False, error="person_id, company_id, period 为必填字段", status_code=400)
+        
+        service = get_payroll_service()
+        result = service.generate_payroll(int(person_id), int(company_id), str(period))
+        return standard_response(True, result, status_code=201)
+    except ValueError as e:
+        return standard_response(False, error=str(e), status_code=400)
+    except Exception as e:
+        return standard_response(False, error=str(e), status_code=500)

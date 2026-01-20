@@ -572,10 +572,15 @@ class TwinStateDAO(BaseDAO):
             select_fields = [
                 f"{state_alias}.id",
                 f"{state_alias}.twin_id",
-                f"{state_alias}.version",
+                # version / time_key 根据模式不同而不同
                 f"{state_alias}.ts",
                 f"{state_alias}.data",
             ]
+            # 根据状态流模式添加版本或时间键字段
+            if schema.mode == StateStreamMode.VERSIONED:
+                select_fields.insert(2, f"{state_alias}.version")
+            else:  # time_series
+                select_fields.insert(2, f"{state_alias}.time_key")
             
             # 添加 Activity 注册表的字段（用于获取关联实体 ID）
             for rel_entity in schema.related_entities:

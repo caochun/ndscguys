@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import random
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Tuple
 
 from app.daos.twins.twin_dao import TwinDAO
 from app.daos.twins.state_dao import TwinStateDAO
@@ -76,6 +76,18 @@ def generate_test_data(db_path: Optional[str] = None):
             })
             print(f"    基础信息变更: 电话和地址更新")
     
+    # 工具函数：根据薪资类型生成随机薪资
+    def generate_salary() -> Tuple[str, float]:
+        """生成随机的薪资类型和薪资金额"""
+        salary_type = random.choice(["年薪", "月薪", "日薪"])
+        if salary_type == "年薪":
+            amount = random.randint(12, 40) * 10000  # 12w - 40w
+        elif salary_type == "月薪":
+            amount = random.randint(8, 40) * 1000   # 8k - 40k
+        else:  # 日薪
+            amount = random.choice([300, 400, 500, 600, 800, 1000, 1200, 1500])
+        return salary_type, float(amount)
+    
     # 生成聘用管理数据
     print("\n生成聘用管理数据...")
     employments = []
@@ -102,6 +114,8 @@ def generate_test_data(db_path: Optional[str] = None):
         departments = ["研发部", "产品部", "测试部", "设计部"]
         employee_types = ["正式员工", "试用期员工", "部门负责人"]
         
+        salary_type, salary = generate_salary()
+        
         state_dao.append("person_company_employment", employment_id, {
             "person_id": person_id,
             "company_id": company_id,
@@ -109,6 +123,8 @@ def generate_test_data(db_path: Optional[str] = None):
             "department": random.choice(departments),
             "employee_number": employee_number,
             "employee_type": random.choice(employee_types),
+            "salary_type": salary_type,
+            "salary": salary,
             "change_type": "入职",
             "change_date": (datetime.now() - timedelta(days=random.randint(30, 365))).strftime("%Y-%m-%d"),
         })
@@ -136,6 +152,8 @@ def generate_test_data(db_path: Optional[str] = None):
                     }
                 )
                 
+                new_salary_type, new_salary = generate_salary()
+                
                 state_dao.append("person_company_employment", new_employment_id, {
                     "person_id": person_id,
                     "company_id": new_company_id,
@@ -143,12 +161,16 @@ def generate_test_data(db_path: Optional[str] = None):
                     "department": new_department,
                     "employee_number": new_employee_number,
                     "employee_type": random.choice(employee_types),
+                    "salary_type": new_salary_type,
+                    "salary": new_salary,
                     "change_type": "转公司",
                     "change_date": (datetime.now() - timedelta(days=random.randint(1, 30))).strftime("%Y-%m-%d"),
                 })
                 print(f"    岗位变动: 转公司到 Company {new_company_id}")
             else:
                 # 同公司内转岗
+                new_salary_type, new_salary = generate_salary()
+                
                 state_dao.append("person_company_employment", employment_id, {
                     "person_id": person_id,
                     "company_id": company_id,
@@ -156,6 +178,8 @@ def generate_test_data(db_path: Optional[str] = None):
                     "department": new_department,
                     "employee_number": employee_number,  # 员工号不变
                     "employee_type": random.choice(employee_types),
+                    "salary_type": new_salary_type,
+                    "salary": new_salary,
                     "change_type": "转岗",
                     "change_date": (datetime.now() - timedelta(days=random.randint(1, 30))).strftime("%Y-%m-%d"),
                 })
@@ -312,6 +336,82 @@ def generate_test_data(db_path: Optional[str] = None):
     
     print(f"  生成参与记录: {participation_count} 条")
     
+    # 生成社保基数数据
+    print("\n生成社保基数数据...")
+    social_base_count = 0
+    
+    # 为已有聘用记录的 person-company 组合生成社保基数历史
+    for employment_id, person_id, company_id in employments:
+        # 为每个 person-company 组合创建一个社保基数活动
+        social_base_id = twin_dao.create_activity_twin(
+            "person_company_social_security_base",
+            {
+                "person_id": person_id,
+                "company_id": company_id,
+            }
+        )
+        
+        # 生成 1-2 条基数变更记录（版本化）
+        num_changes = random.randint(1, 2)
+        base = random.randint(5000, 20000)  # 基数金额区间
+        
+        for i in range(num_changes):
+            # 生效日期：从过去一年内随机一天
+            effective_date = (datetime.now() - timedelta(days=random.randint(0, 365))).strftime("%Y-%m-%d")
+            
+            state_dao.append("person_company_social_security_base", social_base_id, {
+                "person_id": person_id,
+                "company_id": company_id,
+                "base_amount": float(base),
+                "effective_date": effective_date,
+            })
+            social_base_count += 1
+            
+            # 下一次调整基数（增加或减少一点）
+            base_delta = random.randint(-1000, 2000)
+            base = max(0, base + base_delta)
+    
+    print(f"  生成社保基数记录: {social_base_count} 条")
+    
+    # 生成公积金基数数据
+    print("\n生成公积金基数数据...")
+    housing_fund_base_count = 0
+    
+    # 为已有聘用记录的 person-company 组合生成公积金基数历史（80% 的人员有公积金）
+    housing_fund_employments = random.sample(employments, int(len(employments) * 0.8))
+    
+    for employment_id, person_id, company_id in housing_fund_employments:
+        # 为每个 person-company 组合创建一个公积金基数活动
+        housing_fund_base_id = twin_dao.create_activity_twin(
+            "person_company_housing_fund_base",
+            {
+                "person_id": person_id,
+                "company_id": company_id,
+            }
+        )
+        
+        # 生成 1-2 条基数变更记录（版本化）
+        num_changes = random.randint(1, 2)
+        base = random.randint(5000, 20000)  # 基数金额区间（通常和社保基数接近）
+        
+        for i in range(num_changes):
+            # 生效日期：从过去一年内随机一天
+            effective_date = (datetime.now() - timedelta(days=random.randint(0, 365))).strftime("%Y-%m-%d")
+            
+            state_dao.append("person_company_housing_fund_base", housing_fund_base_id, {
+                "person_id": person_id,
+                "company_id": company_id,
+                "base_amount": float(base),
+                "effective_date": effective_date,
+            })
+            housing_fund_base_count += 1
+            
+            # 下一次调整基数（增加或减少一点）
+            base_delta = random.randint(-1000, 2000)
+            base = max(0, base + base_delta)
+    
+    print(f"  生成公积金基数记录: {housing_fund_base_count} 条")
+    
     # 生成考核数据
     print("\n生成考核数据...")
     assessment_count = 0
@@ -365,6 +465,98 @@ def generate_test_data(db_path: Optional[str] = None):
     
     print(f"  生成考核记录: {assessment_count} 条")
     
+    # 生成专项附加扣除数据
+    print("\n生成专项附加扣除数据...")
+    tax_deduction_count = 0
+    deduction_types = ["子女教育", "继续教育", "大病医疗", "住房贷款利息", "住房租金", "赡养老人"]
+    
+    # 为 70% 的人员生成专项附加扣除记录
+    persons_with_deductions = random.sample(persons, int(len(persons) * 0.7))
+    
+    for person_id in persons_with_deductions:
+        # 每个人可能有 1-3 项扣除
+        num_deductions = random.randint(1, 3)
+        selected_types = random.sample(deduction_types, min(num_deductions, len(deduction_types)))
+        
+        for deduction_type in selected_types:
+            deduction_id = twin_dao.create_activity_twin(
+                "person_tax_deduction",
+                {
+                    "person_id": person_id,
+                }
+            )
+            
+            # 根据扣除类型生成金额
+            amount_map = {
+                "子女教育": random.choice([1000, 2000]),  # 每个子女1000，最多2000
+                "继续教育": random.choice([400, 3600]),  # 学历教育400/月，职业资格3600/年
+                "大病医疗": random.randint(1000, 8000),  # 年度限额80000，这里生成月度分摊
+                "住房贷款利息": random.choice([1000, 1500, 2000]),  # 每月1000
+                "住房租金": random.choice([800, 1100, 1500]),  # 根据城市不同
+                "赡养老人": random.choice([1000, 2000])  # 独生子女2000，非独生子女分摊
+            }
+            amount = amount_map.get(deduction_type, 1000)
+            
+            # 生效日期：从过去一年内随机一天
+            effective_date = (datetime.now() - timedelta(days=random.randint(0, 365))).strftime("%Y-%m-%d")
+            
+            # 30% 的概率已失效
+            status = "已失效" if random.random() < 0.3 else "生效中"
+            expiry_date = None
+            if status == "已失效":
+                # 失效日期在生效日期之后
+                expiry_days = random.randint(30, 365)
+                expiry_date = (datetime.now() - timedelta(days=random.randint(0, expiry_days))).strftime("%Y-%m-%d")
+            
+            # 生成备注信息
+            remarks_map = {
+                "子女教育": f"子女：{random.choice(['张三', '李四', '王五', '赵六'])}，学校：{random.choice(['XX小学', 'XX中学', 'XX大学'])}",
+                "继续教育": random.choice(["学历教育：XX大学", "职业资格：XX证书"]),
+                "大病医疗": f"医疗费用：{random.randint(5000, 50000)}元",
+                "住房贷款利息": f"贷款合同号：{random.randint(100000, 999999)}",
+                "住房租金": f"租赁地址：{random.choice(['XX市XX区XX路', 'XX市XX区XX街道'])}",
+                "赡养老人": f"被赡养人：{random.choice(['父亲', '母亲', '父母'])}"
+            }
+            remarks = remarks_map.get(deduction_type, "")
+            
+            # 生成 1-2 条变更记录（版本化）
+            num_changes = random.randint(1, 2)
+            
+            for i in range(num_changes):
+                # 第一次记录初始状态
+                if i == 0:
+                    state_dao.append("person_tax_deduction", deduction_id, {
+                        "person_id": person_id,
+                        "deduction_type": deduction_type,
+                        "amount": float(amount),
+                        "effective_date": effective_date,
+                        "expiry_date": expiry_date,
+                        "status": status,
+                        "remarks": remarks if random.random() < 0.8 else None,  # 80% 有备注
+                    })
+                else:
+                    # 后续变更：调整金额或状态
+                    new_amount = amount + random.randint(-200, 500)
+                    new_amount = max(0, min(2000, new_amount))  # 限制在合理范围
+                    new_status = "已失效" if random.random() < 0.5 else status
+                    new_expiry_date = expiry_date
+                    if new_status == "已失效" and not new_expiry_date:
+                        new_expiry_date = (datetime.now() - timedelta(days=random.randint(0, 180))).strftime("%Y-%m-%d")
+                    
+                    state_dao.append("person_tax_deduction", deduction_id, {
+                        "person_id": person_id,
+                        "deduction_type": deduction_type,
+                        "amount": float(new_amount),
+                        "effective_date": effective_date,
+                        "expiry_date": new_expiry_date,
+                        "status": new_status,
+                        "remarks": remarks if random.random() < 0.8 else None,
+                    })
+                
+                tax_deduction_count += 1
+    
+    print(f"  生成专项附加扣除记录: {tax_deduction_count} 条")
+    
     print("\n测试数据生成完成！")
     print(f"  公司: {len(companies)} 个")
     print(f"  人员: {len(persons)} 个")
@@ -372,6 +564,9 @@ def generate_test_data(db_path: Optional[str] = None):
     print(f"  打卡记录: {attendance_count} 条")
     print(f"  项目: {len(projects)} 个")
     print(f"  项目参与记录: {participation_count} 条")
+    print(f"  社保基数记录: {social_base_count} 条")
+    print(f"  公积金基数记录: {housing_fund_base_count} 条")
+    print(f"  专项附加扣除记录: {tax_deduction_count} 条")
     print(f"  考核记录: {assessment_count} 条")
 
 

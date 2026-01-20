@@ -1,0 +1,1027 @@
+{% extends "base.html" %}
+
+{% block title %}缴费与扣除管理 - HRMS{% endblock %}
+
+{% block extra_head %}
+<script src="/static/js/schema-utils.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="mb-6">
+        <h2 class="text-2xl font-bold text-gray-900">缴费与专项附加扣除管理</h2>
+        <p class="mt-1 text-sm text-gray-500">通过标签页查看社保基数、公积金基数和专项附加扣除信息</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="border-b border-gray-200 mb-4">
+        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+            <button id="tab-social" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-indigo-500 text-indigo-600">
+                社保基数
+            </button>
+            <button id="tab-housing" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                公积金基数
+            </button>
+            <button id="tab-tax" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                专项附加扣除
+            </button>
+        </nav>
+    </div>
+
+    <!-- 社保基数 Tab 内容 -->
+    <div id="section-social" class="tab-content">
+        <!-- 过滤器区域 -->
+        <div id="social-filter-section" class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-medium text-gray-700">筛选条件</h3>
+                <button id="social-toggle-filter" class="text-sm text-indigo-600 hover:text-indigo-700">
+                    <span id="social-filter-toggle-text">展开</span>
+                    <svg id="social-filter-toggle-icon" class="inline-block w-4 h-4 ml-1 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+            </div>
+            <div id="social-filter-content" class="hidden">
+                <div id="social-filter-fields" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                <div class="flex justify-end gap-3 mt-4 pt-4 border-t">
+                    <button id="social-reset-filter-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">重置</button>
+                    <button id="social-apply-filter-btn" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">应用筛选</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 加载状态 -->
+        <div id="social-loading" class="text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            <p class="mt-2 text-sm text-gray-500">加载中...</p>
+        </div>
+
+        <!-- 错误提示 -->
+        <div id="social-error" class="hidden bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">加载失败</h3>
+                    <p id="social-error-message" class="mt-2 text-sm text-red-700"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 表格 -->
+        <div id="social-bases-container" class="hidden overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+            <table class="min-w-full divide-y divide-gray-300">
+                <thead class="bg-gray-50">
+                    <tr id="social-table-header"></tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 bg-white" id="social-table-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 公积金基数 Tab 内容 -->
+    <div id="section-housing" class="tab-content hidden">
+        <!-- 过滤器区域 -->
+        <div id="housing-filter-section" class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-medium text-gray-700">筛选条件</h3>
+                <button id="housing-toggle-filter" class="text-sm text-indigo-600 hover:text-indigo-700">
+                    <span id="housing-filter-toggle-text">展开</span>
+                    <svg id="housing-filter-toggle-icon" class="inline-block w-4 h-4 ml-1 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+            </div>
+            <div id="housing-filter-content" class="hidden">
+                <div id="housing-filter-fields" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                <div class="flex justify-end gap-3 mt-4 pt-4 border-t">
+                    <button id="housing-reset-filter-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">重置</button>
+                    <button id="housing-apply-filter-btn" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">应用筛选</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 加载状态 -->
+        <div id="housing-loading" class="text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            <p class="mt-2 text-sm text-gray-500">加载中...</p>
+        </div>
+
+        <!-- 错误提示 -->
+        <div id="housing-error" class="hidden bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">加载失败</h3>
+                    <p id="housing-error-message" class="mt-2 text-sm text-red-700"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 表格 -->
+        <div id="housing-fund-bases-container" class="hidden overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+            <table class="min-w-full divide-y divide-gray-300">
+                <thead class="bg-gray-50">
+                    <tr id="housing-table-header"></tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 bg-white" id="housing-table-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 专项附加扣除 Tab 内容 -->
+    <div id="section-tax" class="tab-content hidden">
+        <!-- 过滤器区域 -->
+        <div id="tax-filter-section" class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-medium text-gray-700">筛选条件</h3>
+                <button id="tax-toggle-filter" class="text-sm text-indigo-600 hover:text-indigo-700">
+                    <span id="tax-filter-toggle-text">展开</span>
+                    <svg id="tax-filter-toggle-icon" class="inline-block w-4 h-4 ml-1 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+            </div>
+            <div id="tax-filter-content" class="hidden">
+                <div id="tax-filter-fields" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                <div class="flex justify-end gap-3 mt-4 pt-4 border-t">
+                    <button id="tax-reset-filter-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">重置</button>
+                    <button id="tax-apply-filter-btn" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">应用筛选</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 加载状态 -->
+        <div id="tax-loading" class="text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            <p class="mt-2 text-sm text-gray-500">加载中...</p>
+        </div>
+
+        <!-- 错误提示 -->
+        <div id="tax-error" class="hidden bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">加载失败</h3>
+                    <p id="tax-error-message" class="mt-2 text-sm text-red-700"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 表格 -->
+        <div id="tax-deductions-container" class="hidden overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+            <table class="min-w-full divide-y divide-gray-300">
+                <thead class="bg-gray-50">
+                    <tr id="tax-table-header"></tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 bg-white" id="tax-table-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 详情模态框 - 社保基数 -->
+    <div id="social-base-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">社保基数详情</h3>
+                    <button id="social-close-modal" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <div id="social-base-detail-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 详情模态框 - 公积金基数 -->
+    <div id="housing-fund-base-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">公积金基数详情</h3>
+                    <button id="housing-close-modal" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <div id="housing-fund-base-detail-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 详情模态框 - 专项附加扣除 -->
+    <div id="tax-deduction-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">专项附加扣除详情</h3>
+                    <button id="tax-close-modal" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <div id="tax-deduction-detail-content"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Schema 定义（从后端传递）
+const socialSchema = {{ social_schema | tojson }};
+const housingSchema = {{ housing_schema | tojson }};
+const taxSchema = {{ tax_schema | tojson }};
+
+// 确保字段顺序
+ensureFieldOrder(socialSchema);
+ensureFieldOrder(housingSchema);
+ensureFieldOrder(taxSchema);
+
+// Tab 切换逻辑
+function switchTab(tab) {
+    const socialTab = document.getElementById('tab-social');
+    const housingTab = document.getElementById('tab-housing');
+    const taxTab = document.getElementById('tab-tax');
+    const sectionSocial = document.getElementById('section-social');
+    const sectionHousing = document.getElementById('section-housing');
+    const sectionTax = document.getElementById('section-tax');
+
+    // 重置 Tab 样式
+    [socialTab, housingTab, taxTab].forEach(btn => {
+        btn.classList.remove('border-indigo-500', 'text-indigo-600');
+        btn.classList.add('border-transparent', 'text-gray-500');
+    });
+
+    // 隐藏所有区域
+    [sectionSocial, sectionHousing, sectionTax].forEach(section => {
+        section.classList.add('hidden');
+    });
+
+    if (tab === 'social') {
+        socialTab.classList.add('border-indigo-500', 'text-indigo-600');
+        socialTab.classList.remove('border-transparent', 'text-gray-500');
+        sectionSocial.classList.remove('hidden');
+        if (!window.socialInitialized) {
+            initSocialBase();
+            window.socialInitialized = true;
+        }
+    } else if (tab === 'housing') {
+        housingTab.classList.add('border-indigo-500', 'text-indigo-600');
+        housingTab.classList.remove('border-transparent', 'text-gray-500');
+        sectionHousing.classList.remove('hidden');
+        if (!window.housingInitialized) {
+            initHousingFundBase();
+            window.housingInitialized = true;
+        }
+    } else if (tab === 'tax') {
+        taxTab.classList.add('border-indigo-500', 'text-indigo-600');
+        taxTab.classList.remove('border-transparent', 'text-gray-500');
+        sectionTax.classList.remove('hidden');
+        if (!window.taxInitialized) {
+            initTaxDeduction();
+            window.taxInitialized = true;
+        }
+    }
+}
+
+document.getElementById('tab-social').addEventListener('click', () => switchTab('social'));
+document.getElementById('tab-housing').addEventListener('click', () => switchTab('housing'));
+document.getElementById('tab-tax').addEventListener('click', () => switchTab('tax'));
+
+// ========== 社保基数逻辑 ==========
+function initSocialBase() {
+    const schema = socialSchema;
+    let currentFilters = {};
+
+    function toggleFilter() {
+        const filterContent = document.getElementById('social-filter-content');
+        const toggleText = document.getElementById('social-filter-toggle-text');
+        const toggleIcon = document.getElementById('social-filter-toggle-icon');
+        filterContent.classList.toggle('hidden');
+        if (filterContent.classList.contains('hidden')) {
+            toggleText.textContent = '展开';
+            toggleIcon.classList.remove('rotate-180');
+        } else {
+            toggleText.textContent = '收起';
+            toggleIcon.classList.add('rotate-180');
+        }
+    }
+
+    function renderFilterFields() {
+        const filterFields = document.getElementById('social-filter-fields');
+        if (!filterFields) return;
+        filterFields.innerHTML = '';
+        const filterableFieldsConfig = [
+            { fieldName: 'person_name', label: '人员-姓名', type: 'text' },
+            { fieldName: 'company_name', label: '公司-名称', type: 'text' },
+            { fieldName: 'base_amount', label: '缴费基数(>=)', type: 'number' },
+            { fieldName: 'effective_date', label: '生效日期', type: 'date' }
+        ];
+        filterableFieldsConfig.forEach(config => {
+            const value = currentFilters[config.fieldName] || '';
+            let fieldHtml = '<div class="flex flex-col">';
+            fieldHtml += `<label for="social-filter-${config.fieldName}" class="text-sm font-medium text-gray-700 mb-1">${config.label}</label>`;
+            if (config.type === 'date') {
+                fieldHtml += `<input type="date" id="social-filter-${config.fieldName}" name="social-filter-${config.fieldName}" value="${value}" class="px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors">`;
+            } else if (config.type === 'number') {
+                fieldHtml += `<input type="number" id="social-filter-${config.fieldName}" name="social-filter-${config.fieldName}" value="${value}" placeholder="请输入${config.label}" class="px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors">`;
+            } else {
+                fieldHtml += `<input type="text" id="social-filter-${config.fieldName}" name="social-filter-${config.fieldName}" value="${value}" placeholder="请输入${config.label}" class="px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors">`;
+            }
+            fieldHtml += '</div>';
+            filterFields.innerHTML += fieldHtml;
+        });
+    }
+
+    function getFilterValues() {
+        const filters = {};
+        ['person_name', 'company_name', 'base_amount', 'effective_date'].forEach(fieldName => {
+            const input = document.getElementById(`social-filter-${fieldName}`);
+            if (input && input.value && input.value.trim()) {
+                filters[fieldName] = input.value.trim();
+            }
+        });
+        return filters;
+    }
+
+    async function loadSocialBases(filters = {}) {
+        const loading = document.getElementById('social-loading');
+        const error = document.getElementById('social-error');
+        const container = document.getElementById('social-bases-container');
+        try {
+            loading.classList.remove('hidden');
+            error.classList.add('hidden');
+            container.classList.add('hidden');
+            let url = '/api/twins/person_company_social_security_base?enrich=person,company';
+            const queryParams = new URLSearchParams();
+            for (const key in filters) {
+                queryParams.append(key, filters[key]);
+            }
+            if (queryParams.toString()) {
+                url += `&${queryParams.toString()}`;
+            }
+            const response = await fetch(url);
+            const result = await response.json();
+            loading.classList.add('hidden');
+            if (!result.success) {
+                error.classList.remove('hidden');
+                document.getElementById('social-error-message').textContent = result.error || '加载失败';
+                return;
+            }
+            error.classList.add('hidden');
+            container.classList.remove('hidden');
+            if (result.data && result.data.length > 0) {
+                renderTable(result.data);
+            } else {
+                container.innerHTML = '<div class="text-center py-12 text-gray-500">暂无数据</div>';
+            }
+        } catch (err) {
+            loading.classList.add('hidden');
+            error.classList.remove('hidden');
+            document.getElementById('social-error-message').textContent = err.message || '加载失败，请刷新页面重试';
+        }
+    }
+
+    function renderTable(records) {
+        const headerRow = document.getElementById('social-table-header');
+        const tbody = document.getElementById('social-table-body');
+        if (!headerRow || !tbody) return;
+        headerRow.innerHTML = '';
+        tbody.innerHTML = '';
+        const columns = [
+            { key: 'person_name', label: '人员姓名' },
+            { key: 'company_name', label: '公司名称' },
+            { key: 'base_amount', label: '缴费基数' },
+            { key: 'effective_date', label: '生效日期' }
+        ];
+        columns.forEach(col => {
+            const th = document.createElement('th');
+            th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+            th.textContent = col.label;
+            headerRow.appendChild(th);
+        });
+        records.forEach(record => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-gray-50 cursor-pointer';
+            tr.onclick = () => showSocialBaseDetail(record.id);
+            columns.forEach(col => {
+                const td = document.createElement('td');
+                td.className = 'whitespace-nowrap px-6 py-4 text-sm text-gray-900';
+                let value = record[col.key];
+                if (col.key === 'base_amount' && value !== undefined && value !== null) {
+                    const amount = parseFloat(value);
+                    td.textContent = isNaN(amount) ? '-' : `¥${amount.toLocaleString()}`;
+                } else if (col.key === 'effective_date' && value) {
+                    td.textContent = new Date(value).toLocaleDateString('zh-CN');
+                } else {
+                    td.textContent = value || '-';
+                }
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+    }
+
+    async function showSocialBaseDetail(activityId) {
+        try {
+            const response = await fetch(`/api/twins/person_company_social_security_base/${activityId}`);
+            const result = await response.json();
+            if (!result.success) {
+                alert('加载失败: ' + result.error);
+                return;
+            }
+            const data = result.data;
+            const modal = document.getElementById('social-base-modal');
+            const content = document.getElementById('social-base-detail-content');
+            let html = '<div class="space-y-6">';
+            html += '<div><h4 class="text-md font-semibold text-gray-900 mb-3">当前信息</h4><div class="bg-gray-50 rounded-lg p-4 space-y-3">';
+            const fields = schema.fields || {};
+            const fieldNames = Object.keys(fields);
+            fieldNames.forEach(fieldName => {
+                const fieldDef = fields[fieldName];
+                if (fieldDef.type === 'reference') return;
+                const value = data.current[fieldName];
+                if (value !== undefined && value !== null && value !== '') {
+                    const label = fieldDef.label || fieldName;
+                    let displayValue = value;
+                    if (fieldName === 'base_amount') {
+                        const amount = parseFloat(value);
+                        displayValue = isNaN(amount) ? '-' : `¥${amount.toLocaleString()}`;
+                    } else if (fieldDef.type === 'date') {
+                        displayValue = new Date(value).toLocaleDateString('zh-CN');
+                    }
+                    html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">${label}:</span><span class="text-sm text-gray-900 flex-1">${displayValue}</span></div>`;
+                }
+            });
+            html += '</div></div>';
+            if (data.history && data.history.length > 1) {
+                html += '<div><h4 class="text-md font-semibold text-gray-900 mb-3">历史记录</h4><div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">版本</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">时间</th>';
+                fieldNames.forEach(fieldName => {
+                    const fieldDef = fields[fieldName];
+                    if (fieldDef.type === 'reference') return;
+                    const label = fieldDef.label || fieldName;
+                    html += `<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">${label}</th>`;
+                });
+                html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+                data.history.forEach(record => {
+                    html += '<tr>';
+                    html += `<td class="px-4 py-3 text-sm text-gray-900">${record.version}</td>`;
+                    html += `<td class="px-4 py-3 text-sm text-gray-500">${new Date(record.ts).toLocaleString()}</td>`;
+                    fieldNames.forEach(fieldName => {
+                        const fieldDef = fields[fieldName];
+                        if (fieldDef.type === 'reference') return;
+                        let value = record.data[fieldName] || '';
+                        if (fieldName === 'base_amount' && value) {
+                            const amount = parseFloat(value);
+                            value = isNaN(amount) ? '-' : `¥${amount.toLocaleString()}`;
+                        } else if (fieldDef.type === 'date' && value) {
+                            value = new Date(value).toLocaleDateString('zh-CN');
+                        }
+                        html += `<td class="px-4 py-3 text-sm text-gray-900">${value || '-'}</td>`;
+                    });
+                    html += '</tr>';
+                });
+                html += '</tbody></table></div></div>';
+            }
+            html += '</div>';
+            content.innerHTML = html;
+            modal.classList.remove('hidden');
+        } catch (error) {
+            alert('加载失败: ' + error.message);
+        }
+    }
+
+    document.getElementById('social-toggle-filter').onclick = toggleFilter;
+    document.getElementById('social-apply-filter-btn').onclick = () => {
+        currentFilters = getFilterValues();
+        loadSocialBases(currentFilters);
+    };
+    document.getElementById('social-reset-filter-btn').onclick = () => {
+        currentFilters = {};
+        renderFilterFields();
+        loadSocialBases();
+    };
+    document.getElementById('social-close-modal').onclick = () => {
+        document.getElementById('social-base-modal').classList.add('hidden');
+    };
+
+    renderFilterFields();
+    loadSocialBases();
+}
+
+// ========== 公积金基数逻辑（类似社保基数，使用 housing- 前缀）==========
+function initHousingFundBase() {
+    const schema = housingSchema;
+    let currentFilters = {};
+
+    function toggleFilter() {
+        const filterContent = document.getElementById('housing-filter-content');
+        const toggleText = document.getElementById('housing-filter-toggle-text');
+        const toggleIcon = document.getElementById('housing-filter-toggle-icon');
+        filterContent.classList.toggle('hidden');
+        if (filterContent.classList.contains('hidden')) {
+            toggleText.textContent = '展开';
+            toggleIcon.classList.remove('rotate-180');
+        } else {
+            toggleText.textContent = '收起';
+            toggleIcon.classList.add('rotate-180');
+        }
+    }
+
+    function renderFilterFields() {
+        const filterFields = document.getElementById('housing-filter-fields');
+        if (!filterFields) return;
+        filterFields.innerHTML = '';
+        const filterableFieldsConfig = [
+            { fieldName: 'person_name', label: '人员-姓名', type: 'text' },
+            { fieldName: 'company_name', label: '公司-名称', type: 'text' },
+            { fieldName: 'base_amount', label: '缴费基数(>=)', type: 'number' },
+            { fieldName: 'effective_date', label: '生效日期', type: 'date' }
+        ];
+        filterableFieldsConfig.forEach(config => {
+            const value = currentFilters[config.fieldName] || '';
+            let fieldHtml = '<div class="flex flex-col">';
+            fieldHtml += `<label for="housing-filter-${config.fieldName}" class="text-sm font-medium text-gray-700 mb-1">${config.label}</label>`;
+            if (config.type === 'date') {
+                fieldHtml += `<input type="date" id="housing-filter-${config.fieldName}" name="housing-filter-${config.fieldName}" value="${value}" class="px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors">`;
+            } else if (config.type === 'number') {
+                fieldHtml += `<input type="number" id="housing-filter-${config.fieldName}" name="housing-filter-${config.fieldName}" value="${value}" placeholder="请输入${config.label}" class="px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors">`;
+            } else {
+                fieldHtml += `<input type="text" id="housing-filter-${config.fieldName}" name="housing-filter-${config.fieldName}" value="${value}" placeholder="请输入${config.label}" class="px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors">`;
+            }
+            fieldHtml += '</div>';
+            filterFields.innerHTML += fieldHtml;
+        });
+    }
+
+    function getFilterValues() {
+        const filters = {};
+        ['person_name', 'company_name', 'base_amount', 'effective_date'].forEach(fieldName => {
+            const input = document.getElementById(`housing-filter-${fieldName}`);
+            if (input && input.value && input.value.trim()) {
+                filters[fieldName] = input.value.trim();
+            }
+        });
+        return filters;
+    }
+
+    async function loadHousingFundBases(filters = {}) {
+        const loading = document.getElementById('housing-loading');
+        const error = document.getElementById('housing-error');
+        const container = document.getElementById('housing-fund-bases-container');
+        try {
+            loading.classList.remove('hidden');
+            error.classList.add('hidden');
+            container.classList.add('hidden');
+            let url = '/api/twins/person_company_housing_fund_base?enrich=person,company';
+            const queryParams = new URLSearchParams();
+            for (const key in filters) {
+                queryParams.append(key, filters[key]);
+            }
+            if (queryParams.toString()) {
+                url += `&${queryParams.toString()}`;
+            }
+            const response = await fetch(url);
+            const result = await response.json();
+            loading.classList.add('hidden');
+            if (!result.success) {
+                error.classList.remove('hidden');
+                document.getElementById('housing-error-message').textContent = result.error || '加载失败';
+                return;
+            }
+            error.classList.add('hidden');
+            container.classList.remove('hidden');
+            if (result.data && result.data.length > 0) {
+                renderTable(result.data);
+            } else {
+                container.innerHTML = '<div class="text-center py-12 text-gray-500">暂无数据</div>';
+            }
+        } catch (err) {
+            loading.classList.add('hidden');
+            error.classList.remove('hidden');
+            document.getElementById('housing-error-message').textContent = err.message || '加载失败，请刷新页面重试';
+        }
+    }
+
+    function renderTable(records) {
+        const headerRow = document.getElementById('housing-table-header');
+        const tbody = document.getElementById('housing-table-body');
+        if (!headerRow || !tbody) return;
+        headerRow.innerHTML = '';
+        tbody.innerHTML = '';
+        const columns = [
+            { key: 'person_name', label: '人员姓名' },
+            { key: 'company_name', label: '公司名称' },
+            { key: 'base_amount', label: '缴费基数' },
+            { key: 'effective_date', label: '生效日期' }
+        ];
+        columns.forEach(col => {
+            const th = document.createElement('th');
+            th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+            th.textContent = col.label;
+            headerRow.appendChild(th);
+        });
+        records.forEach(record => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-gray-50 cursor-pointer';
+            tr.onclick = () => showHousingFundBaseDetail(record.id);
+            columns.forEach(col => {
+                const td = document.createElement('td');
+                td.className = 'whitespace-nowrap px-6 py-4 text-sm text-gray-900';
+                let value = record[col.key];
+                if (col.key === 'base_amount' && value !== undefined && value !== null) {
+                    const amount = parseFloat(value);
+                    td.textContent = isNaN(amount) ? '-' : `¥${amount.toLocaleString()}`;
+                } else if (col.key === 'effective_date' && value) {
+                    td.textContent = new Date(value).toLocaleDateString('zh-CN');
+                } else {
+                    td.textContent = value || '-';
+                }
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+    }
+
+    async function showHousingFundBaseDetail(activityId) {
+        try {
+            const response = await fetch(`/api/twins/person_company_housing_fund_base/${activityId}`);
+            const result = await response.json();
+            if (!result.success) {
+                alert('加载失败: ' + result.error);
+                return;
+            }
+            const data = result.data;
+            const modal = document.getElementById('housing-fund-base-modal');
+            const content = document.getElementById('housing-fund-base-detail-content');
+            let html = '<div class="space-y-6">';
+            html += '<div><h4 class="text-md font-semibold text-gray-900 mb-3">当前信息</h4><div class="bg-gray-50 rounded-lg p-4 space-y-3">';
+            const fields = schema.fields || {};
+            const fieldNames = Object.keys(fields);
+            fieldNames.forEach(fieldName => {
+                const fieldDef = fields[fieldName];
+                if (fieldDef.type === 'reference') return;
+                const value = data.current[fieldName];
+                if (value !== undefined && value !== null && value !== '') {
+                    const label = fieldDef.label || fieldName;
+                    let displayValue = value;
+                    if (fieldName === 'base_amount') {
+                        const amount = parseFloat(value);
+                        displayValue = isNaN(amount) ? '-' : `¥${amount.toLocaleString()}`;
+                    } else if (fieldDef.type === 'date') {
+                        displayValue = new Date(value).toLocaleDateString('zh-CN');
+                    }
+                    html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">${label}:</span><span class="text-sm text-gray-900 flex-1">${displayValue}</span></div>`;
+                }
+            });
+            html += '</div></div>';
+            if (data.history && data.history.length > 1) {
+                html += '<div><h4 class="text-md font-semibold text-gray-900 mb-3">历史记录</h4><div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">版本</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">时间</th>';
+                fieldNames.forEach(fieldName => {
+                    const fieldDef = fields[fieldName];
+                    if (fieldDef.type === 'reference') return;
+                    const label = fieldDef.label || fieldName;
+                    html += `<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">${label}</th>`;
+                });
+                html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+                data.history.forEach(record => {
+                    html += '<tr>';
+                    html += `<td class="px-4 py-3 text-sm text-gray-900">${record.version}</td>`;
+                    html += `<td class="px-4 py-3 text-sm text-gray-500">${new Date(record.ts).toLocaleString()}</td>`;
+                    fieldNames.forEach(fieldName => {
+                        const fieldDef = fields[fieldName];
+                        if (fieldDef.type === 'reference') return;
+                        let value = record.data[fieldName] || '';
+                        if (fieldName === 'base_amount' && value) {
+                            const amount = parseFloat(value);
+                            value = isNaN(amount) ? '-' : `¥${amount.toLocaleString()}`;
+                        } else if (fieldDef.type === 'date' && value) {
+                            value = new Date(value).toLocaleDateString('zh-CN');
+                        }
+                        html += `<td class="px-4 py-3 text-sm text-gray-900">${value || '-'}</td>`;
+                    });
+                    html += '</tr>';
+                });
+                html += '</tbody></table></div></div>';
+            }
+            html += '</div>';
+            content.innerHTML = html;
+            modal.classList.remove('hidden');
+        } catch (error) {
+            alert('加载失败: ' + error.message);
+        }
+    }
+
+    document.getElementById('housing-toggle-filter').onclick = toggleFilter;
+    document.getElementById('housing-apply-filter-btn').onclick = () => {
+        currentFilters = getFilterValues();
+        loadHousingFundBases(currentFilters);
+    };
+    document.getElementById('housing-reset-filter-btn').onclick = () => {
+        currentFilters = {};
+        renderFilterFields();
+        loadHousingFundBases();
+    };
+    document.getElementById('housing-close-modal').onclick = () => {
+        document.getElementById('housing-fund-base-modal').classList.add('hidden');
+    };
+
+    renderFilterFields();
+    loadHousingFundBases();
+}
+
+// ========== 专项附加扣除逻辑（使用 tax- 前缀）==========
+function initTaxDeduction() {
+    const schema = taxSchema;
+    let currentFilters = {};
+
+    function toggleFilter() {
+        const filterContent = document.getElementById('tax-filter-content');
+        const toggleText = document.getElementById('tax-filter-toggle-text');
+        const toggleIcon = document.getElementById('tax-filter-toggle-icon');
+        filterContent.classList.toggle('hidden');
+        if (filterContent.classList.contains('hidden')) {
+            toggleText.textContent = '展开';
+            toggleIcon.classList.remove('rotate-180');
+        } else {
+            toggleText.textContent = '收起';
+            toggleIcon.classList.add('rotate-180');
+        }
+    }
+
+    function renderFilterFields() {
+        const filterFields = document.getElementById('tax-filter-fields');
+        if (!filterFields) return;
+        filterFields.innerHTML = '';
+        const filterableFieldsConfig = [
+            { fieldName: 'person_name', label: '人员-姓名', type: 'text' },
+            { fieldName: 'deduction_type', label: '扣除类型', type: 'select', options: ['子女教育', '继续教育', '大病医疗', '住房贷款利息', '住房租金', '赡养老人'] },
+            { fieldName: 'amount', label: '扣除金额(>=)', type: 'number' },
+            { fieldName: 'status', label: '状态', type: 'select', options: ['生效中', '已失效'] },
+            { fieldName: 'effective_date', label: '生效日期', type: 'date' }
+        ];
+        filterableFieldsConfig.forEach(config => {
+            const value = currentFilters[config.fieldName] || '';
+            let fieldHtml = '<div class="flex flex-col">';
+            fieldHtml += `<label for="tax-filter-${config.fieldName}" class="text-sm font-medium text-gray-700 mb-1">${config.label}</label>`;
+            if (config.type === 'date') {
+                fieldHtml += `<input type="date" id="tax-filter-${config.fieldName}" name="tax-filter-${config.fieldName}" value="${value}" class="px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors">`;
+            } else if (config.type === 'select') {
+                fieldHtml += `<select id="tax-filter-${config.fieldName}" name="tax-filter-${config.fieldName}" class="px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors">`;
+                fieldHtml += `<option value="">全部</option>`;
+                config.options.forEach(option => {
+                    fieldHtml += `<option value="${option}" ${value === option ? 'selected' : ''}>${option}</option>`;
+                });
+                fieldHtml += `</select>`;
+            } else if (config.type === 'number') {
+                fieldHtml += `<input type="number" id="tax-filter-${config.fieldName}" name="tax-filter-${config.fieldName}" value="${value}" placeholder="请输入${config.label}" class="px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors">`;
+            } else {
+                fieldHtml += `<input type="text" id="tax-filter-${config.fieldName}" name="tax-filter-${config.fieldName}" value="${value}" placeholder="请输入${config.label}" class="px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors">`;
+            }
+            fieldHtml += '</div>';
+            filterFields.innerHTML += fieldHtml;
+        });
+    }
+
+    function getFilterValues() {
+        const filters = {};
+        ['person_name', 'deduction_type', 'amount', 'status', 'effective_date'].forEach(fieldName => {
+            const input = document.getElementById(`tax-filter-${fieldName}`);
+            if (input && input.value && input.value.trim()) {
+                filters[fieldName] = input.value.trim();
+            }
+        });
+        return filters;
+    }
+
+    async function loadTaxDeductions(filters = {}) {
+        const loading = document.getElementById('tax-loading');
+        const error = document.getElementById('tax-error');
+        const container = document.getElementById('tax-deductions-container');
+        try {
+            loading.classList.remove('hidden');
+            error.classList.add('hidden');
+            container.classList.add('hidden');
+            let url = '/api/twins/person_tax_deduction?enrich=person';
+            const queryParams = new URLSearchParams();
+            for (const key in filters) {
+                queryParams.append(key, filters[key]);
+            }
+            if (queryParams.toString()) {
+                url += `&${queryParams.toString()}`;
+            }
+            const response = await fetch(url);
+            const result = await response.json();
+            loading.classList.add('hidden');
+            if (!result.success) {
+                error.classList.remove('hidden');
+                document.getElementById('tax-error-message').textContent = result.error || '加载失败';
+                return;
+            }
+            error.classList.add('hidden');
+            container.classList.remove('hidden');
+            if (result.data && result.data.length > 0) {
+                renderTable(result.data);
+            } else {
+                container.innerHTML = '<div class="text-center py-12 text-gray-500">暂无数据</div>';
+            }
+        } catch (err) {
+            loading.classList.add('hidden');
+            error.classList.remove('hidden');
+            document.getElementById('tax-error-message').textContent = err.message || '加载失败，请刷新页面重试';
+        }
+    }
+
+    function renderTable(records) {
+        const headerRow = document.getElementById('tax-table-header');
+        const tbody = document.getElementById('tax-table-body');
+        if (!headerRow || !tbody) return;
+        headerRow.innerHTML = '';
+        tbody.innerHTML = '';
+        const columns = [
+            { key: 'person_name', label: '人员姓名' },
+            { key: 'deduction_type', label: '扣除类型' },
+            { key: 'amount', label: '扣除金额' },
+            { key: 'status', label: '状态' },
+            { key: 'effective_date', label: '生效日期' },
+            { key: 'expiry_date', label: '失效日期' }
+        ];
+        columns.forEach(col => {
+            const th = document.createElement('th');
+            th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+            th.textContent = col.label;
+            headerRow.appendChild(th);
+        });
+        records.forEach(record => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-gray-50 cursor-pointer';
+            tr.onclick = () => showTaxDeductionDetail(record.id);
+            columns.forEach(col => {
+                const td = document.createElement('td');
+                td.className = 'whitespace-nowrap px-6 py-4 text-sm text-gray-900';
+                let value = record[col.key];
+                if (col.key === 'amount' && value !== undefined && value !== null) {
+                    const amount = parseFloat(value);
+                    td.textContent = isNaN(amount) ? '-' : `¥${amount.toLocaleString()}/月`;
+                } else if (col.key === 'deduction_type' && value) {
+                    const typeColors = {
+                        '子女教育': 'bg-blue-100 text-blue-800',
+                        '继续教育': 'bg-green-100 text-green-800',
+                        '大病医疗': 'bg-red-100 text-red-800',
+                        '住房贷款利息': 'bg-purple-100 text-purple-800',
+                        '住房租金': 'bg-yellow-100 text-yellow-800',
+                        '赡养老人': 'bg-orange-100 text-orange-800'
+                    };
+                    const colorClass = typeColors[value] || 'bg-gray-100 text-gray-800';
+                    td.innerHTML = `<span class="px-2 py-1 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
+                } else if (col.key === 'status' && value) {
+                    const statusColor = value === '生效中' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
+                    td.innerHTML = `<span class="px-2 py-1 rounded-full text-xs font-medium ${statusColor}">${value}</span>`;
+                } else if ((col.key === 'effective_date' || col.key === 'expiry_date') && value) {
+                    td.textContent = new Date(value).toLocaleDateString('zh-CN');
+                } else {
+                    td.textContent = value || '-';
+                }
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+    }
+
+    async function showTaxDeductionDetail(activityId) {
+        try {
+            const response = await fetch(`/api/twins/person_tax_deduction/${activityId}`);
+            const result = await response.json();
+            if (!result.success) {
+                alert('加载失败: ' + result.error);
+                return;
+            }
+            const data = result.data;
+            const modal = document.getElementById('tax-deduction-modal');
+            const content = document.getElementById('tax-deduction-detail-content');
+            let html = '<div class="space-y-6">';
+            html += '<div><h4 class="text-md font-semibold text-gray-900 mb-3">当前信息</h4><div class="bg-gray-50 rounded-lg p-4 space-y-3">';
+            const fields = schema.fields || {};
+            const fieldNames = Object.keys(fields);
+            fieldNames.forEach(fieldName => {
+                const fieldDef = fields[fieldName];
+                if (fieldDef.type === 'reference') return;
+                const value = data.current[fieldName];
+                if (value !== undefined && value !== null && value !== '') {
+                    const label = fieldDef.label || fieldName;
+                    let displayValue = value;
+                    if (fieldName === 'amount') {
+                        const amount = parseFloat(value);
+                        displayValue = isNaN(amount) ? '-' : `¥${amount.toLocaleString()}/月`;
+                    } else if (fieldDef.type === 'date') {
+                        displayValue = new Date(value).toLocaleDateString('zh-CN');
+                    } else if (fieldName === 'deduction_type') {
+                        const typeColors = {
+                            '子女教育': 'bg-blue-100 text-blue-800',
+                            '继续教育': 'bg-green-100 text-green-800',
+                            '大病医疗': 'bg-red-100 text-red-800',
+                            '住房贷款利息': 'bg-purple-100 text-purple-800',
+                            '住房租金': 'bg-yellow-100 text-yellow-800',
+                            '赡养老人': 'bg-orange-100 text-orange-800'
+                        };
+                        const colorClass = typeColors[value] || 'bg-gray-100 text-gray-800';
+                        displayValue = `<span class="px-2 py-1 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
+                    } else if (fieldName === 'status') {
+                        const statusColor = value === '生效中' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
+                        displayValue = `<span class="px-2 py-1 rounded-full text-xs font-medium ${statusColor}">${value}</span>`;
+                    }
+                    html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">${label}:</span><span class="text-sm text-gray-900 flex-1">${displayValue}</span></div>`;
+                }
+            });
+            html += '</div></div>';
+            if (data.history && data.history.length > 1) {
+                html += '<div><h4 class="text-md font-semibold text-gray-900 mb-3">历史记录</h4><div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">版本</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">时间</th>';
+                fieldNames.forEach(fieldName => {
+                    const fieldDef = fields[fieldName];
+                    if (fieldDef.type === 'reference') return;
+                    const label = fieldDef.label || fieldName;
+                    html += `<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">${label}</th>`;
+                });
+                html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+                data.history.forEach(record => {
+                    html += '<tr>';
+                    html += `<td class="px-4 py-3 text-sm text-gray-900">${record.version}</td>`;
+                    html += `<td class="px-4 py-3 text-sm text-gray-500">${new Date(record.ts).toLocaleString()}</td>`;
+                    fieldNames.forEach(fieldName => {
+                        const fieldDef = fields[fieldName];
+                        if (fieldDef.type === 'reference') return;
+                        let value = record.data[fieldName] || '';
+                        if (fieldName === 'amount' && value) {
+                            const amount = parseFloat(value);
+                            value = isNaN(amount) ? '-' : `¥${amount.toLocaleString()}/月`;
+                        } else if (fieldDef.type === 'date' && value) {
+                            value = new Date(value).toLocaleDateString('zh-CN');
+                        } else if (fieldName === 'deduction_type' && value) {
+                            const typeColors = {
+                                '子女教育': 'bg-blue-100 text-blue-800',
+                                '继续教育': 'bg-green-100 text-green-800',
+                                '大病医疗': 'bg-red-100 text-red-800',
+                                '住房贷款利息': 'bg-purple-100 text-purple-800',
+                                '住房租金': 'bg-yellow-100 text-yellow-800',
+                                '赡养老人': 'bg-orange-100 text-orange-800'
+                            };
+                            const colorClass = typeColors[value] || 'bg-gray-100 text-gray-800';
+                            value = `<span class="px-2 py-1 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
+                        } else if (fieldName === 'status' && value) {
+                            const statusColor = value === '生效中' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
+                            value = `<span class="px-2 py-1 rounded-full text-xs font-medium ${statusColor}">${value}</span>`;
+                        }
+                        html += `<td class="px-4 py-3 text-sm text-gray-900">${value || '-'}</td>`;
+                    });
+                    html += '</tr>';
+                });
+                html += '</tbody></table></div></div>';
+            }
+            html += '</div>';
+            content.innerHTML = html;
+            modal.classList.remove('hidden');
+        } catch (error) {
+            alert('加载失败: ' + error.message);
+        }
+    }
+
+    document.getElementById('tax-toggle-filter').onclick = toggleFilter;
+    document.getElementById('tax-apply-filter-btn').onclick = () => {
+        currentFilters = getFilterValues();
+        loadTaxDeductions(currentFilters);
+    };
+    document.getElementById('tax-reset-filter-btn').onclick = () => {
+        currentFilters = {};
+        renderFilterFields();
+        loadTaxDeductions();
+    };
+    document.getElementById('tax-close-modal').onclick = () => {
+        document.getElementById('tax-deduction-modal').classList.add('hidden');
+    };
+
+    renderFilterFields();
+    loadTaxDeductions();
+}
+
+// 默认显示社保基数 Tab
+switchTab('social');
+</script>
+{% endblock %}

@@ -163,6 +163,8 @@ async function showPersonEmployments(personId) {
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">部门</th>';
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">员工号</th>';
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">员工类别</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">薪资类型</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">薪资</th>';
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">变动类型</th>';
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">变动日期</th>';
             html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
@@ -189,6 +191,26 @@ async function showPersonEmployments(personId) {
                 html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.department || '-'}</td>`;
                 html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.employee_number || '-'}</td>`;
                 html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.employee_type || '-'}</td>`;
+                // 薪资类型
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.salary_type || '-'}</td>`;
+                // 薪资金额（带单位）
+                let salaryDisplay = '-';
+                if (emp.salary !== undefined && emp.salary !== null) {
+                    const amount = parseFloat(emp.salary);
+                    if (!isNaN(amount)) {
+                        const type = emp.salary_type || '';
+                        if (type === '年薪') {
+                            salaryDisplay = `¥${amount.toLocaleString()} / 年`;
+                        } else if (type === '月薪') {
+                            salaryDisplay = `¥${amount.toLocaleString()} / 月`;
+                        } else if (type === '日薪') {
+                            salaryDisplay = `¥${amount.toLocaleString()} / 日`;
+                        } else {
+                            salaryDisplay = `¥${amount.toLocaleString()}`;
+                        }
+                    }
+                }
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${salaryDisplay}</td>`;
                 html += `<td class="px-4 py-3 text-sm">
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">
                         ${emp.change_type || '-'}
@@ -235,6 +257,8 @@ function renderTable(employments) {
         { key: 'department', label: '部门', type: 'employment' },
         { key: 'employee_number', label: '员工号', type: 'employment' },
         { key: 'employee_type', label: '员工类别', type: 'employment' },
+        { key: 'salary_type', label: '薪资类型', type: 'employment' },
+        { key: 'salary', label: '薪资', type: 'employment' },
         { key: 'change_type', label: '变动类型', type: 'employment' },
         { key: 'change_date', label: '变动日期', type: 'employment' },
     ];
@@ -294,6 +318,25 @@ function renderTable(employments) {
                 };
                 const colorClass = changeTypeColors[value] || 'bg-gray-100 text-gray-800';
                 td.innerHTML = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
+            } else if (col.key === 'salary') {
+                // 薪资金额（带单位）
+                let salaryDisplay = '-';
+                if (emp.salary !== undefined && emp.salary !== null) {
+                    const amount = parseFloat(emp.salary);
+                    if (!isNaN(amount)) {
+                        const type = emp.salary_type || '';
+                        if (type === '年薪') {
+                            salaryDisplay = `¥${amount.toLocaleString()} / 年`;
+                        } else if (type === '月薪') {
+                            salaryDisplay = `¥${amount.toLocaleString()} / 月`;
+                        } else if (type === '日薪') {
+                            salaryDisplay = `¥${amount.toLocaleString()} / 日`;
+                        } else {
+                            salaryDisplay = `¥${amount.toLocaleString()}`;
+                        }
+                    }
+                }
+                td.textContent = salaryDisplay;
             } else {
                 td.textContent = value || '-';
             }
