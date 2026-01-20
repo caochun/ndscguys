@@ -22,14 +22,13 @@ class TwinStateDAO(BaseDAO):
     def _get_next_version(self, twin_name: str, twin_id: int) -> int:
         """获取下一个版本号（版本化状态流）"""
         schema = self._get_twin_schema(twin_name)
-        conn = self.get_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            f"SELECT COALESCE(MAX(version), 0) FROM {schema.state_table} WHERE twin_id = ?",
-            (twin_id,)
-        )
-        max_version = cursor.fetchone()[0] or 0
-        conn.close()
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                f"SELECT COALESCE(MAX(version), 0) FROM {schema.state_table} WHERE twin_id = ?",
+                (twin_id,)
+            )
+            max_version = cursor.fetchone()[0] or 0
         return max_version + 1
     
     def _normalize_ts(self, ts: Optional[str | datetime]) -> str:

@@ -6,6 +6,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 from typing import Optional
+from contextlib import contextmanager
 
 from app.schema.loader import SchemaLoader
 from app.schema.models import TwinSchema, FieldDefinition
@@ -21,108 +22,114 @@ class DatabaseInitializer:
         if db_path != ":memory:":
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     
-    def get_connection(self) -> sqlite3.Connection:
-        """获取数据库连接"""
-        conn = sqlite3.connect(self.db_path)
-        return conn
+    def get_connection(self):
+        """获取数据库连接（上下文管理器）"""
+        from contextlib import contextmanager
+        
+        @contextmanager
+        def _connection():
+            conn = sqlite3.connect(self.db_path)
+            try:
+                yield conn
+            finally:
+                conn.close()
+        
+        return _connection()
     
     def _create_entity_table(self, schema: TwinSchema):
         """创建 Entity Twin 注册表"""
-        conn = self.get_connection()
-        cursor = conn.cursor()
-        
-        # Entity 表只需要 id 和 created_at
-        cursor.execute(f"""
-            CREATE TABLE IF NOT EXISTS {schema.table} (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        conn.commit()
-        conn.close()
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Entity 表只需要 id 和 created_at
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS {schema.table} (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            conn.commit()
     
     def _create_activity_table(self, schema: TwinSchema):
         """创建 Activity Twin 注册表"""
-        conn = self.get_connection()
-        cursor = conn.cursor()
-        
-        # Activity 表需要关联实体的外键列
-        columns = ["id INTEGER PRIMARY KEY AUTOINCREMENT"]
-        
-        if schema.related_entities:
-            for rel_entity in schema.related_entities:
-                columns.append(f"{rel_entity.key} INTEGER NOT NULL")
-        
-        columns.append("created_at TEXT DEFAULT CURRENT_TIMESTAMP")
-        
-        create_sql = f"""
-            CREATE TABLE IF NOT EXISTS {schema.table} (
-                {', '.join(columns)}
-            )
-        """
-        
-        cursor.execute(create_sql)
-        
-        # 创建外键索引（如果有关联实体）
-        if schema.related_entities:
-            for rel_entity in schema.related_entities:
-                cursor.execute(f"""
-                    CREATE INDEX IF NOT EXISTS idx_{schema.table}_{rel_entity.key}
-                    ON {schema.table}({rel_entity.key})
-                """)
-        
-        conn.commit()
-        conn.close()
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Activity 表需要关联实体的外键列
+            columns = ["id INTEGER PRIMARY KEY AUTOINCREMENT"]
+            
+            if schema.related_entities:
+                for rel_entity in schema.related_entities:
+                    columns.append(f"{rel_entity.key} INTEGER NOT NULL")
+            
+            columns.append("created_at TEXT DEFAULT CURRENT_TIMESTAMP")
+            
+            create_sql = f"""
+                CREATE TABLE IF NOT EXISTS {schema.table} (
+                    {', '.join(columns)}
+                )
+            """
+            
+            cursor.execute(create_sql)
+            
+            # 创建外键索引（如果有关联实体）
+            if schema.related_entities:
+                for rel_entity in schema.related_entities:
+                    cursor.execute(f"""
+                        CREATE INDEX IF NOT EXISTS idx_{schema.table}_{rel_entity.key}
+                        ON {schema.table}({rel_entity.key})
+                    """)
+            
+            conn.commit()
     
     def _create_state_table(self, schema: TwinSchema):
         """创建状态流表"""
-        conn = self.get_connection()
-        cursor = conn.cursor()
-        
-        columns = [
-            "id INTEGER PRIMARY KEY AUTOINCREMENT",
-            "twin_id INTEGER NOT NULL",
-        ]
-        
-        # 根据状态流模式添加列
-        if schema.mode == "versioned":
-            columns.append("version INTEGER NOT NULL")
-        elif schema.mode == "time_series":
-            columns.append("time_key TEXT NOT NULL")
-        
-        columns.append("ts TEXT NOT NULL")
-        columns.append("data TEXT NOT NULL")  # JSON 数据
-        
-        # 创建表
-        create_sql = f"""
-            CREATE TABLE IF NOT EXISTS {schema.state_table} (
-                {', '.join(columns)},
-                FOREIGN KEY (twin_id) REFERENCES {schema.table}(id)
-            )
-        """
-        
-        cursor.execute(create_sql)
-        
-        # 创建索引
-        cursor.execute(f"""
-            CREATE INDEX IF NOT EXISTS idx_{schema.state_table}_twin_id
-            ON {schema.state_table}(twin_id)
-        """)
-        
-        if schema.mode == "versioned":
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            columns = [
+                "id INTEGER PRIMARY KEY AUTOINCREMENT",
+                "twin_id INTEGER NOT NULL",
+            ]
+            
+            # 根据状态流模式添加列
+            if schema.mode == "versioned":
+                columns.append("version INTEGER NOT NULL")
+            elif schema.mode == "time_series":
+                columns.append("time_key TEXT NOT NULL")
+            
+            columns.append("ts TEXT NOT NULL")
+            columns.append("data TEXT NOT NULL")  # JSON 数据
+            
+            # 创建表
+            create_sql = f"""
+                CREATE TABLE IF NOT EXISTS {schema.state_table} (
+                    {', '.join(columns)},
+                    FOREIGN KEY (twin_id) REFERENCES {schema.table}(id)
+                )
+            """
+            
+            cursor.execute(create_sql)
+            
+            # 创建索引
             cursor.execute(f"""
-                CREATE INDEX IF NOT EXISTS idx_{schema.state_table}_version
-                ON {schema.state_table}(twin_id, version)
+                CREATE INDEX IF NOT EXISTS idx_{schema.state_table}_twin_id
+                ON {schema.state_table}(twin_id)
             """)
-        elif schema.mode == "time_series":
-            cursor.execute(f"""
-                CREATE INDEX IF NOT EXISTS idx_{schema.state_table}_time_key
-                ON {schema.state_table}(twin_id, time_key)
-            """)
-        
-        conn.commit()
-        conn.close()
+            
+            if schema.mode == "versioned":
+                cursor.execute(f"""
+                    CREATE INDEX IF NOT EXISTS idx_{schema.state_table}_version
+                    ON {schema.state_table}(twin_id, version)
+                """)
+            elif schema.mode == "time_series":
+                cursor.execute(f"""
+                    CREATE INDEX IF NOT EXISTS idx_{schema.state_table}_time_key
+                    ON {schema.state_table}(twin_id, time_key)
+                """)
+            
+            conn.commit()
     
     def init_database(self):
         """初始化数据库"""
