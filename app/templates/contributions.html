@@ -15,17 +15,30 @@
 
     <!-- Tabs -->
     <div class="border-b border-gray-200 mb-4">
-        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-            <button id="tab-social" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-indigo-500 text-indigo-600">
-                社保基数
-            </button>
-            <button id="tab-housing" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                公积金基数
-            </button>
-            <button id="tab-tax" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                专项附加扣除
-            </button>
-        </nav>
+        <div class="flex justify-between items-center">
+            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                <button id="tab-social" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-indigo-500 text-indigo-600">
+                    社保基数
+                </button>
+                <button id="tab-housing" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                    公积金基数
+                </button>
+                <button id="tab-tax" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                    专项附加扣除
+                </button>
+            </nav>
+            <div class="flex items-center">
+                <button id="add-social-base-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm text-sm">
+                    + 新增社保基数
+                </button>
+                <button id="add-housing-base-btn" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm text-sm">
+                    + 新增公积金基数
+                </button>
+                <button id="add-tax-deduction-btn" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm text-sm">
+                    + 新增专项附加扣除
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- 社保基数 Tab 内容 -->
@@ -196,11 +209,16 @@
             <div class="mt-3">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium text-gray-900">社保基数详情</h3>
-                    <button id="social-close-modal" class="text-gray-400 hover:text-gray-500">
-                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
+                    <div class="flex gap-2">
+                        <button id="social-edit-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-1.5 px-3 rounded-md shadow-sm text-sm">
+                            编辑
+                        </button>
+                        <button id="social-close-modal" class="text-gray-400 hover:text-gray-500">
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 <div id="social-base-detail-content"></div>
             </div>
@@ -213,11 +231,16 @@
             <div class="mt-3">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium text-gray-900">公积金基数详情</h3>
-                    <button id="housing-close-modal" class="text-gray-400 hover:text-gray-500">
-                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
+                    <div class="flex gap-2">
+                        <button id="housing-edit-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-1.5 px-3 rounded-md shadow-sm text-sm">
+                            编辑
+                        </button>
+                        <button id="housing-close-modal" class="text-gray-400 hover:text-gray-500">
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 <div id="housing-fund-base-detail-content"></div>
             </div>
@@ -230,13 +253,204 @@
             <div class="mt-3">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium text-gray-900">专项附加扣除详情</h3>
-                    <button id="tax-close-modal" class="text-gray-400 hover:text-gray-500">
+                    <div class="flex gap-2">
+                        <button id="tax-edit-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-1.5 px-3 rounded-md shadow-sm text-sm">
+                            编辑
+                        </button>
+                        <button id="tax-close-modal" class="text-gray-400 hover:text-gray-500">
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div id="tax-deduction-detail-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑表单模态框 - 社保基数 -->
+    <div id="social-edit-form-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">编辑社保基数</h3>
+                    <button id="social-close-edit-form-modal" class="text-gray-400 hover:text-gray-500">
                         <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
                     </button>
                 </div>
-                <div id="tax-deduction-detail-content"></div>
+                
+                <form id="social-edit-form">
+                    <div id="social-edit-form-fields" class="space-y-4">
+                        <!-- 动态生成表单字段 -->
+                    </div>
+                    
+                    <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
+                        <button type="button" id="social-cancel-edit-form-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                            取消
+                        </button>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑表单模态框 - 公积金基数 -->
+    <div id="housing-edit-form-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">编辑公积金基数</h3>
+                    <button id="housing-close-edit-form-modal" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form id="housing-edit-form">
+                    <div id="housing-edit-form-fields" class="space-y-4">
+                        <!-- 动态生成表单字段 -->
+                    </div>
+                    
+                    <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
+                        <button type="button" id="housing-cancel-edit-form-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                            取消
+                        </button>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑表单模态框 - 专项附加扣除 -->
+    <div id="tax-edit-form-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">编辑专项附加扣除</h3>
+                    <button id="tax-close-edit-form-modal" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form id="tax-edit-form">
+                    <div id="tax-edit-form-fields" class="space-y-4">
+                        <!-- 动态生成表单字段 -->
+                    </div>
+                    
+                    <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
+                        <button type="button" id="tax-cancel-edit-form-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                            取消
+                        </button>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增表单模态框 - 社保基数 -->
+    <div id="social-add-form-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">新增社保基数</h3>
+                    <button id="social-close-add-form-modal" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form id="social-add-form">
+                    <div id="social-add-form-fields" class="space-y-4">
+                        <!-- 动态生成表单字段 -->
+                    </div>
+                    
+                    <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
+                        <button type="button" id="social-cancel-add-form-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                            取消
+                        </button>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增表单模态框 - 公积金基数 -->
+    <div id="housing-add-form-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">新增公积金基数</h3>
+                    <button id="housing-close-add-form-modal" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form id="housing-add-form">
+                    <div id="housing-add-form-fields" class="space-y-4">
+                        <!-- 动态生成表单字段 -->
+                    </div>
+                    
+                    <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
+                        <button type="button" id="housing-cancel-add-form-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                            取消
+                        </button>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增表单模态框 - 专项附加扣除 -->
+    <div id="tax-add-form-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">新增专项附加扣除</h3>
+                    <button id="tax-close-add-form-modal" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form id="tax-add-form">
+                    <div id="tax-add-form-fields" class="space-y-4">
+                        <!-- 动态生成表单字段 -->
+                    </div>
+                    
+                    <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
+                        <button type="button" id="tax-cancel-add-form-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                            取消
+                        </button>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                            保存
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -263,6 +477,11 @@ function switchTab(tab) {
     const sectionSocial = document.getElementById('section-social');
     const sectionHousing = document.getElementById('section-housing');
     const sectionTax = document.getElementById('section-tax');
+    
+    // 获取新增按钮
+    const addSocialBtn = document.getElementById('add-social-base-btn');
+    const addHousingBtn = document.getElementById('add-housing-base-btn');
+    const addTaxBtn = document.getElementById('add-tax-deduction-btn');
 
     // 重置 Tab 样式
     [socialTab, housingTab, taxTab].forEach(btn => {
@@ -270,15 +489,19 @@ function switchTab(tab) {
         btn.classList.add('border-transparent', 'text-gray-500');
     });
 
-    // 隐藏所有区域
+    // 隐藏所有区域和按钮
     [sectionSocial, sectionHousing, sectionTax].forEach(section => {
         section.classList.add('hidden');
+    });
+    [addSocialBtn, addHousingBtn, addTaxBtn].forEach(btn => {
+        if (btn) btn.classList.add('hidden');
     });
 
     if (tab === 'social') {
         socialTab.classList.add('border-indigo-500', 'text-indigo-600');
         socialTab.classList.remove('border-transparent', 'text-gray-500');
         sectionSocial.classList.remove('hidden');
+        if (addSocialBtn) addSocialBtn.classList.remove('hidden');
         if (!window.socialInitialized) {
             initSocialBase();
             window.socialInitialized = true;
@@ -287,6 +510,7 @@ function switchTab(tab) {
         housingTab.classList.add('border-indigo-500', 'text-indigo-600');
         housingTab.classList.remove('border-transparent', 'text-gray-500');
         sectionHousing.classList.remove('hidden');
+        if (addHousingBtn) addHousingBtn.classList.remove('hidden');
         if (!window.housingInitialized) {
             initHousingFundBase();
             window.housingInitialized = true;
@@ -295,6 +519,7 @@ function switchTab(tab) {
         taxTab.classList.add('border-indigo-500', 'text-indigo-600');
         taxTab.classList.remove('border-transparent', 'text-gray-500');
         sectionTax.classList.remove('hidden');
+        if (addTaxBtn) addTaxBtn.classList.remove('hidden');
         if (!window.taxInitialized) {
             initTaxDeduction();
             window.taxInitialized = true;
@@ -310,6 +535,10 @@ document.getElementById('tab-tax').addEventListener('click', () => switchTab('ta
 function initSocialBase() {
     const schema = socialSchema;
     let currentFilters = {};
+    
+    // 全局变量：存储人员和公司列表
+    let allPersons = [];
+    let allCompanies = [];
 
     function toggleFilter() {
         const filterContent = document.getElementById('social-filter-content');
@@ -440,9 +669,12 @@ function initSocialBase() {
         });
     }
 
+    // 全局变量：存储当前编辑的社保基数数据
+    window.currentSocialBaseData = null;
+
     async function showSocialBaseDetail(activityId) {
         try {
-            const response = await fetch(`/api/twins/person_company_social_security_base/${activityId}`);
+            const response = await fetch(`/api/twins/person_company_social_security_base/${activityId}?enrich=person,company`);
             const result = await response.json();
             if (!result.success) {
                 alert('加载失败: ' + result.error);
@@ -451,6 +683,15 @@ function initSocialBase() {
             const data = result.data;
             const modal = document.getElementById('social-base-modal');
             const content = document.getElementById('social-base-detail-content');
+            
+            // 保存当前数据以便编辑时使用
+            window.currentSocialBaseData = {
+                activityId: activityId,
+                personName: data.person?.current?.name || data.person?.name || '',
+                companyName: data.company?.current?.name || data.company?.name || '',
+                current: data.current || {}
+            };
+            
             let html = '<div class="space-y-6">';
             html += '<div><h4 class="text-md font-semibold text-gray-900 mb-3">当前信息</h4><div class="bg-gray-50 rounded-lg p-4 space-y-3">';
             const fields = schema.fields || {};
@@ -523,6 +764,587 @@ function initSocialBase() {
         document.getElementById('social-base-modal').classList.add('hidden');
     };
 
+    // 关闭编辑表单模态框
+    document.getElementById('social-close-edit-form-modal').onclick = () => {
+        document.getElementById('social-edit-form-modal').classList.add('hidden');
+    };
+    document.getElementById('social-cancel-edit-form-btn').onclick = () => {
+        document.getElementById('social-edit-form-modal').classList.add('hidden');
+    };
+
+    // 打开编辑表单
+    async function openEditSocialBaseForm() {
+        if (!window.currentSocialBaseData) {
+            alert('无法编辑：未找到社保基数数据');
+            return;
+        }
+        
+        // 加载所有人员和公司列表（用于显示名称）
+        try {
+            const [personsResponse, companiesResponse] = await Promise.all([
+                fetch('/api/twins/person'),
+                fetch('/api/twins/company')
+            ]);
+            
+            const personsResult = await personsResponse.json();
+            const companiesResult = await companiesResponse.json();
+            
+            if (!personsResult.success || !companiesResult.success) {
+                alert('加载数据失败，请刷新页面重试');
+                return;
+            }
+            
+            // 保存为全局变量以便在渲染表单时使用
+            allPersons = personsResult.data || [];
+            allCompanies = companiesResult.data || [];
+            
+            // 关闭详情模态框
+            document.getElementById('social-base-modal').classList.add('hidden');
+            
+            // 渲染编辑表单
+            renderEditSocialBaseFormFields(window.currentSocialBaseData.current || {});
+            document.getElementById('social-edit-form-modal').classList.remove('hidden');
+        } catch (error) {
+            alert('加载数据失败: ' + error.message);
+        }
+    }
+
+    // 渲染编辑表单字段
+    function renderEditSocialBaseFormFields(data = {}) {
+        const fields = schema.fields || {};
+        const formFields = document.getElementById('social-edit-form-fields');
+        formFields.innerHTML = '';
+        
+        const fieldNames = Object.keys(fields);
+        for (const fieldName of fieldNames) {
+            const fieldDef = fields[fieldName];
+            
+            // 编辑模式下，person_id 和 company_id 显示为只读字段
+            if (fieldDef.type === 'reference' && fieldDef.storage === 'foreign_key') {
+                const value = data[fieldName] || '';
+                let label = fieldDef.label || fieldName;
+                if (fieldName === 'person_id' && !fieldDef.label) {
+                    label = '人员';
+                } else if (fieldName === 'company_id' && !fieldDef.label) {
+                    label = '公司';
+                }
+                
+                // 添加隐藏字段以保持 person_id 和 company_id
+                if (value) {
+                    formFields.innerHTML += `<input type="hidden" name="${fieldName}" value="${value}">`;
+                }
+                
+                // 显示只读字段（显示名称而不是ID）
+                let displayValue = '';
+                if (fieldName === 'person_id' && value) {
+                    // 优先使用保存的人员名称，否则从 allPersons 中查找
+                    if (window.currentSocialBaseData?.personName) {
+                        displayValue = window.currentSocialBaseData.personName;
+                    } else {
+                        const person = allPersons.find(p => p.id == value);
+                        displayValue = person?.current?.name || person?.name || `人员 ${value}`;
+                    }
+                } else if (fieldName === 'company_id' && value) {
+                    // 优先使用保存的公司名称，否则从 allCompanies 中查找
+                    if (window.currentSocialBaseData?.companyName) {
+                        displayValue = window.currentSocialBaseData.companyName;
+                    } else {
+                        const company = allCompanies.find(c => c.id == value);
+                        displayValue = company?.current?.name || company?.name || `公司 ${value}`;
+                    }
+                } else {
+                    displayValue = value || '-';
+                }
+                
+                // 两列布局：标签在左，只读显示在右
+                let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
+                fieldHtml += `<div class="md:col-span-1">
+                    <label class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}</label>
+                </div>`;
+                fieldHtml += '<div class="md:col-span-2">';
+                fieldHtml += `<div class="px-3 py-2 bg-gray-50 border-2 border-gray-200 rounded-md text-sm text-gray-700">${displayValue}</div>`;
+                fieldHtml += '</div></div>';
+                
+                formFields.innerHTML += fieldHtml;
+                continue;
+            }
+            
+            const label = fieldDef.label || fieldName;
+            const required = fieldDef.required || false;
+            const fieldType = fieldDef.type || 'string';
+            const uiComponent = fieldDef.ui?.component || 'text_input';
+            
+            // 获取字段值
+            let value = data[fieldName] || '';
+            
+            // 处理 auto 字段（日期/时间）
+            if (fieldDef.auto && !value) {
+                if (fieldDef.auto === 'date') {
+                    value = new Date().toISOString().split('T')[0];
+                } else if (fieldDef.auto === 'timestamp') {
+                    value = new Date().toISOString();
+                }
+            }
+            
+            // 两列布局：标签在左，输入框在右
+            let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
+            
+            // 左侧：标签（右对齐）
+            fieldHtml += `<div class="md:col-span-1">
+                <label for="social-edit-${fieldName}" class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>`;
+            
+            // 添加验证提示
+            if (fieldDef.validation) {
+                const validation = fieldDef.validation;
+                if (validation.min !== undefined || validation.max !== undefined) {
+                    const min = validation.min !== undefined ? validation.min : '';
+                    const max = validation.max !== undefined ? validation.max : '';
+                    fieldHtml += `<p class="text-xs text-gray-500 mt-1 text-right">范围: ${min ? min + ' ≤ ' : ''}值${max ? ' ≤ ' + max : ''}</p>`;
+                }
+            }
+            fieldHtml += '</div>';
+            
+            // 右侧：输入框
+            fieldHtml += '<div class="md:col-span-2">';
+            
+            const inputBaseClasses = "block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors";
+            
+            if (uiComponent === 'textarea') {
+                fieldHtml += `<textarea id="social-edit-${fieldName}" name="${fieldName}" rows="3" class="${inputBaseClasses}" ${required ? 'required' : ''}>${value}</textarea>`;
+            } else if (fieldType === 'enum' && fieldDef.options) {
+                fieldHtml += `<select id="social-edit-${fieldName}" name="${fieldName}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+                fieldHtml += '<option value="">请选择</option>';
+                for (const option of fieldDef.options) {
+                    fieldHtml += `<option value="${option}" ${value === option ? 'selected' : ''}>${option}</option>`;
+                }
+                fieldHtml += '</select>';
+            } else if (fieldType === 'date') {
+                fieldHtml += `<input type="date" id="social-edit-${fieldName}" name="${fieldName}" value="${value}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            } else if (fieldType === 'decimal' || fieldType === 'number') {
+                fieldHtml += `<div class="flex items-center gap-2">`;
+                fieldHtml += `<input type="number" id="social-edit-${fieldName}" name="${fieldName}" value="${value}" step="${fieldType === 'decimal' ? '0.01' : '1'}" min="${fieldDef.validation?.min || ''}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+                if (fieldDef.ui?.suffix) {
+                    fieldHtml += `<span class="text-sm text-gray-500 whitespace-nowrap">${fieldDef.ui.suffix}</span>`;
+                }
+                fieldHtml += `</div>`;
+            } else {
+                fieldHtml += `<input type="text" id="social-edit-${fieldName}" name="${fieldName}" value="${value}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            }
+            
+            // 错误提示
+            fieldHtml += `<div id="social-edit-${fieldName}-error" class="text-sm text-red-600 mt-1 hidden"></div>`;
+            fieldHtml += '</div>';
+            fieldHtml += '</div>';
+            
+            formFields.innerHTML += fieldHtml;
+        }
+    }
+
+    // 表单验证
+    function validateSocialBaseForm(formData) {
+        const fields = schema.fields || {};
+        const errors = {};
+        
+        const fieldNames = Object.keys(fields);
+        for (const fieldName of fieldNames) {
+            const fieldDef = fields[fieldName];
+            const value = formData.get(fieldName);
+            const validation = fieldDef.validation || {};
+            
+            // 跳过 reference 字段（person_id, company_id）
+            if (fieldDef.type === 'reference') continue;
+            
+            // 必填验证
+            if (fieldDef.required && (!value || value.trim() === '')) {
+                errors[fieldName] = `${fieldDef.label || fieldName} 是必填项`;
+                continue;
+            }
+            
+            // 如果值为空且不是必填，跳过其他验证
+            if (!value || value.trim() === '') {
+                continue;
+            }
+            
+            // 数值范围验证
+            if (fieldDef.type === 'decimal' || fieldDef.type === 'number') {
+                const numValue = parseFloat(value);
+                if (isNaN(numValue)) {
+                    errors[fieldName] = `${fieldDef.label || fieldName} 必须是数字`;
+                    continue;
+                }
+                if (validation.min !== undefined && numValue < validation.min) {
+                    errors[fieldName] = `${fieldDef.label || fieldName} 不能小于 ${validation.min}`;
+                    continue;
+                }
+                if (validation.max !== undefined && numValue > validation.max) {
+                    errors[fieldName] = `${fieldDef.label || fieldName} 不能大于 ${validation.max}`;
+                    continue;
+                }
+            }
+        }
+        
+        return errors;
+    }
+
+    // 显示表单错误
+    function showEditSocialBaseFormErrors(errors) {
+        // 清除所有错误提示
+        document.querySelectorAll('[id^="social-edit-"][id$="-error"]').forEach(el => {
+            el.classList.add('hidden');
+            el.textContent = '';
+        });
+        
+        // 显示新的错误
+        for (const [fieldName, errorMsg] of Object.entries(errors)) {
+            const errorEl = document.getElementById(`social-edit-${fieldName}-error`);
+            if (errorEl) {
+                errorEl.textContent = errorMsg;
+                errorEl.classList.remove('hidden');
+            }
+        }
+    }
+
+    // 提交编辑表单
+    async function submitEditSocialBaseForm(event) {
+        event.preventDefault();
+        
+        const form = event.target;
+        const formData = new FormData(form);
+        
+        // 验证表单
+        const errors = validateSocialBaseForm(formData);
+        if (Object.keys(errors).length > 0) {
+            showEditSocialBaseFormErrors(errors);
+            return;
+        }
+        
+        // 获取当前社保基数记录的 activityId
+        const activityId = window.currentSocialBaseData?.activityId;
+        if (!activityId) {
+            alert('无法更新：未找到社保基数记录ID');
+            return;
+        }
+        
+        // 构建数据对象（只包含非 reference 字段）
+        const data = {};
+        const fields = schema.fields || {};
+        const fieldNames = Object.keys(fields);
+        for (const fieldName of fieldNames) {
+            const fieldDef = fields[fieldName];
+            // 跳过 reference 字段，它们会从隐藏字段中获取
+            if (fieldDef.type === 'reference') continue;
+            
+            const value = formData.get(fieldName);
+            if (value !== null && value !== undefined) {
+                if (fieldDef.type === 'decimal' || fieldDef.type === 'number') {
+                    data[fieldName] = parseFloat(value);
+                } else if (fieldDef.type === 'date') {
+                    data[fieldName] = value;
+                } else {
+                    data[fieldName] = value.trim();
+                }
+            }
+        }
+        
+        // 添加 person_id 和 company_id（从隐藏字段获取）
+        const personId = formData.get('person_id');
+        const companyId = formData.get('company_id');
+        if (personId) data.person_id = parseInt(personId);
+        if (companyId) data.company_id = parseInt(companyId);
+        
+        try {
+            const response = await fetch(`/api/twins/person_company_social_security_base/${activityId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (!result.success) {
+                if (result.error && typeof result.error === 'object') {
+                    // 字段级错误
+                    showEditSocialBaseFormErrors(result.error);
+                } else {
+                    alert('更新失败: ' + (result.error || '未知错误'));
+                }
+                return;
+            }
+            
+            // 关闭编辑表单
+            document.getElementById('social-edit-form-modal').classList.add('hidden');
+            
+            // 重新加载列表
+            loadSocialBases(currentFilters);
+            
+            // 显示成功消息
+            alert('更新成功');
+        } catch (error) {
+            alert('更新失败: ' + error.message);
+        }
+    }
+
+    // 绑定编辑按钮事件
+    document.getElementById('social-edit-btn').onclick = openEditSocialBaseForm;
+
+    // 绑定编辑表单提交事件
+    document.getElementById('social-edit-form').onsubmit = submitEditSocialBaseForm;
+
+    // 关闭新增表单模态框
+    document.getElementById('social-close-add-form-modal').onclick = () => {
+        document.getElementById('social-add-form-modal').classList.add('hidden');
+    };
+    document.getElementById('social-cancel-add-form-btn').onclick = () => {
+        document.getElementById('social-add-form-modal').classList.add('hidden');
+    };
+
+    // 打开新增表单
+    async function openAddSocialBaseForm() {
+        // 加载所有人员和公司列表
+        try {
+            const [personsResponse, companiesResponse] = await Promise.all([
+                fetch('/api/twins/person'),
+                fetch('/api/twins/company')
+            ]);
+            
+            const personsResult = await personsResponse.json();
+            const companiesResult = await companiesResponse.json();
+            
+            if (!personsResult.success || !companiesResult.success) {
+                alert('加载数据失败，请刷新页面重试');
+                return;
+            }
+            
+            allPersons = personsResult.data || [];
+            allCompanies = companiesResult.data || [];
+            
+            // 渲染新增表单（空数据）
+            renderAddSocialBaseFormFields({});
+            document.getElementById('social-add-form-modal').classList.remove('hidden');
+        } catch (error) {
+            alert('加载数据失败: ' + error.message);
+        }
+    }
+
+    // 渲染新增表单字段（与编辑表单类似，但 person_id 和 company_id 可编辑）
+    function renderAddSocialBaseFormFields(data = {}) {
+        const fields = schema.fields || {};
+        const formFields = document.getElementById('social-add-form-fields');
+        formFields.innerHTML = '';
+        
+        const fieldNames = Object.keys(fields);
+        for (const fieldName of fieldNames) {
+            const fieldDef = fields[fieldName];
+            
+            // 新增模式下，person_id 和 company_id 显示为下拉选择
+            if (fieldDef.type === 'reference' && fieldDef.storage === 'foreign_key') {
+                const value = data[fieldName] || '';
+                let label = fieldDef.label || fieldName;
+                if (fieldName === 'person_id' && !fieldDef.label) {
+                    label = '人员';
+                } else if (fieldName === 'company_id' && !fieldDef.label) {
+                    label = '公司';
+                }
+                
+                const required = fieldDef.required || false;
+                
+                // 两列布局：标签在左，下拉选择在右
+                let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
+                fieldHtml += `<div class="md:col-span-1">
+                    <label for="social-add-${fieldName}" class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>
+                </div>`;
+                fieldHtml += '<div class="md:col-span-2">';
+                
+                const inputBaseClasses = "block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors";
+                
+                if (fieldName === 'person_id') {
+                    fieldHtml += `<select id="social-add-${fieldName}" name="${fieldName}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+                    fieldHtml += '<option value="">请选择人员</option>';
+                    allPersons.forEach(person => {
+                        fieldHtml += `<option value="${person.id}" ${value == person.id ? 'selected' : ''}>${person.current?.name || person.name || `人员 ${person.id}`}</option>`;
+                    });
+                    fieldHtml += '</select>';
+                } else if (fieldName === 'company_id') {
+                    fieldHtml += `<select id="social-add-${fieldName}" name="${fieldName}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+                    fieldHtml += '<option value="">请选择公司</option>';
+                    allCompanies.forEach(company => {
+                        fieldHtml += `<option value="${company.id}" ${value == company.id ? 'selected' : ''}>${company.current?.name || company.name || `公司 ${company.id}`}</option>`;
+                    });
+                    fieldHtml += '</select>';
+                }
+                
+                fieldHtml += `<div id="social-add-${fieldName}-error" class="text-sm text-red-600 mt-1 hidden"></div>`;
+                fieldHtml += '</div></div>';
+                
+                formFields.innerHTML += fieldHtml;
+                continue;
+            }
+            
+            const label = fieldDef.label || fieldName;
+            const required = fieldDef.required || false;
+            const fieldType = fieldDef.type || 'string';
+            const uiComponent = fieldDef.ui?.component || 'text_input';
+            
+            // 获取字段值
+            let value = data[fieldName] || '';
+            
+            // 处理 auto 字段（日期/时间）
+            if (fieldDef.auto && !value) {
+                if (fieldDef.auto === 'date') {
+                    value = new Date().toISOString().split('T')[0];
+                } else if (fieldDef.auto === 'timestamp') {
+                    value = new Date().toISOString();
+                }
+            }
+            
+            // 两列布局：标签在左，输入框在右
+            let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
+            
+            // 左侧：标签（右对齐）
+            fieldHtml += `<div class="md:col-span-1">
+                <label for="social-add-${fieldName}" class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>`;
+            
+            // 添加验证提示
+            if (fieldDef.validation) {
+                const validation = fieldDef.validation;
+                if (validation.min !== undefined || validation.max !== undefined) {
+                    const min = validation.min !== undefined ? validation.min : '';
+                    const max = validation.max !== undefined ? validation.max : '';
+                    fieldHtml += `<p class="text-xs text-gray-500 mt-1 text-right">范围: ${min ? min + ' ≤ ' : ''}值${max ? ' ≤ ' + max : ''}</p>`;
+                }
+            }
+            fieldHtml += '</div>';
+            
+            // 右侧：输入框
+            fieldHtml += '<div class="md:col-span-2">';
+            
+            const inputBaseClasses = "block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors";
+            
+            if (uiComponent === 'textarea') {
+                fieldHtml += `<textarea id="social-add-${fieldName}" name="${fieldName}" rows="3" class="${inputBaseClasses}" ${required ? 'required' : ''}>${value}</textarea>`;
+            } else if (fieldType === 'enum' && fieldDef.options) {
+                fieldHtml += `<select id="social-add-${fieldName}" name="${fieldName}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+                fieldHtml += '<option value="">请选择</option>';
+                for (const option of fieldDef.options) {
+                    fieldHtml += `<option value="${option}" ${value === option ? 'selected' : ''}>${option}</option>`;
+                }
+                fieldHtml += '</select>';
+            } else if (fieldType === 'date') {
+                fieldHtml += `<input type="date" id="social-add-${fieldName}" name="${fieldName}" value="${value}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            } else if (fieldType === 'decimal' || fieldType === 'number') {
+                fieldHtml += `<div class="flex items-center gap-2">`;
+                fieldHtml += `<input type="number" id="social-add-${fieldName}" name="${fieldName}" value="${value}" step="${fieldType === 'decimal' ? '0.01' : '1'}" min="${fieldDef.validation?.min || ''}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+                if (fieldDef.ui?.suffix) {
+                    fieldHtml += `<span class="text-sm text-gray-500 whitespace-nowrap">${fieldDef.ui.suffix}</span>`;
+                }
+                fieldHtml += `</div>`;
+            } else {
+                fieldHtml += `<input type="text" id="social-add-${fieldName}" name="${fieldName}" value="${value}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            }
+            
+            // 错误提示
+            fieldHtml += `<div id="social-add-${fieldName}-error" class="text-sm text-red-600 mt-1 hidden"></div>`;
+            fieldHtml += '</div>';
+            fieldHtml += '</div>';
+            
+            formFields.innerHTML += fieldHtml;
+        }
+    }
+
+    // 显示新增表单错误
+    function showAddSocialBaseFormErrors(errors) {
+        // 清除所有错误提示
+        document.querySelectorAll('[id^="social-add-"][id$="-error"]').forEach(el => {
+            el.classList.add('hidden');
+            el.textContent = '';
+        });
+        
+        // 显示新的错误
+        for (const [fieldName, errorMsg] of Object.entries(errors)) {
+            const errorEl = document.getElementById(`social-add-${fieldName}-error`);
+            if (errorEl) {
+                errorEl.textContent = errorMsg;
+                errorEl.classList.remove('hidden');
+            }
+        }
+    }
+
+    // 提交新增表单
+    async function submitAddSocialBaseForm(event) {
+        event.preventDefault();
+        
+        const form = event.target;
+        const formData = new FormData(form);
+        
+        // 验证表单（复用编辑表单的验证函数）
+        const errors = validateSocialBaseForm(formData);
+        if (Object.keys(errors).length > 0) {
+            showAddSocialBaseFormErrors(errors);
+            return;
+        }
+        
+        // 构建数据对象
+        const data = {};
+        const fields = schema.fields || {};
+        const fieldNames = Object.keys(fields);
+        for (const fieldName of fieldNames) {
+            const fieldDef = fields[fieldName];
+            const value = formData.get(fieldName);
+            if (value !== null && value !== undefined && value !== '') {
+                if (fieldDef.type === 'reference') {
+                    data[fieldName] = parseInt(value);
+                } else if (fieldDef.type === 'decimal' || fieldDef.type === 'number') {
+                    data[fieldName] = parseFloat(value);
+                } else if (fieldDef.type === 'date') {
+                    data[fieldName] = value;
+                } else {
+                    data[fieldName] = value.trim();
+                }
+            }
+        }
+        
+        try {
+            const response = await fetch('/api/twins/person_company_social_security_base', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (!result.success) {
+                if (result.error && typeof result.error === 'object') {
+                    // 字段级错误
+                    showAddSocialBaseFormErrors(result.error);
+                } else {
+                    alert('创建失败: ' + (result.error || '未知错误'));
+                }
+                return;
+            }
+            
+            // 关闭新增表单
+            document.getElementById('social-add-form-modal').classList.add('hidden');
+            
+            // 重新加载列表
+            loadSocialBases(currentFilters);
+            
+            // 显示成功消息
+            alert('创建成功');
+        } catch (error) {
+            alert('创建失败: ' + error.message);
+        }
+    }
+
+    // 绑定新增按钮事件
+    document.getElementById('add-social-base-btn').onclick = openAddSocialBaseForm;
+
+    // 绑定新增表单提交事件
+    document.getElementById('social-add-form').onsubmit = submitAddSocialBaseForm;
+
     renderFilterFields();
     loadSocialBases();
 }
@@ -531,6 +1353,13 @@ function initSocialBase() {
 function initHousingFundBase() {
     const schema = housingSchema;
     let currentFilters = {};
+    
+    // 全局变量：存储人员和公司列表
+    let allPersons = [];
+    let allCompanies = [];
+    
+    // 全局变量：存储当前编辑的公积金基数数据
+    window.currentHousingFundBaseData = null;
 
     function toggleFilter() {
         const filterContent = document.getElementById('housing-filter-content');
@@ -663,7 +1492,7 @@ function initHousingFundBase() {
 
     async function showHousingFundBaseDetail(activityId) {
         try {
-            const response = await fetch(`/api/twins/person_company_housing_fund_base/${activityId}`);
+            const response = await fetch(`/api/twins/person_company_housing_fund_base/${activityId}?enrich=person,company`);
             const result = await response.json();
             if (!result.success) {
                 alert('加载失败: ' + result.error);
@@ -672,6 +1501,14 @@ function initHousingFundBase() {
             const data = result.data;
             const modal = document.getElementById('housing-fund-base-modal');
             const content = document.getElementById('housing-fund-base-detail-content');
+            
+            // 保存当前数据以便编辑时使用
+            window.currentHousingFundBaseData = {
+                activityId: activityId,
+                personName: data.person?.current?.name || data.person?.name || '',
+                companyName: data.company?.current?.name || data.company?.name || '',
+                current: data.current || {}
+            };
             let html = '<div class="space-y-6">';
             html += '<div><h4 class="text-md font-semibold text-gray-900 mb-3">当前信息</h4><div class="bg-gray-50 rounded-lg p-4 space-y-3">';
             const fields = schema.fields || {};
@@ -744,6 +1581,568 @@ function initHousingFundBase() {
         document.getElementById('housing-fund-base-modal').classList.add('hidden');
     };
 
+    // 关闭编辑表单模态框
+    document.getElementById('housing-close-edit-form-modal').onclick = () => {
+        document.getElementById('housing-edit-form-modal').classList.add('hidden');
+    };
+    document.getElementById('housing-cancel-edit-form-btn').onclick = () => {
+        document.getElementById('housing-edit-form-modal').classList.add('hidden');
+    };
+
+    // 打开编辑表单
+    async function openEditHousingFundBaseForm() {
+        if (!window.currentHousingFundBaseData) {
+            alert('无法编辑：未找到公积金基数数据');
+            return;
+        }
+        
+        // 加载所有人员和公司列表（用于显示名称）
+        try {
+            const [personsResponse, companiesResponse] = await Promise.all([
+                fetch('/api/twins/person'),
+                fetch('/api/twins/company')
+            ]);
+            
+            const personsResult = await personsResponse.json();
+            const companiesResult = await companiesResponse.json();
+            
+            if (!personsResult.success || !companiesResult.success) {
+                alert('加载数据失败，请刷新页面重试');
+                return;
+            }
+            
+            // 保存为全局变量以便在渲染表单时使用
+            allPersons = personsResult.data || [];
+            allCompanies = companiesResult.data || [];
+            
+            // 关闭详情模态框
+            document.getElementById('housing-fund-base-modal').classList.add('hidden');
+            
+            // 渲染编辑表单
+            renderEditHousingFundBaseFormFields(window.currentHousingFundBaseData.current || {});
+            document.getElementById('housing-edit-form-modal').classList.remove('hidden');
+        } catch (error) {
+            alert('加载数据失败: ' + error.message);
+        }
+    }
+
+    // 渲染编辑表单字段
+    function renderEditHousingFundBaseFormFields(data = {}) {
+        const fields = schema.fields || {};
+        const formFields = document.getElementById('housing-edit-form-fields');
+        formFields.innerHTML = '';
+        
+        const fieldNames = Object.keys(fields);
+        for (const fieldName of fieldNames) {
+            const fieldDef = fields[fieldName];
+            
+            // 编辑模式下，person_id 和 company_id 显示为只读字段
+            if (fieldDef.type === 'reference' && fieldDef.storage === 'foreign_key') {
+                const value = data[fieldName] || '';
+                let label = fieldDef.label || fieldName;
+                if (fieldName === 'person_id' && !fieldDef.label) {
+                    label = '人员';
+                } else if (fieldName === 'company_id' && !fieldDef.label) {
+                    label = '公司';
+                }
+                
+                // 添加隐藏字段以保持 person_id 和 company_id
+                if (value) {
+                    formFields.innerHTML += `<input type="hidden" name="${fieldName}" value="${value}">`;
+                }
+                
+                // 显示只读字段（显示名称而不是ID）
+                let displayValue = '';
+                if (fieldName === 'person_id' && value) {
+                    // 优先使用保存的人员名称，否则从 allPersons 中查找
+                    if (window.currentHousingFundBaseData?.personName) {
+                        displayValue = window.currentHousingFundBaseData.personName;
+                    } else {
+                        const person = allPersons.find(p => p.id == value);
+                        displayValue = person?.current?.name || person?.name || `人员 ${value}`;
+                    }
+                } else if (fieldName === 'company_id' && value) {
+                    // 优先使用保存的公司名称，否则从 allCompanies 中查找
+                    if (window.currentHousingFundBaseData?.companyName) {
+                        displayValue = window.currentHousingFundBaseData.companyName;
+                    } else {
+                        const company = allCompanies.find(c => c.id == value);
+                        displayValue = company?.current?.name || company?.name || `公司 ${value}`;
+                    }
+                } else {
+                    displayValue = value || '-';
+                }
+                
+                // 两列布局：标签在左，只读显示在右
+                let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
+                fieldHtml += `<div class="md:col-span-1">
+                    <label class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}</label>
+                </div>`;
+                fieldHtml += '<div class="md:col-span-2">';
+                fieldHtml += `<div class="px-3 py-2 bg-gray-50 border-2 border-gray-200 rounded-md text-sm text-gray-700">${displayValue}</div>`;
+                fieldHtml += '</div></div>';
+                
+                formFields.innerHTML += fieldHtml;
+                continue;
+            }
+            
+            const label = fieldDef.label || fieldName;
+            const required = fieldDef.required || false;
+            const fieldType = fieldDef.type || 'string';
+            const uiComponent = fieldDef.ui?.component || 'text_input';
+            
+            // 获取字段值
+            let value = data[fieldName] || '';
+            
+            // 处理 auto 字段（日期/时间）
+            if (fieldDef.auto && !value) {
+                if (fieldDef.auto === 'date') {
+                    value = new Date().toISOString().split('T')[0];
+                } else if (fieldDef.auto === 'timestamp') {
+                    value = new Date().toISOString();
+                }
+            }
+            
+            // 两列布局：标签在左，输入框在右
+            let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
+            
+            // 左侧：标签（右对齐）
+            fieldHtml += `<div class="md:col-span-1">
+                <label for="housing-edit-${fieldName}" class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>`;
+            
+            // 添加验证提示
+            if (fieldDef.validation) {
+                const validation = fieldDef.validation;
+                if (validation.min !== undefined || validation.max !== undefined) {
+                    const min = validation.min !== undefined ? validation.min : '';
+                    const max = validation.max !== undefined ? validation.max : '';
+                    fieldHtml += `<p class="text-xs text-gray-500 mt-1 text-right">范围: ${min ? min + ' ≤ ' : ''}值${max ? ' ≤ ' + max : ''}</p>`;
+                }
+            }
+            fieldHtml += '</div>';
+            
+            // 右侧：输入框
+            fieldHtml += '<div class="md:col-span-2">';
+            
+            const inputBaseClasses = "block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors";
+            
+            if (uiComponent === 'textarea') {
+                fieldHtml += `<textarea id="housing-edit-${fieldName}" name="${fieldName}" rows="3" class="${inputBaseClasses}" ${required ? 'required' : ''}>${value}</textarea>`;
+            } else if (fieldType === 'enum' && fieldDef.options) {
+                fieldHtml += `<select id="housing-edit-${fieldName}" name="${fieldName}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+                fieldHtml += '<option value="">请选择</option>';
+                for (const option of fieldDef.options) {
+                    fieldHtml += `<option value="${option}" ${value === option ? 'selected' : ''}>${option}</option>`;
+                }
+                fieldHtml += '</select>';
+            } else if (fieldType === 'date') {
+                fieldHtml += `<input type="date" id="housing-edit-${fieldName}" name="${fieldName}" value="${value}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            } else if (fieldType === 'decimal' || fieldType === 'number') {
+                fieldHtml += `<div class="flex items-center gap-2">`;
+                fieldHtml += `<input type="number" id="housing-edit-${fieldName}" name="${fieldName}" value="${value}" step="${fieldType === 'decimal' ? '0.01' : '1'}" min="${fieldDef.validation?.min || ''}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+                if (fieldDef.ui?.suffix) {
+                    fieldHtml += `<span class="text-sm text-gray-500 whitespace-nowrap">${fieldDef.ui.suffix}</span>`;
+                }
+                fieldHtml += `</div>`;
+            } else {
+                fieldHtml += `<input type="text" id="housing-edit-${fieldName}" name="${fieldName}" value="${value}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            }
+            
+            // 错误提示
+            fieldHtml += `<div id="housing-edit-${fieldName}-error" class="text-sm text-red-600 mt-1 hidden"></div>`;
+            fieldHtml += '</div>';
+            fieldHtml += '</div>';
+            
+            formFields.innerHTML += fieldHtml;
+        }
+    }
+
+    // 表单验证
+    function validateHousingFundBaseForm(formData) {
+        const fields = schema.fields || {};
+        const errors = {};
+        
+        const fieldNames = Object.keys(fields);
+        for (const fieldName of fieldNames) {
+            const fieldDef = fields[fieldName];
+            const value = formData.get(fieldName);
+            const validation = fieldDef.validation || {};
+            
+            // 跳过 reference 字段（person_id, company_id）
+            if (fieldDef.type === 'reference') continue;
+            
+            // 必填验证
+            if (fieldDef.required && (!value || value.trim() === '')) {
+                errors[fieldName] = `${fieldDef.label || fieldName} 是必填项`;
+                continue;
+            }
+            
+            // 如果值为空且不是必填，跳过其他验证
+            if (!value || value.trim() === '') {
+                continue;
+            }
+            
+            // 数值范围验证
+            if (fieldDef.type === 'decimal' || fieldDef.type === 'number') {
+                const numValue = parseFloat(value);
+                if (isNaN(numValue)) {
+                    errors[fieldName] = `${fieldDef.label || fieldName} 必须是数字`;
+                    continue;
+                }
+                if (validation.min !== undefined && numValue < validation.min) {
+                    errors[fieldName] = `${fieldDef.label || fieldName} 不能小于 ${validation.min}`;
+                    continue;
+                }
+                if (validation.max !== undefined && numValue > validation.max) {
+                    errors[fieldName] = `${fieldDef.label || fieldName} 不能大于 ${validation.max}`;
+                    continue;
+                }
+            }
+        }
+        
+        return errors;
+    }
+
+    // 显示表单错误
+    function showEditHousingFundBaseFormErrors(errors) {
+        // 清除所有错误提示
+        document.querySelectorAll('[id^="housing-edit-"][id$="-error"]').forEach(el => {
+            el.classList.add('hidden');
+            el.textContent = '';
+        });
+        
+        // 显示新的错误
+        for (const [fieldName, errorMsg] of Object.entries(errors)) {
+            const errorEl = document.getElementById(`housing-edit-${fieldName}-error`);
+            if (errorEl) {
+                errorEl.textContent = errorMsg;
+                errorEl.classList.remove('hidden');
+            }
+        }
+    }
+
+    // 提交编辑表单
+    async function submitEditHousingFundBaseForm(event) {
+        event.preventDefault();
+        
+        const form = event.target;
+        const formData = new FormData(form);
+        
+        // 验证表单
+        const errors = validateHousingFundBaseForm(formData);
+        if (Object.keys(errors).length > 0) {
+            showEditHousingFundBaseFormErrors(errors);
+            return;
+        }
+        
+        // 获取当前公积金基数记录的 activityId
+        const activityId = window.currentHousingFundBaseData?.activityId;
+        if (!activityId) {
+            alert('无法更新：未找到公积金基数记录ID');
+            return;
+        }
+        
+        // 构建数据对象（只包含非 reference 字段）
+        const data = {};
+        const fields = schema.fields || {};
+        const fieldNames = Object.keys(fields);
+        for (const fieldName of fieldNames) {
+            const fieldDef = fields[fieldName];
+            // 跳过 reference 字段，它们会从隐藏字段中获取
+            if (fieldDef.type === 'reference') continue;
+            
+            const value = formData.get(fieldName);
+            if (value !== null && value !== undefined) {
+                if (fieldDef.type === 'decimal' || fieldDef.type === 'number') {
+                    data[fieldName] = parseFloat(value);
+                } else if (fieldDef.type === 'date') {
+                    data[fieldName] = value;
+                } else {
+                    data[fieldName] = value.trim();
+                }
+            }
+        }
+        
+        // 添加 person_id 和 company_id（从隐藏字段获取）
+        const personId = formData.get('person_id');
+        const companyId = formData.get('company_id');
+        if (personId) data.person_id = parseInt(personId);
+        if (companyId) data.company_id = parseInt(companyId);
+        
+        try {
+            const response = await fetch(`/api/twins/person_company_housing_fund_base/${activityId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (!result.success) {
+                if (result.error && typeof result.error === 'object') {
+                    // 字段级错误
+                    showEditHousingFundBaseFormErrors(result.error);
+                } else {
+                    alert('更新失败: ' + (result.error || '未知错误'));
+                }
+                return;
+            }
+            
+            // 关闭编辑表单
+            document.getElementById('housing-edit-form-modal').classList.add('hidden');
+            
+            // 重新加载列表
+            loadHousingFundBases(currentFilters);
+            
+            // 显示成功消息
+            alert('更新成功');
+        } catch (error) {
+            alert('更新失败: ' + error.message);
+        }
+    }
+
+    // 绑定编辑按钮事件
+    document.getElementById('housing-edit-btn').onclick = openEditHousingFundBaseForm;
+
+    // 绑定编辑表单提交事件
+    document.getElementById('housing-edit-form').onsubmit = submitEditHousingFundBaseForm;
+
+    // 关闭新增表单模态框
+    document.getElementById('housing-close-add-form-modal').onclick = () => {
+        document.getElementById('housing-add-form-modal').classList.add('hidden');
+    };
+    document.getElementById('housing-cancel-add-form-btn').onclick = () => {
+        document.getElementById('housing-add-form-modal').classList.add('hidden');
+    };
+
+    // 打开新增表单
+    async function openAddHousingFundBaseForm() {
+        // 加载所有人员和公司列表
+        try {
+            const [personsResponse, companiesResponse] = await Promise.all([
+                fetch('/api/twins/person'),
+                fetch('/api/twins/company')
+            ]);
+            
+            const personsResult = await personsResponse.json();
+            const companiesResult = await companiesResponse.json();
+            
+            if (!personsResult.success || !companiesResult.success) {
+                alert('加载数据失败，请刷新页面重试');
+                return;
+            }
+            
+            allPersons = personsResult.data || [];
+            allCompanies = companiesResult.data || [];
+            
+            // 渲染新增表单（空数据）
+            renderAddHousingFundBaseFormFields({});
+            document.getElementById('housing-add-form-modal').classList.remove('hidden');
+        } catch (error) {
+            alert('加载数据失败: ' + error.message);
+        }
+    }
+
+    // 渲染新增表单字段
+    function renderAddHousingFundBaseFormFields(data = {}) {
+        const fields = schema.fields || {};
+        const formFields = document.getElementById('housing-add-form-fields');
+        formFields.innerHTML = '';
+        
+        const fieldNames = Object.keys(fields);
+        for (const fieldName of fieldNames) {
+            const fieldDef = fields[fieldName];
+            
+            // 新增模式下，person_id 和 company_id 显示为下拉选择
+            if (fieldDef.type === 'reference' && fieldDef.storage === 'foreign_key') {
+                const value = data[fieldName] || '';
+                let label = fieldDef.label || fieldName;
+                if (fieldName === 'person_id' && !fieldDef.label) {
+                    label = '人员';
+                } else if (fieldName === 'company_id' && !fieldDef.label) {
+                    label = '公司';
+                }
+                
+                const required = fieldDef.required || false;
+                
+                let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
+                fieldHtml += `<div class="md:col-span-1">
+                    <label for="housing-add-${fieldName}" class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>
+                </div>`;
+                fieldHtml += '<div class="md:col-span-2">';
+                
+                const inputBaseClasses = "block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors";
+                
+                if (fieldName === 'person_id') {
+                    fieldHtml += `<select id="housing-add-${fieldName}" name="${fieldName}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+                    fieldHtml += '<option value="">请选择人员</option>';
+                    allPersons.forEach(person => {
+                        fieldHtml += `<option value="${person.id}" ${value == person.id ? 'selected' : ''}>${person.current?.name || person.name || `人员 ${person.id}`}</option>`;
+                    });
+                    fieldHtml += '</select>';
+                } else if (fieldName === 'company_id') {
+                    fieldHtml += `<select id="housing-add-${fieldName}" name="${fieldName}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+                    fieldHtml += '<option value="">请选择公司</option>';
+                    allCompanies.forEach(company => {
+                        fieldHtml += `<option value="${company.id}" ${value == company.id ? 'selected' : ''}>${company.current?.name || company.name || `公司 ${company.id}`}</option>`;
+                    });
+                    fieldHtml += '</select>';
+                }
+                
+                fieldHtml += `<div id="housing-add-${fieldName}-error" class="text-sm text-red-600 mt-1 hidden"></div>`;
+                fieldHtml += '</div></div>';
+                
+                formFields.innerHTML += fieldHtml;
+                continue;
+            }
+            
+            const label = fieldDef.label || fieldName;
+            const required = fieldDef.required || false;
+            const fieldType = fieldDef.type || 'string';
+            const uiComponent = fieldDef.ui?.component || 'text_input';
+            
+            let value = data[fieldName] || '';
+            
+            if (fieldDef.auto && !value) {
+                if (fieldDef.auto === 'date') {
+                    value = new Date().toISOString().split('T')[0];
+                } else if (fieldDef.auto === 'timestamp') {
+                    value = new Date().toISOString();
+                }
+            }
+            
+            let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
+            fieldHtml += `<div class="md:col-span-1">
+                <label for="housing-add-${fieldName}" class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>`;
+            
+            if (fieldDef.validation) {
+                const validation = fieldDef.validation;
+                if (validation.min !== undefined || validation.max !== undefined) {
+                    const min = validation.min !== undefined ? validation.min : '';
+                    const max = validation.max !== undefined ? validation.max : '';
+                    fieldHtml += `<p class="text-xs text-gray-500 mt-1 text-right">范围: ${min ? min + ' ≤ ' : ''}值${max ? ' ≤ ' + max : ''}</p>`;
+                }
+            }
+            fieldHtml += '</div>';
+            
+            fieldHtml += '<div class="md:col-span-2">';
+            
+            const inputBaseClasses = "block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors";
+            
+            if (uiComponent === 'textarea') {
+                fieldHtml += `<textarea id="housing-add-${fieldName}" name="${fieldName}" rows="3" class="${inputBaseClasses}" ${required ? 'required' : ''}>${value}</textarea>`;
+            } else if (fieldType === 'enum' && fieldDef.options) {
+                fieldHtml += `<select id="housing-add-${fieldName}" name="${fieldName}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+                fieldHtml += '<option value="">请选择</option>';
+                for (const option of fieldDef.options) {
+                    fieldHtml += `<option value="${option}" ${value === option ? 'selected' : ''}>${option}</option>`;
+                }
+                fieldHtml += '</select>';
+            } else if (fieldType === 'date') {
+                fieldHtml += `<input type="date" id="housing-add-${fieldName}" name="${fieldName}" value="${value}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            } else if (fieldType === 'decimal' || fieldType === 'number') {
+                fieldHtml += `<div class="flex items-center gap-2">`;
+                fieldHtml += `<input type="number" id="housing-add-${fieldName}" name="${fieldName}" value="${value}" step="${fieldType === 'decimal' ? '0.01' : '1'}" min="${fieldDef.validation?.min || ''}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+                if (fieldDef.ui?.suffix) {
+                    fieldHtml += `<span class="text-sm text-gray-500 whitespace-nowrap">${fieldDef.ui.suffix}</span>`;
+                }
+                fieldHtml += `</div>`;
+            } else {
+                fieldHtml += `<input type="text" id="housing-add-${fieldName}" name="${fieldName}" value="${value}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            }
+            
+            fieldHtml += `<div id="housing-add-${fieldName}-error" class="text-sm text-red-600 mt-1 hidden"></div>`;
+            fieldHtml += '</div>';
+            fieldHtml += '</div>';
+            
+            formFields.innerHTML += fieldHtml;
+        }
+    }
+
+    // 显示新增表单错误
+    function showAddHousingFundBaseFormErrors(errors) {
+        document.querySelectorAll('[id^="housing-add-"][id$="-error"]').forEach(el => {
+            el.classList.add('hidden');
+            el.textContent = '';
+        });
+        
+        for (const [fieldName, errorMsg] of Object.entries(errors)) {
+            const errorEl = document.getElementById(`housing-add-${fieldName}-error`);
+            if (errorEl) {
+                errorEl.textContent = errorMsg;
+                errorEl.classList.remove('hidden');
+            }
+        }
+    }
+
+    // 提交新增表单
+    async function submitAddHousingFundBaseForm(event) {
+        event.preventDefault();
+        
+        const form = event.target;
+        const formData = new FormData(form);
+        
+        const errors = validateHousingFundBaseForm(formData);
+        if (Object.keys(errors).length > 0) {
+            showAddHousingFundBaseFormErrors(errors);
+            return;
+        }
+        
+        const data = {};
+        const fields = schema.fields || {};
+        const fieldNames = Object.keys(fields);
+        for (const fieldName of fieldNames) {
+            const fieldDef = fields[fieldName];
+            const value = formData.get(fieldName);
+            if (value !== null && value !== undefined && value !== '') {
+                if (fieldDef.type === 'reference') {
+                    data[fieldName] = parseInt(value);
+                } else if (fieldDef.type === 'decimal' || fieldDef.type === 'number') {
+                    data[fieldName] = parseFloat(value);
+                } else if (fieldDef.type === 'date') {
+                    data[fieldName] = value;
+                } else {
+                    data[fieldName] = value.trim();
+                }
+            }
+        }
+        
+        try {
+            const response = await fetch('/api/twins/person_company_housing_fund_base', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (!result.success) {
+                if (result.error && typeof result.error === 'object') {
+                    showAddHousingFundBaseFormErrors(result.error);
+                } else {
+                    alert('创建失败: ' + (result.error || '未知错误'));
+                }
+                return;
+            }
+            
+            document.getElementById('housing-add-form-modal').classList.add('hidden');
+            loadHousingFundBases(currentFilters);
+            alert('创建成功');
+        } catch (error) {
+            alert('创建失败: ' + error.message);
+        }
+    }
+
+    // 绑定新增按钮事件
+    document.getElementById('add-housing-base-btn').onclick = openAddHousingFundBaseForm;
+
+    // 绑定新增表单提交事件
+    document.getElementById('housing-add-form').onsubmit = submitAddHousingFundBaseForm;
+
     renderFilterFields();
     loadHousingFundBases();
 }
@@ -752,6 +2151,12 @@ function initHousingFundBase() {
 function initTaxDeduction() {
     const schema = taxSchema;
     let currentFilters = {};
+    
+    // 全局变量：存储人员列表
+    let allPersons = [];
+    
+    // 全局变量：存储当前编辑的专项附加扣除数据
+    window.currentTaxDeductionData = null;
 
     function toggleFilter() {
         const filterContent = document.getElementById('tax-filter-content');
@@ -773,8 +2178,12 @@ function initTaxDeduction() {
         filterFields.innerHTML = '';
         const filterableFieldsConfig = [
             { fieldName: 'person_name', label: '人员-姓名', type: 'text' },
-            { fieldName: 'deduction_type', label: '扣除类型', type: 'select', options: ['子女教育', '继续教育', '大病医疗', '住房贷款利息', '住房租金', '赡养老人'] },
-            { fieldName: 'amount', label: '扣除金额(>=)', type: 'number' },
+            { fieldName: 'children_education_amount', label: '子女教育金额(>=)', type: 'number' },
+            { fieldName: 'continuing_education_amount', label: '继续教育金额(>=)', type: 'number' },
+            { fieldName: 'medical_expense_amount', label: '大病医疗金额(>=)', type: 'number' },
+            { fieldName: 'housing_loan_interest_amount', label: '住房贷款利息金额(>=)', type: 'number' },
+            { fieldName: 'housing_rent_amount', label: '住房租金金额(>=)', type: 'number' },
+            { fieldName: 'elderly_support_amount', label: '赡养老人金额(>=)', type: 'number' },
             { fieldName: 'status', label: '状态', type: 'select', options: ['生效中', '已失效'] },
             { fieldName: 'effective_date', label: '生效日期', type: 'date' }
         ];
@@ -803,7 +2212,8 @@ function initTaxDeduction() {
 
     function getFilterValues() {
         const filters = {};
-        ['person_name', 'deduction_type', 'amount', 'status', 'effective_date'].forEach(fieldName => {
+        ['person_name', 'children_education_amount', 'continuing_education_amount', 'medical_expense_amount', 
+         'housing_loan_interest_amount', 'housing_rent_amount', 'elderly_support_amount', 'status', 'effective_date'].forEach(fieldName => {
             const input = document.getElementById(`tax-filter-${fieldName}`);
             if (input && input.value && input.value.trim()) {
                 filters[fieldName] = input.value.trim();
@@ -858,8 +2268,12 @@ function initTaxDeduction() {
         tbody.innerHTML = '';
         const columns = [
             { key: 'person_name', label: '人员姓名' },
-            { key: 'deduction_type', label: '扣除类型' },
-            { key: 'amount', label: '扣除金额' },
+            { key: 'children_education_amount', label: '子女教育' },
+            { key: 'continuing_education_amount', label: '继续教育' },
+            { key: 'medical_expense_amount', label: '大病医疗' },
+            { key: 'housing_loan_interest_amount', label: '住房贷款利息' },
+            { key: 'housing_rent_amount', label: '住房租金' },
+            { key: 'elderly_support_amount', label: '赡养老人' },
             { key: 'status', label: '状态' },
             { key: 'effective_date', label: '生效日期' },
             { key: 'expiry_date', label: '失效日期' }
@@ -878,20 +2292,16 @@ function initTaxDeduction() {
                 const td = document.createElement('td');
                 td.className = 'whitespace-nowrap px-6 py-4 text-sm text-gray-900';
                 let value = record[col.key];
-                if (col.key === 'amount' && value !== undefined && value !== null) {
+                // 处理金额字段（6种扣除类型的金额）
+                if (col.key.endsWith('_amount') && value !== undefined && value !== null) {
                     const amount = parseFloat(value);
-                    td.textContent = isNaN(amount) ? '-' : `¥${amount.toLocaleString()}/月`;
-                } else if (col.key === 'deduction_type' && value) {
-                    const typeColors = {
-                        '子女教育': 'bg-blue-100 text-blue-800',
-                        '继续教育': 'bg-green-100 text-green-800',
-                        '大病医疗': 'bg-red-100 text-red-800',
-                        '住房贷款利息': 'bg-purple-100 text-purple-800',
-                        '住房租金': 'bg-yellow-100 text-yellow-800',
-                        '赡养老人': 'bg-orange-100 text-orange-800'
-                    };
-                    const colorClass = typeColors[value] || 'bg-gray-100 text-gray-800';
-                    td.innerHTML = `<span class="px-2 py-1 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
+                    if (amount > 0) {
+                        // 大病医疗是年度金额，其他是月度金额
+                        const suffix = col.key === 'medical_expense_amount' ? '元/年' : '元/月';
+                        td.textContent = `¥${amount.toLocaleString()}${suffix}`;
+                    } else {
+                        td.textContent = '-';
+                    }
                 } else if (col.key === 'status' && value) {
                     const statusColor = value === '生效中' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
                     td.innerHTML = `<span class="px-2 py-1 rounded-full text-xs font-medium ${statusColor}">${value}</span>`;
@@ -908,7 +2318,7 @@ function initTaxDeduction() {
 
     async function showTaxDeductionDetail(activityId) {
         try {
-            const response = await fetch(`/api/twins/person_tax_deduction/${activityId}`);
+            const response = await fetch(`/api/twins/person_tax_deduction/${activityId}?enrich=person`);
             const result = await response.json();
             if (!result.success) {
                 alert('加载失败: ' + result.error);
@@ -917,6 +2327,13 @@ function initTaxDeduction() {
             const data = result.data;
             const modal = document.getElementById('tax-deduction-modal');
             const content = document.getElementById('tax-deduction-detail-content');
+            
+            // 保存当前数据以便编辑时使用
+            window.currentTaxDeductionData = {
+                activityId: activityId,
+                personName: data.person?.current?.name || data.person?.name || '',
+                current: data.current || {}
+            };
             let html = '<div class="space-y-6">';
             html += '<div><h4 class="text-md font-semibold text-gray-900 mb-3">当前信息</h4><div class="bg-gray-50 rounded-lg p-4 space-y-3">';
             const fields = schema.fields || {};
@@ -928,22 +2345,18 @@ function initTaxDeduction() {
                 if (value !== undefined && value !== null && value !== '') {
                     const label = fieldDef.label || fieldName;
                     let displayValue = value;
-                    if (fieldName === 'amount') {
+                    // 处理金额字段（6种扣除类型的金额）
+                    if (fieldName.endsWith('_amount') && value !== undefined && value !== null) {
                         const amount = parseFloat(value);
-                        displayValue = isNaN(amount) ? '-' : `¥${amount.toLocaleString()}/月`;
+                        if (amount > 0) {
+                            // 大病医疗是年度金额，其他是月度金额
+                            const suffix = fieldName === 'medical_expense_amount' ? '元/年' : '元/月';
+                            displayValue = `¥${amount.toLocaleString()}${suffix}`;
+                        } else {
+                            displayValue = '-';
+                        }
                     } else if (fieldDef.type === 'date') {
                         displayValue = new Date(value).toLocaleDateString('zh-CN');
-                    } else if (fieldName === 'deduction_type') {
-                        const typeColors = {
-                            '子女教育': 'bg-blue-100 text-blue-800',
-                            '继续教育': 'bg-green-100 text-green-800',
-                            '大病医疗': 'bg-red-100 text-red-800',
-                            '住房贷款利息': 'bg-purple-100 text-purple-800',
-                            '住房租金': 'bg-yellow-100 text-yellow-800',
-                            '赡养老人': 'bg-orange-100 text-orange-800'
-                        };
-                        const colorClass = typeColors[value] || 'bg-gray-100 text-gray-800';
-                        displayValue = `<span class="px-2 py-1 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
                     } else if (fieldName === 'status') {
                         const statusColor = value === '生效中' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
                         displayValue = `<span class="px-2 py-1 rounded-full text-xs font-medium ${statusColor}">${value}</span>`;
@@ -969,22 +2382,18 @@ function initTaxDeduction() {
                         const fieldDef = fields[fieldName];
                         if (fieldDef.type === 'reference') return;
                         let value = record.data[fieldName] || '';
-                        if (fieldName === 'amount' && value) {
+                        // 处理金额字段（6种扣除类型的金额）
+                        if (fieldName.endsWith('_amount') && value !== undefined && value !== null) {
                             const amount = parseFloat(value);
-                            value = isNaN(amount) ? '-' : `¥${amount.toLocaleString()}/月`;
+                            if (amount > 0) {
+                                // 大病医疗是年度金额，其他是月度金额
+                                const suffix = fieldName === 'medical_expense_amount' ? '元/年' : '元/月';
+                                value = `¥${amount.toLocaleString()}${suffix}`;
+                            } else {
+                                value = '-';
+                            }
                         } else if (fieldDef.type === 'date' && value) {
                             value = new Date(value).toLocaleDateString('zh-CN');
-                        } else if (fieldName === 'deduction_type' && value) {
-                            const typeColors = {
-                                '子女教育': 'bg-blue-100 text-blue-800',
-                                '继续教育': 'bg-green-100 text-green-800',
-                                '大病医疗': 'bg-red-100 text-red-800',
-                                '住房贷款利息': 'bg-purple-100 text-purple-800',
-                                '住房租金': 'bg-yellow-100 text-yellow-800',
-                                '赡养老人': 'bg-orange-100 text-orange-800'
-                            };
-                            const colorClass = typeColors[value] || 'bg-gray-100 text-gray-800';
-                            value = `<span class="px-2 py-1 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
                         } else if (fieldName === 'status' && value) {
                             const statusColor = value === '生效中' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
                             value = `<span class="px-2 py-1 rounded-full text-xs font-medium ${statusColor}">${value}</span>`;
@@ -1016,6 +2425,535 @@ function initTaxDeduction() {
     document.getElementById('tax-close-modal').onclick = () => {
         document.getElementById('tax-deduction-modal').classList.add('hidden');
     };
+
+    // 关闭编辑表单模态框
+    document.getElementById('tax-close-edit-form-modal').onclick = () => {
+        document.getElementById('tax-edit-form-modal').classList.add('hidden');
+    };
+    document.getElementById('tax-cancel-edit-form-btn').onclick = () => {
+        document.getElementById('tax-edit-form-modal').classList.add('hidden');
+    };
+
+    // 打开编辑表单
+    async function openEditTaxDeductionForm() {
+        if (!window.currentTaxDeductionData) {
+            alert('无法编辑：未找到专项附加扣除数据');
+            return;
+        }
+        
+        // 加载所有人员列表（用于显示名称）
+        try {
+            const personsResponse = await fetch('/api/twins/person');
+            const personsResult = await personsResponse.json();
+            
+            if (!personsResult.success) {
+                alert('加载数据失败，请刷新页面重试');
+                return;
+            }
+            
+            // 保存为全局变量以便在渲染表单时使用
+            allPersons = personsResult.data || [];
+            
+            // 关闭详情模态框
+            document.getElementById('tax-deduction-modal').classList.add('hidden');
+            
+            // 渲染编辑表单
+            renderEditTaxDeductionFormFields(window.currentTaxDeductionData.current || {});
+            document.getElementById('tax-edit-form-modal').classList.remove('hidden');
+        } catch (error) {
+            alert('加载数据失败: ' + error.message);
+        }
+    }
+
+    // 渲染编辑表单字段
+    function renderEditTaxDeductionFormFields(data = {}) {
+        const fields = schema.fields || {};
+        const formFields = document.getElementById('tax-edit-form-fields');
+        formFields.innerHTML = '';
+        
+        const fieldNames = Object.keys(fields);
+        for (const fieldName of fieldNames) {
+            const fieldDef = fields[fieldName];
+            
+            // 编辑模式下，person_id 显示为只读字段
+            if (fieldDef.type === 'reference' && fieldDef.storage === 'foreign_key') {
+                const value = data[fieldName] || '';
+                let label = fieldDef.label || fieldName;
+                if (fieldName === 'person_id' && !fieldDef.label) {
+                    label = '人员';
+                }
+                
+                // 添加隐藏字段以保持 person_id
+                if (value) {
+                    formFields.innerHTML += `<input type="hidden" name="${fieldName}" value="${value}">`;
+                }
+                
+                // 显示只读字段（显示名称而不是ID）
+                let displayValue = '';
+                if (fieldName === 'person_id' && value) {
+                    // 优先使用保存的人员名称，否则从 allPersons 中查找
+                    if (window.currentTaxDeductionData?.personName) {
+                        displayValue = window.currentTaxDeductionData.personName;
+                    } else {
+                        const person = allPersons.find(p => p.id == value);
+                        displayValue = person?.current?.name || person?.name || `人员 ${value}`;
+                    }
+                } else {
+                    displayValue = value || '-';
+                }
+                
+                // 两列布局：标签在左，只读显示在右
+                let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
+                fieldHtml += `<div class="md:col-span-1">
+                    <label class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}</label>
+                </div>`;
+                fieldHtml += '<div class="md:col-span-2">';
+                fieldHtml += `<div class="px-3 py-2 bg-gray-50 border-2 border-gray-200 rounded-md text-sm text-gray-700">${displayValue}</div>`;
+                fieldHtml += '</div></div>';
+                
+                formFields.innerHTML += fieldHtml;
+                continue;
+            }
+            
+            const label = fieldDef.label || fieldName;
+            const required = fieldDef.required || false;
+            const fieldType = fieldDef.type || 'string';
+            const uiComponent = fieldDef.ui?.component || 'text_input';
+            
+            // 获取字段值
+            let value = data[fieldName] || '';
+            
+            // 处理 auto 字段（日期/时间）
+            if (fieldDef.auto && !value) {
+                if (fieldDef.auto === 'date') {
+                    value = new Date().toISOString().split('T')[0];
+                } else if (fieldDef.auto === 'timestamp') {
+                    value = new Date().toISOString();
+                }
+            }
+            
+            // 两列布局：标签在左，输入框在右
+            let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
+            
+            // 左侧：标签（右对齐）
+            fieldHtml += `<div class="md:col-span-1">
+                <label for="tax-edit-${fieldName}" class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>`;
+            
+            // 添加验证提示
+            if (fieldDef.validation) {
+                const validation = fieldDef.validation;
+                if (validation.min !== undefined || validation.max !== undefined) {
+                    const min = validation.min !== undefined ? validation.min : '';
+                    const max = validation.max !== undefined ? validation.max : '';
+                    fieldHtml += `<p class="text-xs text-gray-500 mt-1 text-right">范围: ${min ? min + ' ≤ ' : ''}值${max ? ' ≤ ' + max : ''}</p>`;
+                }
+            }
+            fieldHtml += '</div>';
+            
+            // 右侧：输入框
+            fieldHtml += '<div class="md:col-span-2">';
+            
+            const inputBaseClasses = "block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors";
+            
+            if (uiComponent === 'textarea') {
+                fieldHtml += `<textarea id="tax-edit-${fieldName}" name="${fieldName}" rows="3" class="${inputBaseClasses}" ${required ? 'required' : ''}>${value}</textarea>`;
+            } else if (fieldType === 'enum' && fieldDef.options) {
+                fieldHtml += `<select id="tax-edit-${fieldName}" name="${fieldName}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+                fieldHtml += '<option value="">请选择</option>';
+                for (const option of fieldDef.options) {
+                    fieldHtml += `<option value="${option}" ${value === option ? 'selected' : ''}>${option}</option>`;
+                }
+                fieldHtml += '</select>';
+            } else if (fieldType === 'date') {
+                fieldHtml += `<input type="date" id="tax-edit-${fieldName}" name="${fieldName}" value="${value}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            } else if (fieldType === 'decimal' || fieldType === 'number') {
+                fieldHtml += `<div class="flex items-center gap-2">`;
+                fieldHtml += `<input type="number" id="tax-edit-${fieldName}" name="${fieldName}" value="${value}" step="${fieldType === 'decimal' ? '0.01' : '1'}" min="${fieldDef.validation?.min || ''}" max="${fieldDef.validation?.max || ''}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+                if (fieldDef.ui?.suffix) {
+                    fieldHtml += `<span class="text-sm text-gray-500 whitespace-nowrap">${fieldDef.ui.suffix}</span>`;
+                }
+                fieldHtml += `</div>`;
+            } else {
+                fieldHtml += `<input type="text" id="tax-edit-${fieldName}" name="${fieldName}" value="${value}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            }
+            
+            // 错误提示
+            fieldHtml += `<div id="tax-edit-${fieldName}-error" class="text-sm text-red-600 mt-1 hidden"></div>`;
+            fieldHtml += '</div>';
+            fieldHtml += '</div>';
+            
+            formFields.innerHTML += fieldHtml;
+        }
+    }
+
+    // 表单验证
+    function validateTaxDeductionForm(formData) {
+        const fields = schema.fields || {};
+        const errors = {};
+        
+        const fieldNames = Object.keys(fields);
+        for (const fieldName of fieldNames) {
+            const fieldDef = fields[fieldName];
+            const value = formData.get(fieldName);
+            const validation = fieldDef.validation || {};
+            
+            // 跳过 reference 字段（person_id）
+            if (fieldDef.type === 'reference') continue;
+            
+            // 必填验证
+            if (fieldDef.required && (!value || value.trim() === '')) {
+                errors[fieldName] = `${fieldDef.label || fieldName} 是必填项`;
+                continue;
+            }
+            
+            // 如果值为空且不是必填，跳过其他验证
+            if (!value || value.trim() === '') {
+                continue;
+            }
+            
+            // 数值范围验证
+            if (fieldDef.type === 'decimal' || fieldDef.type === 'number') {
+                const numValue = parseFloat(value);
+                if (isNaN(numValue)) {
+                    errors[fieldName] = `${fieldDef.label || fieldName} 必须是数字`;
+                    continue;
+                }
+                if (validation.min !== undefined && numValue < validation.min) {
+                    errors[fieldName] = `${fieldDef.label || fieldName} 不能小于 ${validation.min}`;
+                    continue;
+                }
+                if (validation.max !== undefined && numValue > validation.max) {
+                    errors[fieldName] = `${fieldDef.label || fieldName} 不能大于 ${validation.max}`;
+                    continue;
+                }
+            }
+        }
+        
+        return errors;
+    }
+
+    // 显示表单错误
+    function showEditTaxDeductionFormErrors(errors) {
+        // 清除所有错误提示
+        document.querySelectorAll('[id^="tax-edit-"][id$="-error"]').forEach(el => {
+            el.classList.add('hidden');
+            el.textContent = '';
+        });
+        
+        // 显示新的错误
+        for (const [fieldName, errorMsg] of Object.entries(errors)) {
+            const errorEl = document.getElementById(`tax-edit-${fieldName}-error`);
+            if (errorEl) {
+                errorEl.textContent = errorMsg;
+                errorEl.classList.remove('hidden');
+            }
+        }
+    }
+
+    // 提交编辑表单
+    async function submitEditTaxDeductionForm(event) {
+        event.preventDefault();
+        
+        const form = event.target;
+        const formData = new FormData(form);
+        
+        // 验证表单
+        const errors = validateTaxDeductionForm(formData);
+        if (Object.keys(errors).length > 0) {
+            showEditTaxDeductionFormErrors(errors);
+            return;
+        }
+        
+        // 获取当前专项附加扣除记录的 activityId
+        const activityId = window.currentTaxDeductionData?.activityId;
+        if (!activityId) {
+            alert('无法更新：未找到专项附加扣除记录ID');
+            return;
+        }
+        
+        // 构建数据对象（只包含非 reference 字段）
+        const data = {};
+        const fields = schema.fields || {};
+        const fieldNames = Object.keys(fields);
+        for (const fieldName of fieldNames) {
+            const fieldDef = fields[fieldName];
+            // 跳过 reference 字段，它们会从隐藏字段中获取
+            if (fieldDef.type === 'reference') continue;
+            
+            const value = formData.get(fieldName);
+            if (value !== null && value !== undefined) {
+                if (fieldDef.type === 'decimal' || fieldDef.type === 'number') {
+                    data[fieldName] = parseFloat(value);
+                } else if (fieldDef.type === 'date') {
+                    data[fieldName] = value;
+                } else {
+                    data[fieldName] = value.trim();
+                }
+            }
+        }
+        
+        // 添加 person_id（从隐藏字段获取）
+        const personId = formData.get('person_id');
+        if (personId) data.person_id = parseInt(personId);
+        
+        try {
+            const response = await fetch(`/api/twins/person_tax_deduction/${activityId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (!result.success) {
+                if (result.error && typeof result.error === 'object') {
+                    // 字段级错误
+                    showEditTaxDeductionFormErrors(result.error);
+                } else {
+                    alert('更新失败: ' + (result.error || '未知错误'));
+                }
+                return;
+            }
+            
+            // 关闭编辑表单
+            document.getElementById('tax-edit-form-modal').classList.add('hidden');
+            
+            // 重新加载列表
+            loadTaxDeductions(currentFilters);
+            
+            // 显示成功消息
+            alert('更新成功');
+        } catch (error) {
+            alert('更新失败: ' + error.message);
+        }
+    }
+
+    // 绑定编辑按钮事件
+    document.getElementById('tax-edit-btn').onclick = openEditTaxDeductionForm;
+
+    // 绑定编辑表单提交事件
+    document.getElementById('tax-edit-form').onsubmit = submitEditTaxDeductionForm;
+
+    // 关闭新增表单模态框
+    document.getElementById('tax-close-add-form-modal').onclick = () => {
+        document.getElementById('tax-add-form-modal').classList.add('hidden');
+    };
+    document.getElementById('tax-cancel-add-form-btn').onclick = () => {
+        document.getElementById('tax-add-form-modal').classList.add('hidden');
+    };
+
+    // 打开新增表单
+    async function openAddTaxDeductionForm() {
+        // 加载所有人员列表
+        try {
+            const personsResponse = await fetch('/api/twins/person');
+            const personsResult = await personsResponse.json();
+            
+            if (!personsResult.success) {
+                alert('加载数据失败，请刷新页面重试');
+                return;
+            }
+            
+            allPersons = personsResult.data || [];
+            
+            // 渲染新增表单（空数据）
+            renderAddTaxDeductionFormFields({});
+            document.getElementById('tax-add-form-modal').classList.remove('hidden');
+        } catch (error) {
+            alert('加载数据失败: ' + error.message);
+        }
+    }
+
+    // 渲染新增表单字段
+    function renderAddTaxDeductionFormFields(data = {}) {
+        const fields = schema.fields || {};
+        const formFields = document.getElementById('tax-add-form-fields');
+        formFields.innerHTML = '';
+        
+        const fieldNames = Object.keys(fields);
+        for (const fieldName of fieldNames) {
+            const fieldDef = fields[fieldName];
+            
+            // 新增模式下，person_id 显示为下拉选择
+            if (fieldDef.type === 'reference' && fieldDef.storage === 'foreign_key') {
+                const value = data[fieldName] || '';
+                let label = fieldDef.label || fieldName;
+                if (fieldName === 'person_id' && !fieldDef.label) {
+                    label = '人员';
+                }
+                
+                const required = fieldDef.required || false;
+                
+                let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
+                fieldHtml += `<div class="md:col-span-1">
+                    <label for="tax-add-${fieldName}" class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>
+                </div>`;
+                fieldHtml += '<div class="md:col-span-2">';
+                
+                const inputBaseClasses = "block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors";
+                
+                if (fieldName === 'person_id') {
+                    fieldHtml += `<select id="tax-add-${fieldName}" name="${fieldName}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+                    fieldHtml += '<option value="">请选择人员</option>';
+                    allPersons.forEach(person => {
+                        fieldHtml += `<option value="${person.id}" ${value == person.id ? 'selected' : ''}>${person.current?.name || person.name || `人员 ${person.id}`}</option>`;
+                    });
+                    fieldHtml += '</select>';
+                }
+                
+                fieldHtml += `<div id="tax-add-${fieldName}-error" class="text-sm text-red-600 mt-1 hidden"></div>`;
+                fieldHtml += '</div></div>';
+                
+                formFields.innerHTML += fieldHtml;
+                continue;
+            }
+            
+            const label = fieldDef.label || fieldName;
+            const required = fieldDef.required || false;
+            const fieldType = fieldDef.type || 'string';
+            const uiComponent = fieldDef.ui?.component || 'text_input';
+            
+            let value = data[fieldName] || '';
+            
+            if (fieldDef.auto && !value) {
+                if (fieldDef.auto === 'date') {
+                    value = new Date().toISOString().split('T')[0];
+                } else if (fieldDef.auto === 'timestamp') {
+                    value = new Date().toISOString();
+                }
+            }
+            
+            let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
+            fieldHtml += `<div class="md:col-span-1">
+                <label for="tax-add-${fieldName}" class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>`;
+            
+            if (fieldDef.validation) {
+                const validation = fieldDef.validation;
+                if (validation.min !== undefined || validation.max !== undefined) {
+                    const min = validation.min !== undefined ? validation.min : '';
+                    const max = validation.max !== undefined ? validation.max : '';
+                    fieldHtml += `<p class="text-xs text-gray-500 mt-1 text-right">范围: ${min ? min + ' ≤ ' : ''}值${max ? ' ≤ ' + max : ''}</p>`;
+                }
+            }
+            fieldHtml += '</div>';
+            
+            fieldHtml += '<div class="md:col-span-2">';
+            
+            const inputBaseClasses = "block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors";
+            
+            if (uiComponent === 'textarea') {
+                fieldHtml += `<textarea id="tax-add-${fieldName}" name="${fieldName}" rows="3" class="${inputBaseClasses}" ${required ? 'required' : ''}>${value}</textarea>`;
+            } else if (fieldType === 'enum' && fieldDef.options) {
+                fieldHtml += `<select id="tax-add-${fieldName}" name="${fieldName}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+                fieldHtml += '<option value="">请选择</option>';
+                for (const option of fieldDef.options) {
+                    fieldHtml += `<option value="${option}" ${value === option ? 'selected' : ''}>${option}</option>`;
+                }
+                fieldHtml += '</select>';
+            } else if (fieldType === 'date') {
+                fieldHtml += `<input type="date" id="tax-add-${fieldName}" name="${fieldName}" value="${value}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            } else if (fieldType === 'decimal' || fieldType === 'number') {
+                fieldHtml += `<div class="flex items-center gap-2">`;
+                fieldHtml += `<input type="number" id="tax-add-${fieldName}" name="${fieldName}" value="${value}" step="${fieldType === 'decimal' ? '0.01' : '1'}" min="${fieldDef.validation?.min || ''}" max="${fieldDef.validation?.max || ''}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+                if (fieldDef.ui?.suffix) {
+                    fieldHtml += `<span class="text-sm text-gray-500 whitespace-nowrap">${fieldDef.ui.suffix}</span>`;
+                }
+                fieldHtml += `</div>`;
+            } else {
+                fieldHtml += `<input type="text" id="tax-add-${fieldName}" name="${fieldName}" value="${value}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            }
+            
+            fieldHtml += `<div id="tax-add-${fieldName}-error" class="text-sm text-red-600 mt-1 hidden"></div>`;
+            fieldHtml += '</div>';
+            fieldHtml += '</div>';
+            
+            formFields.innerHTML += fieldHtml;
+        }
+    }
+
+    // 显示新增表单错误
+    function showAddTaxDeductionFormErrors(errors) {
+        document.querySelectorAll('[id^="tax-add-"][id$="-error"]').forEach(el => {
+            el.classList.add('hidden');
+            el.textContent = '';
+        });
+        
+        for (const [fieldName, errorMsg] of Object.entries(errors)) {
+            const errorEl = document.getElementById(`tax-add-${fieldName}-error`);
+            if (errorEl) {
+                errorEl.textContent = errorMsg;
+                errorEl.classList.remove('hidden');
+            }
+        }
+    }
+
+    // 提交新增表单
+    async function submitAddTaxDeductionForm(event) {
+        event.preventDefault();
+        
+        const form = event.target;
+        const formData = new FormData(form);
+        
+        const errors = validateTaxDeductionForm(formData);
+        if (Object.keys(errors).length > 0) {
+            showAddTaxDeductionFormErrors(errors);
+            return;
+        }
+        
+        const data = {};
+        const fields = schema.fields || {};
+        const fieldNames = Object.keys(fields);
+        for (const fieldName of fieldNames) {
+            const fieldDef = fields[fieldName];
+            const value = formData.get(fieldName);
+            if (value !== null && value !== undefined && value !== '') {
+                if (fieldDef.type === 'reference') {
+                    data[fieldName] = parseInt(value);
+                } else if (fieldDef.type === 'decimal' || fieldDef.type === 'number') {
+                    data[fieldName] = parseFloat(value);
+                } else if (fieldDef.type === 'date') {
+                    data[fieldName] = value;
+                } else {
+                    data[fieldName] = value.trim();
+                }
+            }
+        }
+        
+        try {
+            const response = await fetch('/api/twins/person_tax_deduction', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (!result.success) {
+                if (result.error && typeof result.error === 'object') {
+                    showAddTaxDeductionFormErrors(result.error);
+                } else {
+                    alert('创建失败: ' + (result.error || '未知错误'));
+                }
+                return;
+            }
+            
+            document.getElementById('tax-add-form-modal').classList.add('hidden');
+            loadTaxDeductions(currentFilters);
+            alert('创建成功');
+        } catch (error) {
+            alert('创建失败: ' + error.message);
+        }
+    }
+
+    // 绑定新增按钮事件
+    document.getElementById('add-tax-deduction-btn').onclick = openAddTaxDeductionForm;
+
+    // 绑定新增表单提交事件
+    document.getElementById('tax-add-form').onsubmit = submitAddTaxDeductionForm;
 
     renderFilterFields();
     loadTaxDeductions();

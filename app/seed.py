@@ -468,92 +468,105 @@ def generate_test_data(db_path: Optional[str] = None):
     # 生成专项附加扣除数据
     print("\n生成专项附加扣除数据...")
     tax_deduction_count = 0
-    deduction_types = ["子女教育", "继续教育", "大病医疗", "住房贷款利息", "住房租金", "赡养老人"]
-    
     # 为 70% 的人员生成专项附加扣除记录
+    # 现在每个人只有一个 person_tax_deduction 记录，包含所有6种扣除类型的金额
     persons_with_deductions = random.sample(persons, int(len(persons) * 0.7))
     
     for person_id in persons_with_deductions:
-        # 每个人可能有 1-3 项扣除
-        num_deductions = random.randint(1, 3)
-        selected_types = random.sample(deduction_types, min(num_deductions, len(deduction_types)))
+        deduction_id = twin_dao.create_activity_twin(
+            "person_tax_deduction",
+            {
+                "person_id": person_id,
+            }
+        )
         
-        for deduction_type in selected_types:
-            deduction_id = twin_dao.create_activity_twin(
-                "person_tax_deduction",
-                {
+        # 随机生成各种扣除类型的金额（可能为0，表示没有该项扣除）
+        children_education_amount = random.choice([0, 1000, 2000]) if random.random() < 0.6 else 0
+        continuing_education_amount = random.choice([0, 400]) if random.random() < 0.3 else 0
+        medical_expense_amount = random.choice([0, random.randint(1000, 8000)]) if random.random() < 0.2 else 0
+        housing_loan_interest_amount = random.choice([0, 1000]) if random.random() < 0.4 else 0
+        housing_rent_amount = random.choice([0, 800, 1100, 1500]) if random.random() < 0.5 else 0
+        elderly_support_amount = random.choice([0, 1000, 2000]) if random.random() < 0.5 else 0
+        
+        # 生效日期：从过去一年内随机一天
+        effective_date = (datetime.now() - timedelta(days=random.randint(0, 365))).strftime("%Y-%m-%d")
+        
+        # 30% 的概率已失效
+        status = "已失效" if random.random() < 0.3 else "生效中"
+        expiry_date = None
+        if status == "已失效":
+            # 失效日期在生效日期之后
+            expiry_days = random.randint(30, 365)
+            expiry_date = (datetime.now() - timedelta(days=random.randint(0, expiry_days))).strftime("%Y-%m-%d")
+        
+        # 生成备注（汇总各种扣除的说明）
+        remarks_parts = []
+        if children_education_amount > 0:
+            remarks_parts.append(f"子女教育：{random.choice(['张三', '李四', '王五', '赵六'])}，{random.choice(['XX小学', 'XX中学', 'XX大学'])}")
+        if continuing_education_amount > 0:
+            remarks_parts.append(random.choice(["继续教育：XX大学学历教育", "继续教育：XX证书职业资格"]))
+        if medical_expense_amount > 0:
+            remarks_parts.append(f"大病医疗：医疗费用{random.randint(5000, 50000)}元")
+        if housing_loan_interest_amount > 0:
+            remarks_parts.append(f"住房贷款利息：贷款合同号{random.randint(100000, 999999)}")
+        if housing_rent_amount > 0:
+            remarks_parts.append(f"住房租金：{random.choice(['XX市XX区XX路', 'XX市XX区XX街道'])}")
+        if elderly_support_amount > 0:
+            remarks_parts.append(f"赡养老人：{random.choice(['父亲', '母亲', '父母'])}")
+        
+        remarks = "；".join(remarks_parts) if remarks_parts else None
+        
+        # 生成 1-2 条变更记录（版本化）
+        num_changes = random.randint(1, 2)
+        
+        for i in range(num_changes):
+            # 第一次记录初始状态
+            if i == 0:
+                state_dao.append("person_tax_deduction", deduction_id, {
                     "person_id": person_id,
-                }
-            )
-            
-            # 根据扣除类型生成金额
-            amount_map = {
-                "子女教育": random.choice([1000, 2000]),  # 每个子女1000，最多2000
-                "继续教育": random.choice([400, 3600]),  # 学历教育400/月，职业资格3600/年
-                "大病医疗": random.randint(1000, 8000),  # 年度限额80000，这里生成月度分摊
-                "住房贷款利息": random.choice([1000, 1500, 2000]),  # 每月1000
-                "住房租金": random.choice([800, 1100, 1500]),  # 根据城市不同
-                "赡养老人": random.choice([1000, 2000])  # 独生子女2000，非独生子女分摊
-            }
-            amount = amount_map.get(deduction_type, 1000)
-            
-            # 生效日期：从过去一年内随机一天
-            effective_date = (datetime.now() - timedelta(days=random.randint(0, 365))).strftime("%Y-%m-%d")
-            
-            # 30% 的概率已失效
-            status = "已失效" if random.random() < 0.3 else "生效中"
-            expiry_date = None
-            if status == "已失效":
-                # 失效日期在生效日期之后
-                expiry_days = random.randint(30, 365)
-                expiry_date = (datetime.now() - timedelta(days=random.randint(0, expiry_days))).strftime("%Y-%m-%d")
-            
-            # 生成备注信息
-            remarks_map = {
-                "子女教育": f"子女：{random.choice(['张三', '李四', '王五', '赵六'])}，学校：{random.choice(['XX小学', 'XX中学', 'XX大学'])}",
-                "继续教育": random.choice(["学历教育：XX大学", "职业资格：XX证书"]),
-                "大病医疗": f"医疗费用：{random.randint(5000, 50000)}元",
-                "住房贷款利息": f"贷款合同号：{random.randint(100000, 999999)}",
-                "住房租金": f"租赁地址：{random.choice(['XX市XX区XX路', 'XX市XX区XX街道'])}",
-                "赡养老人": f"被赡养人：{random.choice(['父亲', '母亲', '父母'])}"
-            }
-            remarks = remarks_map.get(deduction_type, "")
-            
-            # 生成 1-2 条变更记录（版本化）
-            num_changes = random.randint(1, 2)
-            
-            for i in range(num_changes):
-                # 第一次记录初始状态
-                if i == 0:
-                    state_dao.append("person_tax_deduction", deduction_id, {
-                        "person_id": person_id,
-                        "deduction_type": deduction_type,
-                        "amount": float(amount),
-                        "effective_date": effective_date,
-                        "expiry_date": expiry_date,
-                        "status": status,
-                        "remarks": remarks if random.random() < 0.8 else None,  # 80% 有备注
-                    })
-                else:
-                    # 后续变更：调整金额或状态
-                    new_amount = amount + random.randint(-200, 500)
-                    new_amount = max(0, min(2000, new_amount))  # 限制在合理范围
-                    new_status = "已失效" if random.random() < 0.5 else status
-                    new_expiry_date = expiry_date
-                    if new_status == "已失效" and not new_expiry_date:
-                        new_expiry_date = (datetime.now() - timedelta(days=random.randint(0, 180))).strftime("%Y-%m-%d")
-                    
-                    state_dao.append("person_tax_deduction", deduction_id, {
-                        "person_id": person_id,
-                        "deduction_type": deduction_type,
-                        "amount": float(new_amount),
-                        "effective_date": effective_date,
-                        "expiry_date": new_expiry_date,
-                        "status": new_status,
-                        "remarks": remarks if random.random() < 0.8 else None,
-                    })
+                    "children_education_amount": float(children_education_amount),
+                    "continuing_education_amount": float(continuing_education_amount),
+                    "medical_expense_amount": float(medical_expense_amount),
+                    "housing_loan_interest_amount": float(housing_loan_interest_amount),
+                    "housing_rent_amount": float(housing_rent_amount),
+                    "elderly_support_amount": float(elderly_support_amount),
+                    "effective_date": effective_date,
+                    "expiry_date": expiry_date,
+                    "status": status,
+                    "remarks": remarks,
+                })
+            else:
+                # 后续变更：调整金额或状态
+                new_children_education = max(0, children_education_amount + random.choice([-1000, 0, 1000]))
+                new_continuing_education = max(0, continuing_education_amount + random.choice([-400, 0, 400]))
+                new_medical_expense = max(0, medical_expense_amount + random.randint(-1000, 2000))
+                new_housing_loan = max(0, housing_loan_interest_amount + random.choice([-1000, 0, 1000]))
+                new_housing_rent = max(0, housing_rent_amount + random.choice([-300, 0, 300]))
+                new_elderly_support = max(0, elderly_support_amount + random.choice([-1000, 0, 1000]))
                 
-                tax_deduction_count += 1
+                new_status = status
+                new_expiry_date = expiry_date
+                if random.random() < 0.3:  # 30% 概率状态变更
+                    new_status = "已失效" if status == "生效中" else "生效中"
+                    if new_status == "已失效":
+                        expiry_days = random.randint(30, 365)
+                        new_expiry_date = (datetime.now() - timedelta(days=random.randint(0, expiry_days))).strftime("%Y-%m-%d")
+                
+                state_dao.append("person_tax_deduction", deduction_id, {
+                    "person_id": person_id,
+                    "children_education_amount": float(new_children_education),
+                    "continuing_education_amount": float(new_continuing_education),
+                    "medical_expense_amount": float(new_medical_expense),
+                    "housing_loan_interest_amount": float(new_housing_loan),
+                    "housing_rent_amount": float(new_housing_rent),
+                    "elderly_support_amount": float(new_elderly_support),
+                    "effective_date": effective_date,
+                    "expiry_date": new_expiry_date,
+                    "status": new_status,
+                    "remarks": remarks,
+                })
+            
+            tax_deduction_count += 1
     
     print(f"  生成专项附加扣除记录: {tax_deduction_count} 条")
     

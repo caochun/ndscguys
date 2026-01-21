@@ -578,20 +578,71 @@ twins:
         required: true
         storage: foreign_key
       
-      deduction_type:
-        type: enum
-        required: true
-        label: "扣除类型"
-        description: "专项附加扣除类型"
-        options: ["子女教育", "继续教育", "大病医疗", "住房贷款利息", "住房租金", "赡养老人"]
-        ui:
-          component: select
-      
-      amount:
+      children_education_amount:
         type: decimal
-        required: true
-        label: "扣除金额"
-        description: "每月扣除金额（单位：元）"
+        required: false
+        label: "子女教育扣除金额"
+        description: "每月子女教育专项附加扣除金额（单位：元）"
+        validation:
+          min: 0
+          max: 2000
+        ui:
+          component: number_input
+          suffix: "元/月"
+      
+      continuing_education_amount:
+        type: decimal
+        required: false
+        label: "继续教育扣除金额"
+        description: "每月继续教育专项附加扣除金额（单位：元）"
+        validation:
+          min: 0
+          max: 400
+        ui:
+          component: number_input
+          suffix: "元/月"
+      
+      medical_expense_amount:
+        type: decimal
+        required: false
+        label: "大病医疗扣除金额"
+        description: "年度大病医疗专项附加扣除金额（单位：元），按实际支出扣除，最高不超过80000元"
+        validation:
+          min: 0
+          max: 80000
+        ui:
+          component: number_input
+          suffix: "元/年"
+      
+      housing_loan_interest_amount:
+        type: decimal
+        required: false
+        label: "住房贷款利息扣除金额"
+        description: "每月住房贷款利息专项附加扣除金额（单位：元）"
+        validation:
+          min: 0
+          max: 1000
+        ui:
+          component: number_input
+          suffix: "元/月"
+      
+      housing_rent_amount:
+        type: decimal
+        required: false
+        label: "住房租金扣除金额"
+        description: "每月住房租金专项附加扣除金额（单位：元）"
+        validation:
+          min: 0
+          max: 1500
+        ui:
+          component: number_input
+          suffix: "元/月"
+      
+      elderly_support_amount:
+        type: decimal
+        required: false
+        label: "赡养老人扣除金额"
+        description: "每月赡养老人专项附加扣除金额（单位：元）"
         validation:
           min: 0
           max: 2000
