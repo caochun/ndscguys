@@ -1,28 +1,27 @@
-import os
+"""
+配置模块
+"""
 from pathlib import Path
 
 
 class Config:
-    """Application configuration."""
-
-    BASE_DIR = Path(__file__).resolve().parent
-    DATA_DIR = BASE_DIR / "data"
-    DATA_DIR.mkdir(exist_ok=True)
-
-    DATABASE_PATH = os.getenv("APP_DB_PATH", str(DATA_DIR / "person_state.db"))
+    """应用配置"""
+    BASE_DIR = Path(__file__).parent
+    DATABASE_PATH = BASE_DIR / "data" / "twin.db"
 
 
 class DevelopmentConfig(Config):
+    """开发环境配置"""
     DEBUG = True
 
 
 class ProductionConfig(Config):
+    """生产环境配置"""
     DEBUG = False
 
 
 config = {
+    "default": DevelopmentConfig,
     "development": DevelopmentConfig,
     "production": ProductionConfig,
-    "default": DevelopmentConfig,
 }
-

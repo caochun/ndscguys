@@ -1,0 +1,891 @@
+schema:
+  version: "1.0"
+  description: "Twin 类型系统定义 - Entity 和 Activity"
+
+twins:
+  # ========== Entity Twins ==========
+  person:
+    type: entity
+    label: "人员"
+    description: "人员实体"
+    table: "persons"
+    state_table: "person_history"
+    mode: versioned
+    unique_key: [person_id, version]
+    
+    fields:
+      name:
+        type: string
+        required: true
+        label: "姓名"
+        validation:
+          min_length: 1
+          max_length: 50
+        ui:
+          component: text_input
+      
+      id_card:
+        type: string
+        required: false
+        label: "身份证号"
+        validation:
+          pattern: "^[0-9X]{18}$"
+        ui:
+          component: text_input
+      
+      phone:
+        type: string
+        required: false
+        label: "电话"
+        validation:
+          pattern: "^1[3-9]\\d{9}$"
+        ui:
+          component: tel_input
+      
+      email:
+        type: string
+        required: false
+        label: "邮箱"
+        validation:
+          pattern: "^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}$"
+        ui:
+          component: email_input
+      
+      address:
+        type: string
+        required: false
+        label: "地址"
+        ui:
+          component: textarea
+      
+      avatar:
+        type: string
+        required: false
+        label: "头像URL"
+        ui:
+          component: image_upload
+
+  company:
+    type: entity
+    label: "公司"
+    table: "companies"
+    state_table: "company_history"
+    mode: versioned
+    unique_key: [company_id, version]
+    
+    fields:
+      name:
+        type: string
+        required: true
+        label: "公司名称"
+        ui:
+          component: text_input
+      
+      registration_number:
+        type: string
+        required: false
+        label: "注册号"
+        ui:
+          component: text_input
+
+  project:
+    type: entity
+    label: "项目"
+    description: "项目实体"
+    table: "projects"
+    state_table: "project_history"
+    mode: versioned
+    unique_key: [project_id, version]
+    
+    fields:
+      project_type:
+        type: enum
+        required: true
+        label: "项目类型"
+        options: ["劳务型", "专项型"]
+        ui:
+          component: select
+      
+      internal_project_name:
+        type: string
+        required: true
+        label: "内部项目名称"
+        ui:
+          component: text_input
+      
+      external_project_name:
+        type: string
+        required: true
+        label: "外部项目名称"
+        ui:
+          component: text_input
+      
+      project_code:
+        type: string
+        required: false
+        label: "项目编号"
+        ui:
+          component: text_input
+      
+      status:
+        type: enum
+        required: true
+        label: "项目状态"
+        options: ["筹备中", "进行中", "已暂停", "已完成", "已取消"]
+        ui:
+          component: select
+      
+      start_date:
+        type: date
+        required: false
+        label: "开始日期"
+        ui:
+          component: date_picker
+      
+      end_date:
+        type: date
+        required: false
+        label: "结束日期"
+        ui:
+          component: date_picker
+      
+      description:
+        type: string
+        required: false
+        label: "项目描述"
+        ui:
+          component: textarea
+      
+      budget:
+        type: decimal
+        required: false
+        label: "项目预算"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+
+  # ========== Activity Twins ==========
+  person_company_employment:
+    type: activity
+    label: "人员-公司聘用活动"
+    description: "记录人员与公司的聘用管理活动"
+    table: "person_company_employment_activities"
+    
+    related_entities:
+      - entity: person
+        role: employee
+        key: person_id
+        required: true
+      - entity: company
+        role: employer
+        key: company_id
+        required: true
+    
+    state_table: "person_company_employment_history"
+    mode: versioned
+    unique_key: [activity_id, version]
+    
+    fields:
+      person_id:
+        type: reference
+        reference_entity: person
+        required: true
+        storage: foreign_key
+      
+      company_id:
+        type: reference
+        reference_entity: company
+        required: true
+        storage: foreign_key
+      
+      position:
+        type: string
+        required: false
+        label: "职位"
+        ui:
+          component: text_input
+      
+      department:
+        type: string
+        required: false
+        label: "部门"
+        ui:
+          component: text_input
+      
+      employee_number:
+        type: string
+        required: false
+        label: "员工号"
+        ui:
+          component: text_input
+      
+      employee_type:
+        type: enum
+        required: false
+        label: "员工类别"
+        options: ["正式员工", "试用期员工", "实习生", "部门负责人", "其他"]
+        ui:
+          component: select
+      
+      salary_type:
+        type: enum
+        required: false
+        label: "薪资类型"
+        description: "薪资计量方式"
+        options: ["年薪", "月薪", "日薪"]
+        ui:
+          component: select
+      
+      salary:
+        type: decimal
+        required: false
+        label: "薪资"
+        description: "当前薪资金额"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      change_type:
+        type: enum
+        required: true
+        label: "变动类型"
+        options: ["入职", "转岗", "调部门", "转公司", "停薪留职", "返岗", "离职"]
+        ui:
+          component: select
+      
+      change_date:
+        type: date
+        required: true
+        label: "变动日期"
+        ui:
+          component: date_picker
+
+  person_company_attendance:
+    type: activity
+    label: "人员-公司打卡活动"
+    table: "person_company_attendance_activities"
+    
+    related_entities:
+      - entity: person
+        role: attendee
+        key: person_id
+        required: true
+      - entity: company
+        role: company
+        key: company_id
+        required: true
+    
+    state_table: "person_company_attendance_history"
+    mode: time_series
+    unique_key: [activity_id, date]
+    
+    fields:
+      person_id:
+        type: reference
+        reference_entity: person
+        required: true
+        storage: foreign_key
+      
+      company_id:
+        type: reference
+        reference_entity: company
+        required: true
+        storage: foreign_key
+      
+      date:
+        type: date
+        required: true
+        label: "日期"
+        storage: unique_key
+        ui:
+          component: date_picker
+      
+      check_in_time:
+        type: time
+        required: false
+        label: "上班时间"
+        ui:
+          component: time_picker
+      
+      check_out_time:
+        type: time
+        required: false
+        label: "下班时间"
+        ui:
+          component: time_picker
+      
+      work_hours:
+        type: decimal
+        required: false
+        label: "工作时长"
+        validation:
+          min: 0
+          max: 24
+        ui:
+          component: number_input
+          suffix: "小时"
+
+  person_project_participation:
+    type: activity
+    label: "人员-项目参与活动"
+    description: "记录人员参与项目的情况，包括入项、出项及劳务定价"
+    table: "person_project_participation_activities"
+    
+    related_entities:
+      - entity: person
+        role: participant
+        key: person_id
+        required: true
+      - entity: project
+        role: project
+        key: project_id
+        required: true
+    
+    state_table: "person_project_participation_history"
+    mode: versioned
+    unique_key: [activity_id, version]
+    
+    fields:
+      person_id:
+        type: reference
+        reference_entity: person
+        required: true
+        storage: foreign_key
+      
+      project_id:
+        type: reference
+        reference_entity: project
+        required: true
+        storage: foreign_key
+      
+      status:
+        type: enum
+        required: true
+        label: "参与状态"
+        options: ["入项", "出项"]
+        ui:
+          component: select
+      
+      change_date:
+        type: date
+        required: true
+        label: "变动日期"
+        description: "记录状态变更的日期（入项或出项的日期），保存时自动设置为当前日期"
+        auto: date  # 自动设置为当前日期（YYYY-MM-DD）
+        ui:
+          component: date_picker
+      
+      labor_price:
+        type: decimal
+        required: false
+        label: "劳务定价"
+        description: "劳务型项目的定价（单位：元/天或元/月，根据项目类型确定）"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+          conditional_display:
+            field: "project_type"
+            value: "劳务型"
+            operator: "equals"
+
+  person_assessment:
+    type: activity
+    label: "人员考核活动"
+    description: "记录针对人员的考核情况，包括考核周期、考核日期、考核等级和评语"
+    table: "person_assessment_activities"
+    
+    related_entities:
+      - entity: person
+        role: assessee
+        key: person_id
+        required: true
+    
+    state_table: "person_assessment_history"
+    mode: versioned
+    unique_key: [activity_id, version]
+    
+    fields:
+      person_id:
+        type: reference
+        reference_entity: person
+        required: true
+        storage: foreign_key
+      
+      assessment_period:
+        type: string
+        required: true
+        label: "考核周期"
+        description: "考核所属的周期，如'2024年第一季度'、'2024年度'等"
+        ui:
+          component: text_input
+      
+      assessment_date:
+        type: date
+        required: true
+        label: "考核日期"
+        description: "进行考核的日期"
+        ui:
+          component: date_picker
+      
+      grade:
+        type: enum
+        required: true
+        label: "考核等级"
+        options: ["优秀", "良好", "合格", "不合格"]
+        ui:
+          component: select
+      
+      comments:
+        type: string
+        required: false
+        label: "考核评语"
+        description: "考核的详细评语和意见"
+        ui:
+          component: textarea
+
+  person_company_social_security_base:
+    type: activity
+    label: "人员-公司社保基数"
+    description: "记录人员在公司参保时的社保缴费基数及其变更历史"
+    table: "person_company_social_security_base_activities"
+    
+    related_entities:
+      - entity: person
+        role: insured
+        key: person_id
+        required: true
+      - entity: company
+        role: employer
+        key: company_id
+        required: true
+    
+    state_table: "person_company_social_security_base_history"
+    mode: versioned
+    unique_key: [activity_id, version]
+    
+    fields:
+      person_id:
+        type: reference
+        reference_entity: person
+        required: true
+        storage: foreign_key
+      
+      company_id:
+        type: reference
+        reference_entity: company
+        required: true
+        storage: foreign_key
+      
+      base_amount:
+        type: decimal
+        required: true
+        label: "缴费基数"
+        description: "社保缴费基数金额"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      effective_date:
+        type: date
+        required: true
+        label: "生效日期"
+        description: "本次社保缴费基数生效的日期"
+        auto: date
+        ui:
+          component: date_picker
+
+  person_company_housing_fund_base:
+    type: activity
+    label: "人员-公司公积金基数"
+    description: "记录人员在公司参保时的公积金缴费基数及其变更历史"
+    table: "person_company_housing_fund_base_activities"
+    
+    related_entities:
+      - entity: person
+        role: insured
+        key: person_id
+        required: true
+      - entity: company
+        role: employer
+        key: company_id
+        required: true
+    
+    state_table: "person_company_housing_fund_base_history"
+    mode: versioned
+    unique_key: [activity_id, version]
+    
+    fields:
+      person_id:
+        type: reference
+        reference_entity: person
+        required: true
+        storage: foreign_key
+      
+      company_id:
+        type: reference
+        reference_entity: company
+        required: true
+        storage: foreign_key
+      
+      base_amount:
+        type: decimal
+        required: true
+        label: "缴费基数"
+        description: "公积金缴费基数金额"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      effective_date:
+        type: date
+        required: true
+        label: "生效日期"
+        description: "本次公积金缴费基数生效的日期"
+        auto: date
+        ui:
+          component: date_picker
+
+  person_tax_deduction:
+    type: activity
+    label: "人员专项附加扣除"
+    description: "记录人员的个人所得税专项附加扣除信息及其变更历史"
+    table: "person_tax_deduction_activities"
+    
+    related_entities:
+      - entity: person
+        role: taxpayer
+        key: person_id
+        required: true
+    
+    state_table: "person_tax_deduction_history"
+    mode: versioned
+    unique_key: [activity_id, version]
+    
+    fields:
+      person_id:
+        type: reference
+        reference_entity: person
+        required: true
+        storage: foreign_key
+      
+      children_education_amount:
+        type: decimal
+        required: false
+        label: "子女教育扣除金额"
+        description: "每月子女教育专项附加扣除金额（单位：元）"
+        validation:
+          min: 0
+          max: 2000
+        ui:
+          component: number_input
+          suffix: "元/月"
+      
+      continuing_education_amount:
+        type: decimal
+        required: false
+        label: "继续教育扣除金额"
+        description: "每月继续教育专项附加扣除金额（单位：元）"
+        validation:
+          min: 0
+          max: 400
+        ui:
+          component: number_input
+          suffix: "元/月"
+      
+      medical_expense_amount:
+        type: decimal
+        required: false
+        label: "大病医疗扣除金额"
+        description: "年度大病医疗专项附加扣除金额（单位：元），按实际支出扣除，最高不超过80000元"
+        validation:
+          min: 0
+          max: 80000
+        ui:
+          component: number_input
+          suffix: "元/年"
+      
+      housing_loan_interest_amount:
+        type: decimal
+        required: false
+        label: "住房贷款利息扣除金额"
+        description: "每月住房贷款利息专项附加扣除金额（单位：元）"
+        validation:
+          min: 0
+          max: 1000
+        ui:
+          component: number_input
+          suffix: "元/月"
+      
+      housing_rent_amount:
+        type: decimal
+        required: false
+        label: "住房租金扣除金额"
+        description: "每月住房租金专项附加扣除金额（单位：元）"
+        validation:
+          min: 0
+          max: 1500
+        ui:
+          component: number_input
+          suffix: "元/月"
+      
+      elderly_support_amount:
+        type: decimal
+        required: false
+        label: "赡养老人扣除金额"
+        description: "每月赡养老人专项附加扣除金额（单位：元）"
+        validation:
+          min: 0
+          max: 2000
+        ui:
+          component: number_input
+          suffix: "元/月"
+      
+      effective_date:
+        type: date
+        required: true
+        label: "生效日期"
+        description: "本次扣除生效的起始日期"
+        auto: date
+        ui:
+          component: date_picker
+      
+      expiry_date:
+        type: date
+        required: false
+        label: "失效日期"
+        description: "扣除失效的日期（如子女毕业、贷款还清等）"
+        ui:
+          component: date_picker
+      
+      status:
+        type: enum
+        required: true
+        label: "状态"
+        description: "扣除状态"
+        options: ["生效中", "已失效"]
+        default: "生效中"
+        ui:
+          component: select
+      
+      remarks:
+        type: string
+        required: false
+        label: "备注"
+        description: "其他说明信息（如子女姓名、学校名称、贷款合同号、租赁地址等）"
+        ui:
+          component: textarea
+
+  person_company_payroll:
+    type: activity
+    label: "人员-公司工资发放"
+    description: "记录人员每月的工资计算和发放情况（包含计算依据快照和结果）"
+    table: "person_company_payroll_activities"
+    
+    related_entities:
+      - entity: person
+        role: employee
+        key: person_id
+        required: true
+      - entity: company
+        role: employer
+        key: company_id
+        required: true
+    
+    state_table: "person_company_payroll_history"
+    mode: time_series
+    unique_key: [activity_id, period]
+    
+    fields:
+      person_id:
+        type: reference
+        reference_entity: person
+        required: true
+        storage: foreign_key
+      
+      company_id:
+        type: reference
+        reference_entity: company
+        required: true
+        storage: foreign_key
+      
+      period:
+        type: string
+        required: true
+        label: "发放周期"
+        description: "工资发放周期，格式：YYYY-MM，如 2024-01"
+        validation:
+          pattern: "^\\d{4}-\\d{2}$"
+        ui:
+          component: text_input
+      
+      # ===== 计算依据快照 =====
+      base_salary:
+        type: decimal
+        required: true
+        label: "基本薪资"
+        description: "当月的基本薪资（从聘用记录获取）"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      salary_type:
+        type: enum
+        required: false
+        label: "薪资类型"
+        options: ["年薪", "月薪", "日薪"]
+        ui:
+          component: select
+      
+      assessment_grade:
+        type: enum
+        required: false
+        label: "考核等级"
+        description: "最近一次考核等级（影响绩效奖金）"
+        options: ["优秀", "良好", "合格", "不合格"]
+        ui:
+          component: select
+      
+      social_security_base:
+        type: decimal
+        required: false
+        label: "社保基数"
+        description: "当月生效的社保缴费基数"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      housing_fund_base:
+        type: decimal
+        required: false
+        label: "公积金基数"
+        description: "当月生效的公积金缴费基数"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      tax_deduction_total:
+        type: decimal
+        required: false
+        label: "专项附加扣除总额"
+        description: "当月生效的专项附加扣除总额（元/月）"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元/月"
+      
+      # ===== 计算结果 =====
+      base_amount:
+        type: decimal
+        required: true
+        label: "应发金额"
+        description: "基本薪资 + 绩效奖金（如有）"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      performance_bonus:
+        type: decimal
+        required: false
+        label: "绩效奖金"
+        description: "根据考核等级计算的绩效奖金（可为负）"
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      social_security_deduction:
+        type: decimal
+        required: false
+        label: "社保扣除"
+        description: "当月社保缴费扣除金额"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      housing_fund_deduction:
+        type: decimal
+        required: false
+        label: "公积金扣除"
+        description: "当月公积金缴费扣除金额"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      taxable_income:
+        type: decimal
+        required: false
+        label: "应纳税所得额"
+        description: "应发金额 - 社保扣除 - 公积金扣除 - 专项附加扣除 - 起征点（5000）"
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      tax_deduction:
+        type: decimal
+        required: false
+        label: "个税扣除"
+        description: "根据应纳税所得额计算的个人所得税"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      total_amount:
+        type: decimal
+        required: true
+        label: "实发金额"
+        description: "应发金额 - 社保扣除 - 公积金扣除 - 个税扣除"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      # ===== 状态信息 =====
+      payment_date:
+        type: date
+        required: false
+        label: "发放日期"
+        description: "实际发放工资的日期"
+        ui:
+          component: date_picker
+      
+      status:
+        type: enum
+        required: true
+        label: "状态"
+        options: ["待发放", "已发放", "已取消"]
+        default: "待发放"
+        ui:
+          component: select
+      
+      remarks:
+        type: string
+        required: false
+        label: "备注"
+        description: "其他说明信息"
+        ui:
+          component: textarea

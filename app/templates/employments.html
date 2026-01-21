@@ -1,0 +1,509 @@
+{% extends "base.html" %}
+
+{% block title %}聘用管理 - HRMS{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="mb-6">
+        <h2 class="text-2xl font-bold text-gray-900">聘用管理</h2>
+        <p class="mt-1 text-sm text-gray-500">根据 Schema 动态渲染的聘用管理信息</p>
+    </div>
+
+    <!-- 过滤器区域 -->
+    <div id="filter-section" class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-medium text-gray-700">筛选条件</h3>
+            <button id="toggle-filter" class="text-sm text-indigo-600 hover:text-indigo-700">
+                <span id="filter-toggle-text">展开</span>
+                <svg id="filter-toggle-icon" class="inline-block w-4 h-4 ml-1 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+        </div>
+        <div id="filter-content" class="hidden">
+            <div id="filter-fields" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- 动态生成过滤器字段 -->
+            </div>
+            <div class="flex justify-end gap-3 mt-4 pt-4 border-t">
+                <button id="reset-filter-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                    重置
+                </button>
+                <button id="apply-filter-btn" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                    应用筛选
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载状态 -->
+    <div id="loading" class="text-center py-12">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <p class="mt-2 text-sm text-gray-500">加载中...</p>
+    </div>
+
+    <!-- 错误提示 -->
+    <div id="error" class="hidden bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-red-800">加载失败</h3>
+                <p id="error-message" class="mt-2 text-sm text-red-700"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 聘用管理表格 -->
+    <div id="employments-container" class="hidden overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+        <table class="min-w-full divide-y divide-gray-300">
+            <thead class="bg-gray-50">
+                <tr id="table-header">
+                    <!-- 动态生成表头 -->
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 bg-white" id="table-body">
+                <!-- 动态生成表格行 -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 聘用管理详情模态框 -->
+    <div id="employment-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">聘用详情</h3>
+                    <button id="close-modal" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div id="employment-detail-content">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Schema 定义（从后端传递）
+const schema = {{ schema | tojson }};
+
+// 显示人员的所有聘用记录
+async function showPersonEmployments(personId) {
+    try {
+        // 并行获取人员信息和聘用记录
+        const [personResponse, employmentsResponse] = await Promise.all([
+            fetch(`/api/twins/person/${personId}`),
+            fetch(`/api/twins/person_company_employment?person_id=${personId}&enrich=person,company`)
+        ]);
+        
+        const personResult = await personResponse.json();
+        const employmentsResult = await employmentsResponse.json();
+        
+        if (!personResult.success) {
+            alert('加载人员信息失败: ' + personResult.error);
+            return;
+        }
+        if (!employmentsResult.success) {
+            alert('加载聘用记录失败: ' + employmentsResult.error);
+            return;
+        }
+        
+        const person = personResult.data;
+        const employments = employmentsResult.data || [];
+        
+        // 构建数据对象以兼容原有代码
+        const data = {
+            person: person.current,
+            employments: employments
+        };
+        const modal = document.getElementById('employment-modal');
+        const content = document.getElementById('employment-detail-content');
+        
+        let html = '<div class="space-y-6">';
+        
+        // 人员基本信息
+        html += '<div>';
+        html += '<h4 class="text-md font-semibold text-gray-900 mb-3">人员信息</h4>';
+        html += '<div class="bg-gray-50 rounded-lg p-4 space-y-3">';
+        html += `<div class="flex">
+            <span class="text-sm font-medium text-gray-700 w-32">姓名:</span>
+            <span class="text-sm text-gray-900 flex-1">${data.person.name || '-'}</span>
+        </div>`;
+        html += `<div class="flex">
+            <span class="text-sm font-medium text-gray-700 w-32">电话:</span>
+            <span class="text-sm text-gray-900 flex-1">${data.person.phone || '-'}</span>
+        </div>`;
+        html += `<div class="flex">
+            <span class="text-sm font-medium text-gray-700 w-32">邮箱:</span>
+            <span class="text-sm text-gray-900 flex-1">${data.person.email || '-'}</span>
+        </div>`;
+        html += '</div></div>';
+        
+        // 所有聘用记录
+        html += '<div>';
+        html += '<h4 class="text-md font-semibold text-gray-900 mb-3">聘用记录</h4>';
+        
+        if (data.employments && data.employments.length > 0) {
+            html += '<div class="overflow-x-auto">';
+            html += '<table class="min-w-full divide-y divide-gray-200">';
+            html += '<thead class="bg-gray-50">';
+            html += '<tr>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">公司</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">职位</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">部门</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">员工号</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">员工类别</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">薪资类型</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">薪资</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">变动类型</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">变动日期</th>';
+            html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+            
+            // 按变动日期排序（最新的在前）
+            const sortedEmployments = [...data.employments].sort((a, b) => {
+                const dateA = a.change_date || '';
+                const dateB = b.change_date || '';
+                return dateB.localeCompare(dateA);
+            });
+            
+            sortedEmployments.forEach(emp => {
+                const changeTypeColors = {
+                    '入职': 'bg-green-100 text-green-800',
+                    '转岗': 'bg-blue-100 text-blue-800',
+                    '转公司': 'bg-purple-100 text-purple-800',
+                    '离职': 'bg-red-100 text-red-800'
+                };
+                const colorClass = changeTypeColors[emp.change_type] || 'bg-gray-100 text-gray-800';
+                
+                html += '<tr class="hover:bg-gray-50">';
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.company_name || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.position || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.department || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.employee_number || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.employee_type || '-'}</td>`;
+                // 薪资类型
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.salary_type || '-'}</td>`;
+                // 薪资金额（带单位）
+                let salaryDisplay = '-';
+                if (emp.salary !== undefined && emp.salary !== null) {
+                    const amount = parseFloat(emp.salary);
+                    if (!isNaN(amount)) {
+                        const type = emp.salary_type || '';
+                        if (type === '年薪') {
+                            salaryDisplay = `¥${amount.toLocaleString()} / 年`;
+                        } else if (type === '月薪') {
+                            salaryDisplay = `¥${amount.toLocaleString()} / 月`;
+                        } else if (type === '日薪') {
+                            salaryDisplay = `¥${amount.toLocaleString()} / 日`;
+                        } else {
+                            salaryDisplay = `¥${amount.toLocaleString()}`;
+                        }
+                    }
+                }
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${salaryDisplay}</td>`;
+                html += `<td class="px-4 py-3 text-sm">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">
+                        ${emp.change_type || '-'}
+                    </span>
+                </td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.change_date || '-'}</td>`;
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table></div>';
+        } else {
+            html += '<p class="text-sm text-gray-500">暂无聘用记录</p>';
+        }
+        
+        html += '</div>';
+        html += '</div>';
+        
+        content.innerHTML = html;
+        modal.classList.remove('hidden');
+    } catch (error) {
+        alert('加载失败: ' + error.message);
+    }
+}
+
+// 关闭模态框
+document.getElementById('close-modal').onclick = () => {
+    document.getElementById('employment-modal').classList.add('hidden');
+};
+
+// 渲染表格
+function renderTable(employments) {
+    const headerRow = document.getElementById('table-header');
+    const tbody = document.getElementById('table-body');
+    
+    // 清空
+    headerRow.innerHTML = '';
+    tbody.innerHTML = '';
+    
+    // 定义表格列（只显示聘用管理相关信息，人员联系方式在详情中显示）
+    const columns = [
+        { key: 'person_name', label: '姓名', type: 'person' },
+        { key: 'company_name', label: '公司', type: 'company' },
+        { key: 'position', label: '职位', type: 'employment' },
+        { key: 'department', label: '部门', type: 'employment' },
+        { key: 'employee_number', label: '员工号', type: 'employment' },
+        { key: 'employee_type', label: '员工类别', type: 'employment' },
+        { key: 'salary_type', label: '薪资类型', type: 'employment' },
+        { key: 'salary', label: '薪资', type: 'employment' },
+        { key: 'change_type', label: '变动类型', type: 'employment' },
+        { key: 'change_date', label: '变动日期', type: 'employment' },
+    ];
+    
+    // 生成表头
+    columns.forEach(col => {
+        const th = document.createElement('th');
+        th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+        th.textContent = col.label;
+        headerRow.appendChild(th);
+    });
+    
+    // 按 person_id 分组，只保留最新的聘用记录
+    const employmentByPerson = {};
+    employments.forEach(emp => {
+        const personId = emp.person_id;
+        if (!personId) return;
+        
+        if (!employmentByPerson[personId]) {
+            employmentByPerson[personId] = emp;
+        } else {
+            // 比较 change_date，保留最新的
+            const currentDate = employmentByPerson[personId].change_date || '';
+            const newDate = emp.change_date || '';
+            if (newDate > currentDate) {
+                employmentByPerson[personId] = emp;
+            }
+        }
+    });
+    
+    // 转换为数组并排序（按姓名）
+    const sortedEmployments = Object.values(employmentByPerson).sort((a, b) => {
+        const nameA = a.person_name || '';
+        const nameB = b.person_name || '';
+        return nameA.localeCompare(nameB, 'zh-CN');
+    });
+    
+    // 生成表格行
+    sortedEmployments.forEach(emp => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50 cursor-pointer';
+        tr.onclick = () => showPersonEmployments(emp.person_id);
+        
+        columns.forEach(col => {
+            const td = document.createElement('td');
+            td.className = 'whitespace-nowrap px-6 py-4 text-sm text-gray-900';
+            
+            let value = emp[col.key] || '';
+            
+            // 特殊处理变动类型（添加颜色标签）
+            if (col.key === 'change_type' && value) {
+                const changeTypeColors = {
+                    '入职': 'bg-green-100 text-green-800',
+                    '转岗': 'bg-blue-100 text-blue-800',
+                    '转公司': 'bg-purple-100 text-purple-800',
+                    '离职': 'bg-red-100 text-red-800'
+                };
+                const colorClass = changeTypeColors[value] || 'bg-gray-100 text-gray-800';
+                td.innerHTML = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
+            } else if (col.key === 'salary') {
+                // 薪资金额（带单位）
+                let salaryDisplay = '-';
+                if (emp.salary !== undefined && emp.salary !== null) {
+                    const amount = parseFloat(emp.salary);
+                    if (!isNaN(amount)) {
+                        const type = emp.salary_type || '';
+                        if (type === '年薪') {
+                            salaryDisplay = `¥${amount.toLocaleString()} / 年`;
+                        } else if (type === '月薪') {
+                            salaryDisplay = `¥${amount.toLocaleString()} / 月`;
+                        } else if (type === '日薪') {
+                            salaryDisplay = `¥${amount.toLocaleString()} / 日`;
+                        } else {
+                            salaryDisplay = `¥${amount.toLocaleString()}`;
+                        }
+                    }
+                }
+                td.textContent = salaryDisplay;
+            } else {
+                td.textContent = value || '-';
+            }
+            
+            tr.appendChild(td);
+        });
+        
+        tbody.appendChild(tr);
+    });
+}
+
+// 当前过滤条件
+let currentFilters = {};
+
+// 基于 Schema 动态渲染过滤器字段
+function renderFilterFields() {
+    const fields = schema.fields || {};
+    const filterFields = document.getElementById('filter-fields');
+    filterFields.innerHTML = '';
+    
+    // 定义适合过滤的字段（排除 reference 类型和不需要过滤的字段）
+    const filterableFields = {
+        'person_name': { label: '姓名', type: 'text' },
+        'company_name': { label: '公司', type: 'text' },
+        'position': { label: '职位', type: 'text' },
+        'department': { label: '部门', type: 'text' },
+        'employee_type': { label: '员工类别', type: 'select', options: ['正式员工', '试用期员工', '实习生', '部门负责人', '其他'] },
+        'change_type': { label: '变动类型', type: 'select', options: ['入职', '转岗', '调部门', '转公司', '停薪留职', '返岗', '离职'] }
+    };
+    
+    // 使用 Object.keys() 确保按照 schema 定义的顺序遍历
+    const fieldNames = Object.keys(filterableFields);
+    for (const fieldName of fieldNames) {
+        const fieldConfig = filterableFields[fieldName];
+        const label = fieldConfig.label || fieldName;
+        const value = currentFilters[fieldName] || '';
+        
+        let fieldHtml = '<div class="flex flex-col">';
+        fieldHtml += `<label for="filter-${fieldName}" class="text-sm font-medium text-gray-700 mb-1">${label}</label>`;
+        
+        if (fieldConfig.type === 'select') {
+            fieldHtml += `<select id="filter-${fieldName}" name="${fieldName}" class="px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors">`;
+            fieldHtml += `<option value="">全部</option>`;
+            fieldConfig.options.forEach(option => {
+                const selected = value === option ? 'selected' : '';
+                fieldHtml += `<option value="${option}" ${selected}>${option}</option>`;
+            });
+            fieldHtml += '</select>';
+        } else {
+            fieldHtml += `<input type="text" id="filter-${fieldName}" name="${fieldName}" value="${value}" placeholder="请输入${label}" class="px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors">`;
+        }
+        
+        fieldHtml += '</div>';
+        filterFields.innerHTML += fieldHtml;
+    }
+}
+
+// 应用筛选
+function applyFilters() {
+    const filterFields = document.getElementById('filter-fields');
+    const filters = {};
+    
+    // 收集所有过滤字段的值
+    filterFields.querySelectorAll('input, select').forEach(input => {
+        const value = input.value.trim();
+        if (value) {
+            filters[input.name] = value;
+        }
+    });
+    
+    currentFilters = filters;
+    loadEmployments(filters);
+}
+
+// 重置筛选
+function resetFilters() {
+    currentFilters = {};
+    renderFilterFields();
+    loadEmployments();
+}
+
+// 加载聘用管理（表格形式）
+async function loadEmployments(filters = {}) {
+    const loading = document.getElementById('loading');
+    const error = document.getElementById('error');
+    const container = document.getElementById('employments-container');
+    
+    try {
+        // 构建查询参数
+        const params = new URLSearchParams();
+        params.append('enrich', 'true');
+        
+        // 添加过滤条件
+        for (const [key, value] of Object.entries(filters)) {
+            if (value) {
+                params.append(key, value);
+            }
+        }
+        
+        const response = await fetch(`/api/twins/person_company_employment?${params.toString()}`);
+        const result = await response.json();
+        
+        loading.classList.add('hidden');
+        
+        if (!result.success) {
+            error.classList.remove('hidden');
+            document.getElementById('error-message').textContent = result.error;
+            return;
+        }
+        
+        error.classList.add('hidden');
+        container.classList.remove('hidden');
+        
+        // 渲染表格
+        if (result.data && result.data.length > 0) {
+            renderTable(result.data);
+        } else {
+            container.innerHTML = '<div class="text-center py-12 text-gray-500">暂无数据</div>';
+        }
+    } catch (err) {
+        loading.classList.add('hidden');
+        error.classList.remove('hidden');
+        document.getElementById('error-message').textContent = err.message;
+    }
+}
+
+// 切换过滤器显示/隐藏
+document.getElementById('toggle-filter').onclick = () => {
+    const content = document.getElementById('filter-content');
+    const icon = document.getElementById('filter-toggle-icon');
+    const text = document.getElementById('filter-toggle-text');
+    
+    if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        icon.classList.add('rotate-180');
+        text.textContent = '收起';
+    } else {
+        content.classList.add('hidden');
+        icon.classList.remove('rotate-180');
+        text.textContent = '展开';
+    }
+};
+
+// 应用筛选按钮
+document.getElementById('apply-filter-btn').onclick = applyFilters;
+
+// 重置筛选按钮
+document.getElementById('reset-filter-btn').onclick = resetFilters;
+
+// 过滤器输入框支持回车键应用
+document.addEventListener('DOMContentLoaded', () => {
+    // 初始化过滤器字段
+    renderFilterFields();
+    
+    // 为过滤器输入框添加回车键事件
+    const filterFields = document.getElementById('filter-fields');
+    if (filterFields) {
+        filterFields.addEventListener('keypress', (e) => {
+            if (e.target.tagName === 'INPUT' && e.key === 'Enter') {
+                e.preventDefault();
+                applyFilters();
+            }
+        });
+    }
+    
+    // 页面加载时获取数据
+    loadEmployments();
+});
+</script>
+{% endblock %}

@@ -1,135 +1,550 @@
-# 人力资源管理系统 (HRMS)
+## 概览
 
-一个面向"人员状态追踪"的人力资源管理系统，使用 Flask + SQLite 实现 **State Stream（状态流）** 模式：以 `person_id` 为聚合根，把基础信息、岗位信息、薪资、社保、公积金、考核、发薪记录等拆解为独立的 Append-only 流，每次变更只追加新版本，不改写历史，再通过 Web UI + API 展示当前状态及历史沿革。
+这是一个基于 **Schema Driven（Schema 驱动）** 和 **Twin（数字孪生）** 核心设计之上的人力资源管理系统（HRMS）示例项目。
 
-## 核心设计理念
+整个系统可以分成两层来看：
 
-- **“状态流”驱动**：每个状态类型（基础信息、岗位信息）各自维护只增不改的版本流（`person_basic_history`、`person_position_history`）。每条记录包含 `person_id/ts/version/data(JSON)`，从而实现任意状态的回放、对比与追溯。
-- **聚合根 = Person**：一个人是多个状态流的集合，系统根据最新版本汇聚“当前状态”，也可按时间点获取历史状态（`get_at()`）。
-- **轻量存储 + JSON 扩展**：状态数据放入 `data` JSON 字段，除核心索引外无需频繁迁表，便于快速迭代模型。
-- **Web + API 统一**：同一 Flask 应用既 serve REST API，也提供 Material 风格 UI，便于预览状态流效果并做 Demo。
+- **核心平台层**：一个通用的 Schema 驱动 Twin 平台（不依赖具体业务，只依赖 `twin_schema.yaml`）。
+- **HR 业务层**：在该平台之上实现的人力资源业务（人员、聘用、项目、社保、公积金、专项附加扣除、工资等）。
 
-## 功能概览
+下面先讲清楚“平台能力”，再说明“在这个平台上实现了哪些 HR 业务”。
 
-- **状态流模型**
-  - `person_basic_history`：append-only 存储人员基础信息（姓名、身份证、电话、邮箱等）。
-  - `person_position_history`：append-only 存储岗位变动事件（入职 / 转岗 / 转公司 / 停薪留职 / 离职 等），通过最新事件推导当前是否在职以及当前公司/职位。
-  - `person_salary_history`：薪资信息状态流，支持月薪制 / 日薪制等类型。
-  - `person_social_security_history`：社保基数与各险种公司/个人比例、金额。
-  - `person_housing_fund_history`：住房公积金基数与公司/个人比例。
-  - `person_assessment_history`：考核状态流（A–E 等级，附带考核日期与备注）。
-  - `person_payroll_history`：发薪记录状态流，记录每次批量发放时该员工的应发构成（基数、绩效、社保/公积金个人部分、补扣、应发税前等）。
-  - `person_tax_deduction_history`：个税专项附加扣除状态流，包含继续教育、三岁及以下婴幼儿、子女教育、住房贷款利息、住房租金、赡养老人等6项扣除。
-- **批量调整与批量发薪**
-  - 公积金批量调整：`housing_fund_adjustment_batches` + `housing_fund_batch_items`，支持按公司/部门/员工类别筛选，预览 → 确认 → 执行，将新基数与比例写入 `person_housing_fund_history`。
-  - 社保批量调整：`social_security_adjustment_batches` + `social_security_batch_items`，同样采用两阶段预览确认流程，将新社保配置写入 `person_social_security_history`。
-  - 个税专项附加扣除批量调整：`tax_deduction_adjustment_batches` + `tax_deduction_batch_items`，支持按月批量设置6项专项附加扣除，预览 → 确认 → 执行，将新扣除数据写入 `person_tax_deduction_history`。
-  - 薪酬批量发放：`payroll_batches` + `payroll_batch_items`，根据薪资类型、考核等级、当月考勤/请假、最新社保/公积金等自动计算每人“应发（税前）”，预览后可按人微调补扣，执行时为每人追加一条发薪事件到 `person_payroll_history`。
-- **考勤与请假**
-  - `attendance_records`：按日记录考勤，包含上下班时间、工作时长、加班时长、状态等，并提供“月度汇总”接口供薪酬计算与前端展示使用。
-  - `leave_records`：请假记录，包含日期、类型、时长、审批人与状态等，支持创建/更新/删除与审批流程。
-- **服务与 API**
-  - `PersonService` 作为聚合根服务，封装各状态流 DAO 的读写，并提供批量调整与批量发放的业务方法（预览、确认、执行）。
-  - `AttendanceService`、`LeaveService` 分别负责考勤与请假数据的增删改查与汇总。
-  - `api.py` 中提供 `/api/persons`、`/api/attendance`、`/api/leave`、`/api/statistics` 以及 `/api/housing-fund/*`、`/api/social-security/*`、`/api/tax-deduction/*`、`/api/payroll/*` 等 REST 接口。
-- **前端界面（Material 风格）**
-  - 统一使用 `layout.html` 提供导航栏，包含“人员 / 考勤 / 请假 / 统计 / 薪酬（下拉：公积金批量 / 社保批量 / 个税专项附加扣除 / 薪酬批量发放）”入口。
-  - 人员列表页 `persons.html`：卡片展示人员基础信息、当前公司与职位，按公司着色；卡片操作区提供“详情”“任职调整”“薪资调整”“社保调整”“公积金调整”“个税抵扣信息”“考核记录”等快捷入口。各调整模态框均显示历史记录列表。
-  - 人员详情 Modal：按 Tab 展示基础信息、岗位信息、薪资信息、社保、公积金、考勤、请假等，并显示各自的历史版本。
-  - 公积金 / 社保批量调整页面：以卡片 + Modal 的方式展示批次参数与预览明细表，可逐人调整 new_* 字段，再确认并执行。
-  - 个税专项附加扣除批量调整页面：支持按月批量设置6项专项附加扣除，预览 → 确认 → 执行流程。
-  - 薪酬批量发放页面：填写批次（年月）与筛选条件，一键预览本次发薪明细（区分月薪制/日薪制算法），预览表格显示员工姓名和所有计算相关属性，确认后在列表中执行“发放”。
-  - 统计页面 `statistics.html`：展示人员在各个维度的统计信息（总体概况、性别、年龄、组织架构、薪资、考核等），支持指定日期查询历史时间点的统计。
-- **种子数据**
-  - 启动时自动初始化多名测试人员与岗位、薪资、社保、公积金、考勤、请假等数据：
-    - 多家公司（如 "SC高科技公司""SC能源科技公司"）、多部门、多员工类型（含部门负责人）。
-    - 部分人员含岗位变动事件（含离职）、基础信息变更、不同薪资类型与考核等级。
-    - 自动生成一定规模的考勤与请假记录，便于观察统计效果与发薪计算。
-    - 头像使用 DiceBear “micah” 风格自动生成。
+---
 
-## 运行方式
+## 一、核心设计：Schema Driven Twin 平台
+
+### 1.1 Schema Driven（Schema 驱动）
+
+**核心思想**：系统的所有行为都基于外部 DSL（`app/schema/twin_schema.yaml`）定义的类型系统，而不是硬编码在 Python / HTML / SQL 中。
+
+#### 1.1.1 Schema 驱动的五个层次
+
+1. **数据模型层**  
+   - Schema 决定数据库表结构（注册表 + 状态表）
+   - 例如 `person`、`person_company_employment` 对应不同的表组合
+
+2. **数据访问层（DAO）**  
+   - `TwinDAO` 负责 Twin 注册表（entity / activity 实例）
+   - `TwinStateDAO` 负责 Twin 状态表（历史版本 / 时间序列）
+
+3. **业务逻辑层（Service）**  
+   - `TwinService`：完全通用的 Twin 业务接口
+   - 只依赖 Schema，不依赖具体业务字段
+
+4. **API 层（REST）**  
+   - 统一的 `/api/twins/<twin_name>` 接口
+   - 不需要为每个业务类型写一套 CRUD
+
+5. **用户界面层（Templates + JS）**  
+   - 模板接收 Schema JSON
+   - JS 根据 `schema.fields` 动态绘制表格、表单、详情
+
+#### 1.1.2 Schema 中定义了什么
+
+- **Twin 类型**：`type: entity | activity`
+- **字段**：类型、label、验证、UI 组件、存储方式（JSON / 外键 / 唯一键）
+- **状态流模式**：`mode: versioned | time_series`
+- **唯一键**：如 `[person_id, version]` 或 `[activity_id, period]`
+- **关联关系**：Activity Twin 的 `related_entities`（person / company / project 等）
+
+Schema 一改：
+
+- 表结构自动重建（`init_db`）
+- DAO、Service、API 自动适配
+- 前端 UI 自动感知（字段新增/删除、label、枚举等）
+
+---
+
+### 1.2 Twin（数字孪生）模型
+
+Twin 把“实体”和“活动”统一抽象，统一用一套 DAO/Service/API/UI。
+
+#### 1.2.1 Entity Twin（实体孪生）
+
+代表静态或相对稳定的对象，例如：
+
+- `person`（人员）
+- `company`（公司）
+- `project`（项目）
+
+**存储结构：**
+
+- 注册表：如 `persons`，只存 `id`
+- 状态表：如 `person_history`，存 `twin_id + version/time_key + data(JSON)`
+
+#### 1.2.2 Activity Twin（活动孪生）
+
+代表“行为 / 关系 / 事件”，例如：
+
+- `person_company_employment`（人员-公司聘用）
+- `person_project_participation`（人员-项目参与）
+- `person_company_attendance`（人员考勤）
+- `person_company_payroll`（人员工资发放）
+
+**存储结构：**
+
+- 注册表：如 `person_company_employment_activities`  
+  存 `id` + `person_id` + `company_id` 等外键
+- 状态表：如 `person_company_employment_history`  
+  存 `twin_id + version/time_key + data(JSON)`（只存业务属性，不存外键）
+
+Activity Twin 通过 `related_entities` 描述与 Entity Twin 的关系。
+
+---
+
+### 1.3 状态流（State Stream）
+
+每个 Twin 都有自己的状态流，记录历史：
+
+#### 1.3.1 版本化状态流（Versioned）
+
+- 键：`(twin_id, version)`
+- 场景：基本信息、岗位变更、薪资配置、参与项目状态等
+- 特点：append-only，每次变更生成新版本
+
+示例（person）：
+
+```yaml
+person:
+  mode: versioned
+  unique_key: [person_id, version]
+```
+
+#### 1.3.2 时间序列状态流（Time-Series）
+
+- 键：`(twin_id, time_key)`（例如 date、batch_period、period）
+- 场景：打卡、工资单等“按时间点/周期”的记录
+
+示例（考勤）：
+
+```yaml
+person_company_attendance:
+  mode: time_series
+  unique_key: [activity_id, date]
+```
+
+示例（工资单）：
+
+```yaml
+person_company_payroll:
+  mode: time_series
+  unique_key: [activity_id, period]
+```
+
+---
+
+### 1.4 核心组件
+
+#### 1.4.1 Schema Loader（`app/schema/loader.py`）
+
+**职责：**
+
+- 读取 `twin_schema.yaml`
+- 解析为 `TwinSchema / FieldDefinition` 对象
+- 提供查询函数：`get_twin_schema(name)` / `list_entity_twins()` / `list_activity_twins()`
+
+#### 1.4.2 TwinDAO（`app/daos/twins/twin_dao.py`）
+
+**职责：**
+
+- 创建 Entity Twin：在对应注册表插入一条记录，返回 `id`
+- 创建 Activity Twin：在注册表插入记录并写入关联的 entity id
+- 查询 Twin 是否存在、获取注册信息
+
+#### 1.4.3 TwinStateDAO（`app/daos/twins/state_dao.py`）
+
+**核心接口：**
+
+- `append(twin_name, twin_id, data, time_key=None)`  
+  自动根据 `mode` 选择 version / time_key
+- `get_latest(twin_name, twin_id)`  
+  获取某个 Twin 的最新状态
+- `list_states(twin_name, twin_id)`  
+  获取历史记录
+- `query_states(...)` / `query_latest_states(...)`  
+  按字段过滤、按版本/时间排序
+- `query_latest_states_with_enrich(...)`  
+  对 Activity Twin 做 **JOIN enrich**：
+  - 根据 `related_entities` JOIN 对应 Entity 注册表和状态表
+  - 支持 versioned 和 time_series 两种模式
+  - 返回字段形如：`person_name`、`company_name`
+
+#### 1.4.4 TwinService（`app/services/twin_service.py`）
+
+**完全通用的 Service 层：**
+
+- `list_twins(twin_name, filters=None, enrich=None)`
+- `get_twin(twin_name, twin_id)`
+- `create_twin(twin_name, data)`
+- `update_twin(twin_name, twin_id, data)`
+- `_apply_auto_fields(...)`：根据 `auto: date/timestamp` 自动补充字段
+
+Service 不写任何业务 if/else，全靠 Schema。
+
+#### 1.4.5 API 层（`app/api.py`）
+
+**统一的 Twin API：**
+
+- `GET /api/twins/<twin_name>`  
+  - 支持查询参数过滤  
+  - 支持 `enrich=true` 或 `enrich=person,company`
+- `GET /api/twins/<twin_name>/<id>`
+- `POST /api/twins/<twin_name>`
+- `PUT /api/twins/<twin_name>/<id>`
+
+**统一响应格式：**
+
+```json
+{
+  "success": true,
+  "data": [...],
+  "count": 10
+}
+```
+
+#### 1.4.6 前端模板层（`app/templates/*.html`）
+
+通用思路：
+
+- 后端把 Twin 的 Schema 通过 `schema | tojson` 注入模板
+- JS 使用 schema 的字段定义：
+  - 动态生成表头和列
+  - 根据 `type` / `enum` / `ui.component` 渲染展示和格式化
+  - 表单校验可以基于 `validation` 定义逐步完善
+
+---
+
+### 1.5 数据库存储模式（抽象层）
+
+#### 1.5.1 Entity Twin
+
+- 注册表：`<entity_table>(id)`
+- 状态表：`<state_table>(twin_id, version/time_key, ts, data JSON)`
+
+#### 1.5.2 Activity Twin
+
+- 注册表：`<activity_table>(id, person_id, company_id, ...)`
+- 状态表：`<state_table>(twin_id, version/time_key, ts, data JSON)`
+- `related_entities` 字段（person_id、company_id 等）**只在注册表中存一份**，状态表只保存业务属性
+
+---
+
+## 二、HR 业务：在 Twin 平台上的具体实现
+
+在以上通用设计之上，本项目实现了一套“人力资源管理”业务，所有业务对象都通过 Twin 来描述和驱动。
+
+### 2.1 核心业务 Twin 一览
+
+#### 2.1.1 Entity Twins
+
+- **`person`**：人员基础信息（姓名、证件、联系方式、头像等）
+- **`company`**：公司基础信息
+- **`project`**：项目（类型、内部/外部项目名、项目编号、状态、起止日期、预算等）
+
+#### 2.1.2 Activity Twins
+
+- **就业与任职： `person_company_employment`**
+  - 关联：`person`、`company`
+  - 字段：职位、部门、员工号、员工类别、薪资类型（年薪/月薪/日薪）、薪资金额、变动类型、变动日期等
+  - 模式：`mode: versioned`，记录历次变更（入职、转岗、离职等）
+
+- **项目参与： `person_project_participation`**
+  - 关联：`person`、`project`
+  - 字段：参与状态（入项 / 出项）、变动日期、劳务定价（劳务型项目适用）
+  - 模式：`versioned`
+
+- **考勤： `person_company_attendance`**
+  - 关联：`person`、`company`
+  - 字段：日期、上下班时间、工时等
+  - 模式：`time_series`，按天记录
+
+- **人员考核： `person_assessment`**
+  - 关联：`person`
+  - 字段：考核周期、日期、等级（优秀/良好/合格/不合格）、评语等
+  - 模式：`versioned`
+
+- **社保基数： `person_company_social_security_base`**
+  - 关联：`person`、`company`
+  - 字段：缴费基数、生效日期等
+  - 模式：`versioned`
+
+- **公积金基数： `person_company_housing_fund_base`**
+  - 关联：`person`、`company`
+  - 字段：缴费基数、生效日期等
+
+- **专项附加扣除： `person_tax_deduction`**
+  - 关联：`person`
+  - 字段：扣除类型、金额、生效/失效日期、状态、备注等
+
+- **工资单： `person_company_payroll`**
+  - 关联：`person`、`company`
+  - 模式：`time_series`，按 `period=YYYY-MM` 记录
+  - 字段分两类：
+    - **计算依据快照**：`base_salary`、`salary_type`、`assessment_grade`、`social_security_base`、`housing_fund_base`、`tax_deduction_total`
+    - **计算结果**：`base_amount`、`performance_bonus`、`social_security_deduction`、`housing_fund_deduction`、`taxable_income`、`tax_deduction`、`total_amount`
+    - **状态信息**：`payment_date`、`status`、`remarks`
+
+以上所有 Twin 定义都只存在于 `twin_schema.yaml` 中，其余层（DAO/Service/API/UI）全部是通用代码。
+
+---
+
+### 2.2 业务服务层：PayrollService 等
+
+在通用 `TwinService` 之上，项目增加了一个**少量业务逻辑更强的服务**：
+
+#### 2.2.1 `PayrollService`（`app/services/payroll_service.py`）
+
+**职责：**
+
+- 从各类 Activity Twin 中读取“最新有效状态”：
+  - 最新聘用薪资（`person_company_employment`）
+  - 最新考核（`person_assessment`）
+  - 最新社保、公积金基数（`person_company_social_security_base` / `person_company_housing_fund_base`）
+  - 当前有效的专项附加扣除（`person_tax_deduction`）
+- 按既定规则计算当月工资（预览 / 入库）：
+  - 绩效奖金（根据考核等级）
+  - 社保、公积金扣除（按基数按比例计算）
+  - 个税应纳税所得额 + 个税金额
+  - 实发工资合计
+- 将当期用于计算的“输入值”以快照形式写入 `person_company_payroll`，保证**历史可追溯**，不依赖后续 Activity Twin 的修改。
+
+**对平台的复用：**
+
+- 所有底层读写仍通过 `TwinService` + `TwinDAO` + `TwinStateDAO`
+- 业务只负责“如何用现有 Twin 组合出工资单”
+
+---
+
+### 2.3 业务 API
+
+除了统一的 `/api/twins/<twin_name>` 接口外，针对工资做了两个业务 API：
+
+- `POST /api/payroll/calculate`  
+  - 入参：`person_id`, `company_id`, `period`（YYYY-MM）  
+  - 行为：调用 `PayrollService.calculate_payroll`，只算不落库
+
+- `POST /api/payroll/generate`  
+  - 入参同上  
+  - 行为：调用 `PayrollService.generate_payroll`，生成一条 `person_company_payroll` Activity Twin + 对应 state
+
+其他页面（聘用列表、项目参与、社保/公积金/专项扣除）主要通过统一的 Twin API + enrich 实现。
+
+---
+
+### 2.4 业务 UI 页面
+
+UI 层全部是“在 Schema + Twin 平台之上”的具体业务实现。
+
+#### 2.4.1 人员管理（`persons.html`）
+
+- 使用 `person` Schema 驱动：
+  - 人员卡片列表（头像、姓名、核心信息）
+  - 详情弹窗：当前信息 + 历史记录（根据 TwinState 历史）
+  - 布局针对 HR 场景做了优化（紧凑、4 列卡片、头像 URL 在编辑表单中维护）
+
+#### 2.4.2 聘用管理（`employments.html`）
+
+- 使用 `person_company_employment` Schema：
+  - 主表格：按 `person` 聚合，只显示每人最新聘用状态
+  - 点击行：弹窗展示该人员全部聘用历史
+  - 显示薪资类型 + 薪资金额（格式化为 “¥金额 / 年|月|日”）
+
+#### 2.4.3 项目管理（`projects.html`）
+
+- 使用 `project` + `person_project_participation` Schema：
+  - Tab1：项目列表（基本字段 +状态）
+  - Tab2：“人员在项”：按人维度查看各项目参与状态
+  - 点击项目行：展示该项目参与人员列表
+  - 点击人员参与记录：展示该人该项目的完整参与历史
+  - 对“专项型”项目，劳务价展示为 “N/A”
+
+#### 2.4.4 缴费与扣除（`contributions.html`）
+
+统一页面下的三个标签：
+
+- “社保基数” Tab → `person_company_social_security_base`
+- “公积金基数” Tab → `person_company_housing_fund_base`
+- “专项附加扣除” Tab → `person_tax_deduction`
+
+实现方式：
+
+- 每个板块内部本质上是一个“小页面”：有自己的过滤栏、表格、详情弹窗、表单
+- 但不再使用 iframe，而是把三块内容嵌入同一 DOM 中，通过 Tab 控制显示/隐藏
+- 所有表格和表单字段都由对应 Schema 决定
+
+#### 2.4.5 工资管理（`payroll.html`）
+
+两个标签页：
+
+1. **“生成工资单”**
+   - 选择周期、公司、人员
+   - 调用 `/api/payroll/calculate` 展示“计算依据 + 计算结果”
+   - 用户确认后调用 `/api/payroll/generate` 落库
+
+2. **“工资单列表”**
+   - 使用 `person_company_payroll` Schema + enrich（person, company）
+   - 过滤条件：周期、公司名、人员名、状态
+   - 列表展示关键字段：周期、人员、公司、应发、实发、状态、发放日期
+   - 详情弹窗展示完整快照（输入 & 结果），用于审计和追溯
+
+---
+
+## 三、项目结构（平台 + 业务混合）
+
+```text
+app/
+├── __init__.py                  # Flask 应用工厂，注册 web / api 蓝图
+├── db.py                        # 根据 Schema 初始化数据库
+├── seed.py                      # 基于 Schema 生成测试数据
+├── schema/
+│   ├── twin_schema.yaml         # Twin 类型系统定义（平台 + HR 业务）
+│   ├── loader.py                # SchemaLoader（平台核心）
+│   └── models.py                # Schema 数据结构
+├── models/
+│   └── twins/
+│       ├── base.py              # Twin 基类
+│       ├── entity.py            # Entity Twin
+│       ├── activity.py          # Activity Twin
+│       └── state.py             # Twin State（状态记录）
+├── daos/
+│   ├── base_dao.py
+│   └── twins/
+│       ├── twin_dao.py          # TwinDAO（平台）
+│       └── state_dao.py         # TwinStateDAO（平台）
+├── services/
+│   ├── twin_service.py          # 通用 TwinService（平台）
+│   └── payroll_service.py       # PayrollService（HR 业务）
+├── api.py                       # 统一 Twin API + payroll 专用 API
+├── routes.py                    # Web 页面路由（HR 业务 UI）
+└── templates/
+    ├── base.html                # 通用布局 + 导航
+    ├── persons.html             # 人员管理（HR 业务）
+    ├── employments.html         # 聘用管理
+    ├── projects.html            # 项目 & 人员在项
+    ├── contributions.html       # 社保 / 公积金 / 专项扣除 标签页
+    └── payroll.html             # 工资管理
+```
+
+---
+
+## 四、安装与运行
 
 ```bash
-# 1. 创建虚拟环境（可选）
+# 1. 创建虚拟环境
 python3 -m venv venv
 source venv/bin/activate
 
 # 2. 安装依赖
 pip install -r requirements.txt
 
-# 3. 启动应用
-# 默认端口 5000，可通过 PORT 环境变量覆盖
-python main.py
+# 3. 初始化数据库（根据 Schema 自动建表）
+python -c "from app.db import init_db; from config import Config; init_db(str(Config.DATABASE_PATH))"
 
+# 4. 生成测试数据（可选）
+python -c \"from app.seed import generate_test_data; from config import Config; generate_test_data(str(Config.DATABASE_PATH))\"
+
+# 5. 启动应用
+python main.py
 # 或指定端口
 PORT=5001 python main.py
 ```
 
-启动后访问 `http://localhost:5000`（或对应端口）即可看到界面。
+访问 `http://localhost:5000` 或 `http://localhost:5001` 查看 Web UI。
 
-## 项目结构（简要）
+---
 
-```
-app/
-├── api.py                 # REST API 蓝图（persons / attendance / leave / 批量调整与发放）
-├── routes.py              # Web 页面路由（人员、考勤、请假、薪酬相关页面）
-├── db.py                  # SQLite 初始化工具（所有状态流与批次表结构）
-├── seed.py                # 种子数据生成（基础/岗位/薪资/社保/公积金/考勤/请假等）
-├── services/
-│   ├── person_service.py      # 人员聚合根服务 + 批量调整与批量发放逻辑
-│   ├── attendance_service.py  # 考勤服务
-│   └── leave_service.py       # 请假服务
-├── daos/
-│   ├── base_dao.py
-│   ├── entity_state/
-│   │   └── base.py            # 通用状态流 DAO
-│   ├── person_state_dao.py    # 各 person_*_history 的具体 DAO
-│   ├── housing_fund_batch_dao.py
-│   ├── social_security_batch_dao.py
-│   ├── tax_deduction_batch_dao.py
-│   └── payroll_batch_dao.py
-├── models/
-│   ├── person_states/         # 所有人员状态流模型（basic/position/salary/social_security/housing_fund/assessment/payroll/tax_deduction）
-│   ├── person_payloads.py     # 各状态流 payload 的清洗与校验
-│   └── batches.py             # 公积金/社保/个税专项附加扣除/薪酬批次与明细的 dataclass 模型
-├── templates/
-│   ├── layout.html            # 通用布局与导航
-│   ├── persons.html           # 人员列表与详情 Modal
-│   ├── attendance.html        # 考勤页面
-│   ├── leave.html             # 请假页面
-│   ├── housing_fund_batch.html
-│   ├── social_security_batch.html
-│   ├── tax_deduction_batch.html
-│   ├── payroll_batch.html
-│   └── statistics.html
-└── static/
-    ├── js/persons.js
-    ├── js/attendance.js
-    ├── js/leave.js
-    ├── js/housing_fund_batch.js
-    ├── js/social_security_batch.js
-    ├── js/tax_deduction_batch.js
-    ├── js/payroll_batch.js
-    └── js/statistics.js
+## 五、统一 Twin API 使用说明
+
+### 5.1 列出 Twin
+
+```text
+GET /api/twins/<twin_name>?field1=value1&field2=value2&enrich=true
 ```
 
-## 测试
+**参数：**
 
-使用 pytest 验证状态流 DAO、服务层与批量调整/发放流程：
+- `field1`, `field2`：字段过滤（支持 entity / activity）
+- `enrich`（仅对 Activity Twin 有效）：
+  - `enrich=true`：enrich 所有关联实体
+  - `enrich=person,company`：只 enrich 指定实体
 
-```bash
-pytest
+**示例：**
+
+```text
+# 所有人
+GET /api/twins/person
+
+# 所有聘用记录（enrich 人员和公司）
+GET /api/twins/person_company_employment?enrich=true
+
+# 某人所有聘用记录
+GET /api/twins/person_company_employment?person_id=1&enrich=person,company
+
+# 某项目所有参与记录
+GET /api/twins/person_project_participation?project_id=1&enrich=person,project
 ```
 
-当前提供包括但不限于：
+### 5.2 获取 Twin 详情
 
-- `tests/test_entity_state_dao.py`：确保通用状态流 DAO 的 append / list / get_at 行为正确。
-- `tests/test_person_payloads.py`：覆盖基础/岗位/薪资/社保/公积金/考核等 payload 的清洗与校验。
-- `tests/test_person_service.py`：验证创建人员、状态流追加、数据聚合、考核与批量操作集成流程。
-- `tests/test_batches.py`：针对公积金/社保/薪酬批次的 preview/confirm/execute 整体流程进行回归测试。
+```text
+GET /api/twins/<twin_name>/<twin_id>
+```
 
-## 备注
+返回：
 
-- 数据库文件默认位于 `data/person_state.db`，可删除后重启以重新生成种子数据。
-- 这是一个演示性质的原型，为多状态流（基础、岗位、薪资、社保、公积金、考核、个税专项附加扣除、发薪记录等）提供骨架，并通过批量调整与批量发放场景展示“事件流 + 状态流”的组合玩法。已实现统计页面支持按日期查询历史状态，后续可继续扩展税务计算、工资条查看等功能。
+- `id`：Twin ID
+- `current`：当前状态
+- `history`：历史状态数组（包含 version / ts / data）
 
+### 5.3 创建 / 更新 Twin
+
+```text
+POST /api/twins/<twin_name>
+PUT  /api/twins/<twin_name>/<twin_id>
+Content-Type: application/json
+```
+
+对于 Activity Twin，请在 body 中包含所有 required 的 `related_entities` id，比如：
+
+```json
+{
+  "person_id": 1,
+  "company_id": 2,
+  "change_type": "入职",
+  "change_date": "2024-01-01"
+}
+```
+
+更新会**追加新状态**，不会覆盖历史。
+
+### 5.4 业务专用端点（示例）
+
+- `GET /api/persons/<person_id>/employments`  
+  获取某人的所有聘用记录（包含公司信息）
+- `GET /api/projects/<project_id>`  
+  获取项目详情（包含参与人员列表）
+- `POST /api/payroll/calculate` / `POST /api/payroll/generate`  
+  工资计算与生成（见上文说明）
+
+---
+
+## 六、扩展指南：在平台上加新业务
+
+1. 在 `twin_schema.yaml` 中新增 Twin 定义（entity 或 activity）。
+2. 重新执行数据库初始化（或迁移）。
+3. 使用 `TwinService` / `/api/twins/<twin_name>` 即可进行 CRUD。
+4. 如有复杂业务规则，可增加专用 Service（类似 `PayrollService`）。
+5. 如需前端界面，在 `routes.py` 新增路由，传入对应 Schema，前端 JS 按同样模式动态渲染即可。
+
+---
+
+## 七、技术栈
+
+- **Python 3.9+**
+- **Flask 3.0.0**
+- **SQLite + JSON1 扩展**
+- **PyYAML 6.0.1**
+- **Tailwind CSS（通过 CDN 用于示例 UI）**
+- **pytest 8.3.3**
+
+（本项目主要目的是演示一个“Schema Driven Twin 平台 + HR 业务”的整体设计，并非生产级 HRMS。） 

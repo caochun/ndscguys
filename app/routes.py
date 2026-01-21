@@ -1,64 +1,98 @@
 """
-Web routes for person management UI
+Web 路由 - 页面路由
 """
 from __future__ import annotations
 
-from flask import Blueprint, render_template, redirect, url_for
+from flask import Blueprint, render_template
+from typing import Dict, Any, Optional
+
+from app.schema.loader import SchemaLoader
 
 web_bp = Blueprint("web", __name__)
+
+# 共享的 SchemaLoader 实例（避免重复创建）
+_schema_loader = SchemaLoader()
+
+
+def build_schema_dict(twin_name: str, default_label: Optional[str] = None) -> Dict[str, Any]:
+    """
+    构建 schema 字典，用于传递给前端模板
+    
+    Args:
+        twin_name: Twin 名称
+        default_label: 默认标签（如果 schema 中没有定义）
+    
+    Returns:
+        schema 字典，包含 name、label、fields
+    """
+    twin_schema = _schema_loader.get_twin_schema(twin_name)
+    
+    if not twin_schema:
+        twin_schema = {}
+    
+    return {
+        "name": twin_name,
+        "label": twin_schema.get("label", default_label or twin_name),
+        "fields": twin_schema.get("fields", {})
+    }
 
 
 @web_bp.route("/")
 def index():
-    return redirect(url_for("web.persons"))
+    """首页 - 重定向到人员列表"""
+    schema_dict = build_schema_dict("person", "人员")
+    return render_template("persons.html", schema=schema_dict)
 
 
 @web_bp.route("/persons")
 def persons():
-    return render_template("persons.html", active_page="persons")
+    """人员列表页"""
+    schema_dict = build_schema_dict("person", "人员")
+    return render_template("persons.html", schema=schema_dict)
 
 
-@web_bp.route("/attendance")
-def attendance():
-    return render_template("attendance.html", active_page="attendance")
-
-
-@web_bp.route("/leave")
-def leave():
-    return render_template("leave.html", active_page="leave")
-
-
-@web_bp.route("/housing-fund/batch")
-def housing_fund_batch():
-    return render_template("housing_fund_batch.html", active_page="housing_batch")
-
-
-@web_bp.route("/social-security/batch")
-def social_security_batch():
-    return render_template("social_security_batch.html", active_page="social_batch")
-
-
-@web_bp.route("/payroll/batch")
-def payroll_batch():
-    return render_template("payroll_batch.html", active_page="payroll_batch")
-
-
-@web_bp.route("/tax-deduction/batch")
-def tax_deduction_batch():
-    return render_template("tax_deduction_batch.html", active_page="tax_deduction_batch")
-
-
-@web_bp.route("/statistics")
-def statistics():
-    return render_template("statistics.html", active_page="statistics")
+@web_bp.route("/employments")
+def employments():
+    """聘用管理列表页"""
+    schema_dict = build_schema_dict("person_company_employment", "聘用管理")
+    return render_template("employments.html", schema=schema_dict)
 
 
 @web_bp.route("/projects")
 def projects():
-    return render_template("projects.html", active_page="projects")
+    """项目列表页"""
+    schema_dict = build_schema_dict("project", "项目")
+    participation_schema_dict = build_schema_dict("person_project_participation", "人员项目参与")
+    
+    # 添加 related_entities（仅对 participation schema）
+    participation_schema = _schema_loader.get_twin_schema("person_project_participation")
+    if participation_schema:
+        participation_schema_dict["related_entities"] = participation_schema.get("related_entities", [])
+    
+    return render_template("projects.html", schema=schema_dict, participation_schema=participation_schema_dict)
 
 
-@web_bp.route("/payroll/dsl-editor")
-def payroll_dsl_editor():
-    return render_template("payroll_dsl_editor.html", active_page="payroll_dsl_editor")
+@web_bp.route("/assessments")
+def assessments():
+    """考核列表页"""
+    schema_dict = build_schema_dict("person_assessment", "考核")
+    return render_template("assessments.html", schema=schema_dict)
 
+
+@web_bp.route("/contributions")
+def contributions():
+    """缴费与专项附加扣除汇总页（Tab 视图）"""
+    social_schema = build_schema_dict("person_company_social_security_base", "社保基数")
+    housing_schema = build_schema_dict("person_company_housing_fund_base", "公积金基数")
+    tax_schema = build_schema_dict("person_tax_deduction", "专项附加扣除")
+    return render_template("contributions.html", 
+                          social_schema=social_schema,
+                          housing_schema=housing_schema,
+                          tax_schema=tax_schema)
+
+
+@web_bp.route("/payroll")
+def payroll():
+    """工资管理页"""
+    schema_dict = build_schema_dict("person_company_payroll", "工资管理")
+    return render_template("payroll.html", schema=schema_dict)
