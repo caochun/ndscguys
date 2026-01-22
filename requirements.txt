@@ -3,6 +3,3 @@ Flask==3.0.0
 
 # Schema Loading
 PyYAML==6.0.1
-
-# Testing
-pytest==8.3.3
