@@ -1,0 +1,1412 @@
+{% extends "base.html" %}
+
+{% block title %}项目管理中心 - HRMS{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="mb-6">
+        <h2 class="text-2xl font-bold text-gray-900">项目管理中心</h2>
+        <p class="mt-1 text-sm text-gray-500">统一管理客户合同、内部项目、订单及其关联关系</p>
+    </div>
+
+    <!-- 加载状态 -->
+    <div id="loading" class="text-center py-12">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <p class="mt-2 text-sm text-gray-500">加载中...</p>
+    </div>
+
+    <!-- 错误提示 -->
+    <div id="error" class="hidden bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-red-800">加载失败</h3>
+                <p id="error-message" class="mt-2 text-sm text-red-700"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 三栏关系展示 -->
+    <div id="main-container" class="hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 内部项目栏 -->
+            <div class="bg-white rounded-lg shadow ring-1 ring-black ring-opacity-5">
+                <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 rounded-t-lg flex justify-between items-center">
+                    <h3 class="text-sm font-semibold text-gray-900">内部项目</h3>
+                    <button id="add-project-btn" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded">
+                        + 新建
+                    </button>
+                </div>
+                <div id="projects-column" class="divide-y divide-gray-200 max-h-[600px] overflow-y-auto">
+                    <!-- 动态生成项目卡片 -->
+                </div>
+            </div>
+
+            <!-- 订单栏 -->
+            <div class="bg-white rounded-lg shadow ring-1 ring-black ring-opacity-5">
+                <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 rounded-t-lg flex justify-between items-center">
+                    <h3 class="text-sm font-semibold text-gray-900">订单</h3>
+                    <button id="split-order-btn" class="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded">
+                        + 从合同拆分
+                    </button>
+                </div>
+                <div id="orders-column" class="divide-y divide-gray-200 max-h-[600px] overflow-y-auto">
+                    <!-- 动态生成订单卡片 -->
+                </div>
+            </div>
+
+            <!-- 客户合同栏 -->
+            <div class="bg-white rounded-lg shadow ring-1 ring-black ring-opacity-5">
+                <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 rounded-t-lg flex justify-between items-center">
+                    <h3 class="text-sm font-semibold text-gray-900">客户合同</h3>
+                    <button id="add-contract-btn" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded">
+                        + 新建
+                    </button>
+                </div>
+                <div id="contracts-column" class="divide-y divide-gray-200 max-h-[600px] overflow-y-auto">
+                    <!-- 动态生成合同卡片 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 拆分订单模态框 -->
+<div id="split-order-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">从合同拆分订单</h3>
+                <button id="close-split-modal" class="text-gray-400 hover:text-gray-500">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <form id="split-order-form" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
+                    <div class="md:col-span-1">
+                        <label for="split-contract-id" class="block text-sm font-medium text-gray-700 pt-2 text-right">客户合同 <span class="text-red-500">*</span></label>
+                    </div>
+                    <div class="md:col-span-2">
+                        <select id="split-contract-id" name="client_contract_id" required class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="">请选择合同</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="split-order-form-fields">
+                    <!-- 动态生成订单表单字段 -->
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
+                    <div class="md:col-span-1">
+                        <label for="split-reason" class="block text-sm font-medium text-gray-700 pt-2 text-right">拆分原因</label>
+                    </div>
+                    <div class="md:col-span-2">
+                        <textarea id="split-reason" name="split_reason" rows="3" class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="请输入拆分原因"></textarea>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end gap-3 pt-4 border-t">
+                    <button type="button" id="cancel-split-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                        取消
+                    </button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700">
+                        创建订单
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 关联项目模态框 -->
+<div id="associate-project-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">关联内部项目</h3>
+                <button id="close-associate-project-modal" class="text-gray-400 hover:text-gray-500">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <form id="associate-project-form" class="space-y-4">
+                <input type="hidden" id="associate-order-id" name="order_id">
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
+                    <div class="md:col-span-1">
+                        <label for="associate-project-id" class="block text-sm font-medium text-gray-700 pt-2 text-right">内部项目 <span class="text-red-500">*</span></label>
+                    </div>
+                    <div class="md:col-span-2">
+                        <select id="associate-project-id" name="internal_project_id" required class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="">请选择项目</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
+                    <div class="md:col-span-1">
+                        <label for="associate-reason" class="block text-sm font-medium text-gray-700 pt-2 text-right">关联原因</label>
+                    </div>
+                    <div class="md:col-span-2">
+                        <textarea id="associate-reason" name="association_reason" rows="3" class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="请输入关联原因"></textarea>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end gap-3 pt-4 border-t">
+                    <button type="button" id="cancel-associate-project-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                        取消
+                    </button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                        保存关联
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 人员参与订单模态框 -->
+<div id="person-participation-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
+        <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">订单参与人员管理</h3>
+                <button id="close-person-modal" class="text-gray-400 hover:text-gray-500">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div id="person-participation-content">
+                <!-- 动态生成内容 -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 关联人员表单模态框 -->
+<div id="associate-person-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">关联人员到订单</h3>
+                <button id="close-associate-person-modal" class="text-gray-400 hover:text-gray-500">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <form id="associate-person-form" class="space-y-4">
+                <input type="hidden" id="associate-person-order-id" name="order_id">
+                <input type="hidden" id="associate-person-activity-id" name="activity_id">
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
+                    <div class="md:col-span-1">
+                        <label for="associate-person-person-id" class="block text-sm font-medium text-gray-700 pt-2 text-right">人员 <span class="text-red-500">*</span></label>
+                    </div>
+                    <div class="md:col-span-2">
+                        <select id="associate-person-person-id" name="person_id" required class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="">请选择人员</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
+                    <div class="md:col-span-1">
+                        <label for="associate-person-participation-type" class="block text-sm font-medium text-gray-700 pt-2 text-right">参与类型 <span class="text-red-500">*</span></label>
+                    </div>
+                    <div class="md:col-span-2">
+                        <select id="associate-person-participation-type" name="participation_type" required class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="">请选择</option>
+                            <option value="实际参加">实际参加</option>
+                            <option value="名义参加">名义参加</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- 劳务订单相关字段（根据订单类型和参与类型动态显示） -->
+                <div id="labor-order-fields" class="hidden space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
+                        <div class="md:col-span-1">
+                            <label for="associate-person-start-date" class="block text-sm font-medium text-gray-700 pt-2 text-right">开始时间</label>
+                        </div>
+                        <div class="md:col-span-2">
+                            <input type="date" id="associate-person-start-date" name="start_date" class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
+                        <div class="md:col-span-1">
+                            <label for="associate-person-end-date" class="block text-sm font-medium text-gray-700 pt-2 text-right">结束时间</label>
+                        </div>
+                        <div class="md:col-span-2">
+                            <input type="date" id="associate-person-end-date" name="end_date" class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
+                        <div class="md:col-span-1">
+                            <label for="associate-person-attendance-method" class="block text-sm font-medium text-gray-700 pt-2 text-right">打卡方式</label>
+                        </div>
+                        <div class="md:col-span-2">
+                            <select id="associate-person-attendance-method" name="attendance_method" class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="">请选择</option>
+                                <option value="现场打卡">现场打卡</option>
+                                <option value="线上打卡">线上打卡</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
+                        <div class="md:col-span-1">
+                            <label for="associate-person-entry-progress" class="block text-sm font-medium text-gray-700 pt-2 text-right">入项进度</label>
+                        </div>
+                        <div class="md:col-span-2">
+                            <select id="associate-person-entry-progress" name="entry_progress" class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="">请选择</option>
+                                <option value="材料准备中">材料准备中</option>
+                                <option value="已提交">已提交</option>
+                                <option value="面试中">面试中</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end gap-3 pt-4 border-t">
+                    <button type="button" id="cancel-associate-person-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                        取消
+                    </button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                        保存关联
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 通用表单模态框 -->
+<div id="form-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="form-modal-title" class="text-lg font-medium text-gray-900">新增</h3>
+                <button id="close-form-modal" class="text-gray-400 hover:text-gray-500">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <form id="entity-form" class="space-y-4">
+                <div id="form-fields">
+                    <!-- 动态生成表单字段 -->
+                </div>
+                
+                <div class="flex justify-end gap-3 pt-4 border-t">
+                    <button type="button" id="cancel-form-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                        取消
+                    </button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                        保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/schema-utils.js"></script>
+<script>
+// Schema 定义（从后端传递）
+const orderSchema = {{ order_schema | tojson }};
+const contractSchema = {{ contract_schema | tojson }};
+const projectSchema = {{ project_schema | tojson }};
+const personOrderSchema = {{ person_order_schema | tojson }};
+const contractOrderSchema = {{ contract_order_schema | tojson }};
+const projectOrderSchema = {{ project_order_schema | tojson }};
+
+ensureFieldOrder(orderSchema);
+ensureFieldOrder(contractSchema);
+ensureFieldOrder(projectSchema);
+
+let relationMap = new Map(); // 存储关系映射
+
+// 加载所有数据
+async function loadAllData() {
+    try {
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const container = document.getElementById('main-container');
+        
+        // 并行获取所有数据
+        const [projectsResponse, ordersResponse, contractsResponse, projectOrdersResponse, contractOrdersResponse] = await Promise.all([
+            fetch('/api/twins/internal_project'),
+            fetch('/api/twins/order'),
+            fetch('/api/twins/client_contract'),
+            fetch('/api/twins/internal_project_order?enrich=internal_project,order'),
+            fetch('/api/twins/client_contract_order?enrich=client_contract,order')
+        ]);
+        
+        const projectsResult = await projectsResponse.json();
+        const ordersResult = await ordersResponse.json();
+        const contractsResult = await contractsResponse.json();
+        const projectOrdersResult = await projectOrdersResponse.json();
+        const contractOrdersResult = await contractOrdersResponse.json();
+        
+        loading.classList.add('hidden');
+        
+        if (!projectsResult.success || !ordersResult.success || !contractsResult.success) {
+            error.classList.remove('hidden');
+            document.getElementById('error-message').textContent = '加载失败';
+            return;
+        }
+        
+        error.classList.add('hidden');
+        container.classList.remove('hidden');
+        
+        // 建立关系映射
+        relationMap = new Map();
+        
+        // 处理内部项目-订单关联
+        if (projectOrdersResult.success && projectOrdersResult.data) {
+            projectOrdersResult.data.forEach(item => {
+                const orderId = item.order_id;
+                if (!relationMap.has(orderId)) {
+                    relationMap.set(orderId, {});
+                }
+                const relation = relationMap.get(orderId);
+                relation.project = {
+                    id: item.internal_project_id,
+                    name: item.internal_project_name || `项目 ${item.internal_project_id}`,
+                    department: item.internal_project_department || ''
+                };
+                relation.order = {
+                    id: item.order_id,
+                    order_number: item.order_order_number || '',
+                    amount: item.order_amount || 0,
+                    status: item.order_status || ''
+                };
+            });
+        }
+        
+        // 处理客户合同-订单关联
+        if (contractOrdersResult.success && contractOrdersResult.data) {
+            contractOrdersResult.data.forEach(item => {
+                const orderId = item.order_id;
+                if (!relationMap.has(orderId)) {
+                    relationMap.set(orderId, {});
+                }
+                const relation = relationMap.get(orderId);
+                relation.contract = {
+                    id: item.client_contract_id,
+                    contract_number: item.client_contract_contract_number || '',
+                    contract_name: item.client_contract_contract_name || `合同 ${item.client_contract_id}`,
+                    client_company: item.client_contract_client_company || ''
+                };
+                if (!relation.order) {
+                    relation.order = {
+                        id: item.order_id,
+                        order_number: item.order_order_number || '',
+                        amount: item.order_amount || 0,
+                        status: item.order_status || ''
+                    };
+                }
+            });
+        }
+        
+        // 渲染三栏
+        renderProjectsColumn(projectsResult.data || []);
+        renderOrdersColumn(ordersResult.data || []);
+        renderContractsColumn(contractsResult.data || []);
+        
+    } catch (err) {
+        console.error('加载数据失败:', err);
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        if (loading) loading.classList.add('hidden');
+        if (error) {
+            error.classList.remove('hidden');
+            document.getElementById('error-message').textContent = err.message || '加载失败，请刷新页面重试';
+        }
+    }
+}
+
+// 渲染内部项目栏
+function renderProjectsColumn(projects) {
+    const column = document.getElementById('projects-column');
+    column.innerHTML = '';
+    
+    if (projects.length === 0) {
+        column.innerHTML = '<div class="p-4 text-center text-gray-500 text-sm">暂无项目</div>';
+        return;
+    }
+    
+    projects.forEach(project => {
+        const card = document.createElement('div');
+        card.className = 'p-4 hover:bg-gray-50 cursor-pointer transition-colors';
+        card.dataset.projectId = project.id;
+        card.onclick = () => highlightRelations(project.id, 'project');
+        
+        card.innerHTML = `
+            <div class="font-medium text-gray-900">${project.name || `项目 ${project.id}`}</div>
+            ${project.department ? `<div class="text-sm text-gray-500 mt-1">${project.department}</div>` : ''}
+            <div class="mt-2 flex gap-2">
+                <button onclick="event.stopPropagation(); editProject(${project.id})" class="text-xs text-indigo-600 hover:text-indigo-700">编辑</button>
+                <button onclick="event.stopPropagation(); associateOrderToProject(${project.id})" class="text-xs text-green-600 hover:text-green-700">关联订单</button>
+            </div>
+        `;
+        
+        column.appendChild(card);
+    });
+}
+
+// 渲染订单栏
+function renderOrdersColumn(orders) {
+    const column = document.getElementById('orders-column');
+    column.innerHTML = '';
+    
+    if (orders.length === 0) {
+        column.innerHTML = '<div class="p-4 text-center text-gray-500 text-sm">暂无订单</div>';
+        return;
+    }
+    
+    orders.forEach(order => {
+        const card = document.createElement('div');
+        card.className = 'p-4 hover:bg-gray-50 cursor-pointer transition-colors';
+        card.dataset.orderId = order.id;
+        card.onclick = () => highlightRelations(order.id, 'order');
+        
+        const statusColors = {
+            '待确认': 'bg-yellow-100 text-yellow-800',
+            '已确认': 'bg-blue-100 text-blue-800',
+            '执行中': 'bg-green-100 text-green-800',
+            '已完成': 'bg-purple-100 text-purple-800',
+            '已取消': 'bg-red-100 text-red-800'
+        };
+        const statusColor = statusColors[order.status] || 'bg-gray-100 text-gray-800';
+        
+        card.innerHTML = `
+            <div class="font-medium text-gray-900">${order.order_number || `订单 ${order.id}`}</div>
+            <div class="text-sm text-gray-500 mt-1">${order.amount ? '¥' + parseFloat(order.amount).toLocaleString() : '-'}</div>
+            ${order.status ? `<div class="mt-2"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusColor}">${order.status}</span></div>` : ''}
+            <div class="mt-2 flex gap-2">
+                <button onclick="event.stopPropagation(); editOrder(${order.id})" class="text-xs text-indigo-600 hover:text-indigo-700">编辑</button>
+                <button onclick="event.stopPropagation(); associateProjectToOrder(${order.id})" class="text-xs text-green-600 hover:text-green-700">关联项目</button>
+                <button onclick="event.stopPropagation(); manageOrderParticipants(${order.id})" class="text-xs text-blue-600 hover:text-blue-700">人员</button>
+            </div>
+        `;
+        
+        column.appendChild(card);
+    });
+}
+
+// 渲染客户合同栏
+function renderContractsColumn(contracts) {
+    const column = document.getElementById('contracts-column');
+    column.innerHTML = '';
+    
+    if (contracts.length === 0) {
+        column.innerHTML = '<div class="p-4 text-center text-gray-500 text-sm">暂无合同</div>';
+        return;
+    }
+    
+    contracts.forEach(contract => {
+        const card = document.createElement('div');
+        card.className = 'p-4 hover:bg-gray-50 cursor-pointer transition-colors';
+        card.dataset.contractId = contract.id;
+        card.onclick = () => highlightRelations(contract.id, 'contract');
+        
+        card.innerHTML = `
+            <div class="font-medium text-gray-900">${contract.contract_name || `合同 ${contract.id}`}</div>
+            <div class="text-sm text-gray-500 mt-1">${contract.contract_number || ''}</div>
+            ${contract.client_company ? `<div class="text-sm text-gray-500 mt-1">${contract.client_company}</div>` : ''}
+            <div class="mt-2 flex gap-2">
+                <button onclick="event.stopPropagation(); editContract(${contract.id})" class="text-xs text-indigo-600 hover:text-indigo-700">编辑</button>
+                <button onclick="event.stopPropagation(); splitOrderFromContract(${contract.id})" class="text-xs text-green-600 hover:text-green-700">拆分订单</button>
+            </div>
+        `;
+        
+        column.appendChild(card);
+    });
+}
+
+// 高亮关联关系
+function highlightRelations(id, type) {
+    // 清除所有高亮
+    document.querySelectorAll('[data-project-id], [data-order-id], [data-contract-id]').forEach(el => {
+        el.classList.remove('bg-indigo-50', 'ring-2', 'ring-indigo-500');
+    });
+    
+    const relatedProjects = new Set();
+    const relatedOrders = new Set();
+    const relatedContracts = new Set();
+    
+    relationMap.forEach((relation, orderId) => {
+        let shouldHighlight = false;
+        
+        if (type === 'project' && relation.project && relation.project.id === id) {
+            shouldHighlight = true;
+            if (relation.order) relatedOrders.add(relation.order.id);
+            if (relation.contract) relatedContracts.add(relation.contract.id);
+        } else if (type === 'order' && relation.order && relation.order.id === id) {
+            shouldHighlight = true;
+            if (relation.project) relatedProjects.add(relation.project.id);
+            if (relation.contract) relatedContracts.add(relation.contract.id);
+        } else if (type === 'contract' && relation.contract && relation.contract.id === id) {
+            shouldHighlight = true;
+            if (relation.project) relatedProjects.add(relation.project.id);
+            if (relation.order) relatedOrders.add(relation.order.id);
+        }
+    });
+    
+    // 高亮当前选中的卡片
+    if (type === 'project') {
+        document.querySelector(`[data-project-id="${id}"]`)?.classList.add('bg-indigo-50', 'ring-2', 'ring-indigo-500');
+    } else if (type === 'order') {
+        document.querySelector(`[data-order-id="${id}"]`)?.classList.add('bg-indigo-50', 'ring-2', 'ring-indigo-500');
+    } else if (type === 'contract') {
+        document.querySelector(`[data-contract-id="${id}"]`)?.classList.add('bg-indigo-50', 'ring-2', 'ring-indigo-500');
+    }
+    
+    // 高亮相关的卡片
+    relatedProjects.forEach(projectId => {
+        document.querySelector(`[data-project-id="${projectId}"]`)?.classList.add('bg-indigo-50', 'ring-2', 'ring-indigo-500');
+    });
+    
+    relatedOrders.forEach(orderId => {
+        document.querySelector(`[data-order-id="${orderId}"]`)?.classList.add('bg-indigo-50', 'ring-2', 'ring-indigo-500');
+    });
+    
+    relatedContracts.forEach(contractId => {
+        document.querySelector(`[data-contract-id="${contractId}"]`)?.classList.add('bg-indigo-50', 'ring-2', 'ring-indigo-500');
+    });
+}
+
+// 通用表单渲染函数
+function renderFormFields(schema, data = {}, prefix = '', targetContainerId = 'form-fields') {
+    const fields = schema.fields || {};
+    const formFields = document.getElementById(targetContainerId);
+    if (!formFields) {
+        console.error(`容器 ${targetContainerId} 未找到`);
+        return;
+    }
+    formFields.innerHTML = '';
+    
+    const fieldNames = Object.keys(fields);
+    for (const fieldName of fieldNames) {
+        const fieldDef = fields[fieldName];
+        const label = fieldDef.label || fieldName;
+        let value = data[fieldName] || '';
+        
+        if (!value && fieldDef.auto) {
+            if (fieldDef.auto === 'date') {
+                value = new Date().toISOString().split('T')[0];
+            }
+        }
+        
+        const required = fieldDef.required || false;
+        const fieldType = fieldDef.type || 'string';
+        const uiComponent = fieldDef.ui?.component || 'text_input';
+        const fieldId = prefix ? `${prefix}-${fieldName}` : fieldName;
+        
+        let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
+        fieldHtml += `<div class="md:col-span-1">
+            <label for="${fieldId}" class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>
+        </div>`;
+        fieldHtml += '<div class="md:col-span-2">';
+        
+        const inputBaseClasses = "block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors";
+        
+        if (uiComponent === 'textarea') {
+            fieldHtml += `<textarea id="${fieldId}" name="${fieldName}" rows="3" class="${inputBaseClasses}" ${required ? 'required' : ''}>${value}</textarea>`;
+        } else if (fieldType === 'enum' && fieldDef.options) {
+            fieldHtml += `<select id="${fieldId}" name="${fieldName}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            fieldHtml += '<option value="">请选择</option>';
+            for (const option of fieldDef.options) {
+                fieldHtml += `<option value="${option}" ${value === option ? 'selected' : ''}>${option}</option>`;
+            }
+            fieldHtml += '</select>';
+        } else if (fieldType === 'date') {
+            fieldHtml += `<input type="date" id="${fieldId}" name="${fieldName}" value="${value}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+        } else if (fieldType === 'decimal' || fieldType === 'number') {
+            const step = fieldDef.ui?.step || (fieldType === 'decimal' ? '0.01' : '1');
+            const min = fieldDef.validation?.min || '';
+            const max = fieldDef.validation?.max || '';
+            fieldHtml += `<div class="flex items-center gap-2">`;
+            fieldHtml += `<input type="number" id="${fieldId}" name="${fieldName}" value="${value}" step="${step}" ${min !== '' ? `min="${min}"` : ''} ${max !== '' ? `max="${max}"` : ''} placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            if (fieldDef.ui?.suffix) {
+                fieldHtml += `<span class="text-sm text-gray-500 whitespace-nowrap">${fieldDef.ui.suffix}</span>`;
+            }
+            fieldHtml += `</div>`;
+        } else {
+            fieldHtml += `<input type="text" id="${fieldId}" name="${fieldName}" value="${value}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+        }
+        
+        if (fieldDef.description) {
+            fieldHtml += `<p class="mt-1 text-xs text-gray-500">${fieldDef.description}</p>`;
+        }
+        
+        fieldHtml += '</div></div>';
+        formFields.innerHTML += fieldHtml;
+    }
+}
+
+let currentEditEntity = { type: null, id: null };
+
+// 新建项目
+async function addProject() {
+    currentEditEntity = { type: 'project', id: null };
+    document.getElementById('form-modal-title').textContent = '新增内部项目';
+    renderFormFields(projectSchema, {});
+    document.getElementById('form-modal').classList.remove('hidden');
+}
+
+// 编辑项目
+async function editProject(projectId) {
+    try {
+        const response = await fetch(`/api/twins/internal_project/${projectId}`);
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('加载失败: ' + result.error);
+            return;
+        }
+        
+        currentEditEntity = { type: 'project', id: projectId };
+        document.getElementById('form-modal-title').textContent = '编辑内部项目';
+        renderFormFields(projectSchema, result.data.current, 'project');
+        document.getElementById('form-modal').classList.remove('hidden');
+    } catch (error) {
+        alert('加载失败: ' + error.message);
+    }
+}
+
+// 新建合同
+async function addContract() {
+    currentEditEntity = { type: 'contract', id: null };
+    document.getElementById('form-modal-title').textContent = '新增客户合同';
+    renderFormFields(contractSchema, {});
+    document.getElementById('form-modal').classList.remove('hidden');
+}
+
+// 编辑合同
+async function editContract(contractId) {
+    try {
+        const response = await fetch(`/api/twins/client_contract/${contractId}`);
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('加载失败: ' + result.error);
+            return;
+        }
+        
+        currentEditEntity = { type: 'contract', id: contractId };
+        document.getElementById('form-modal-title').textContent = '编辑客户合同';
+        renderFormFields(contractSchema, result.data.current, 'contract');
+        document.getElementById('form-modal').classList.remove('hidden');
+    } catch (error) {
+        alert('加载失败: ' + error.message);
+    }
+}
+
+// 编辑订单
+async function editOrder(orderId) {
+    try {
+        const response = await fetch(`/api/twins/order/${orderId}`);
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('加载失败: ' + result.error);
+            return;
+        }
+        
+        currentEditEntity = { type: 'order', id: orderId };
+        document.getElementById('form-modal-title').textContent = '编辑订单';
+        renderFormFields(orderSchema, result.data.current, 'order');
+        document.getElementById('form-modal').classList.remove('hidden');
+    } catch (error) {
+        alert('加载失败: ' + error.message);
+    }
+}
+
+// 提交表单
+async function submitEntityForm(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    const { type, id } = currentEditEntity;
+    if (!type) return;
+    
+    // 根据类型选择schema
+    const schema = type === 'project' ? projectSchema : 
+                   type === 'contract' ? contractSchema : 
+                   orderSchema;
+    
+    const data = {};
+    const fields = schema.fields || {};
+    const fieldNames = Object.keys(fields);
+    
+    for (const fieldName of fieldNames) {
+        const value = formData.get(fieldName);
+        if (value !== null && value !== '') {
+            const fieldDef = fields[fieldName];
+            if (fieldDef.type === 'decimal' || fieldDef.type === 'number') {
+                data[fieldName] = parseFloat(value);
+            } else {
+                data[fieldName] = value.trim();
+            }
+        }
+    }
+    
+    try {
+        const entityName = type === 'project' ? 'internal_project' : 
+                          type === 'contract' ? 'client_contract' : 
+                          'order';
+        
+        const url = id ? `/api/twins/${entityName}/${id}` : `/api/twins/${entityName}`;
+        const method = id ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('保存失败: ' + result.error);
+            return;
+        }
+        
+        document.getElementById('form-modal').classList.add('hidden');
+        await loadAllData(); // 重新加载所有数据
+        alert('保存成功！');
+    } catch (error) {
+        alert('保存失败: ' + error.message);
+    }
+}
+
+// 关联订单到项目
+async function associateOrderToProject(projectId) {
+    // TODO: 实现关联订单到项目的功能
+    alert('关联订单到项目功能待实现: ' + projectId);
+}
+
+// 关联项目到订单
+async function associateProjectToOrder(orderId) {
+    try {
+        document.getElementById('associate-order-id').value = orderId;
+        
+        // 加载内部项目列表
+        const projectsResponse = await fetch('/api/twins/internal_project');
+        const projectsResult = await projectsResponse.json();
+        
+        const projectSelect = document.getElementById('associate-project-id');
+        projectSelect.innerHTML = '<option value="">请选择项目</option>';
+        
+        if (projectsResult.success && projectsResult.data) {
+            projectsResult.data.forEach(project => {
+                const option = document.createElement('option');
+                option.value = project.id;
+                option.textContent = project.name || `项目 ${project.id}`;
+                projectSelect.appendChild(option);
+            });
+        }
+        
+        document.getElementById('associate-project-modal').classList.remove('hidden');
+    } catch (error) {
+        alert('加载项目列表失败: ' + error.message);
+    }
+}
+
+// 提交关联项目表单
+async function submitAssociateProjectForm(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    const orderId = parseInt(formData.get('order_id'));
+    const projectId = parseInt(formData.get('internal_project_id'));
+    
+    if (!orderId || !projectId) {
+        alert('请选择内部项目');
+        return;
+    }
+    
+    const associationDate = new Date().toISOString().split('T')[0];
+    const associationData = {
+        internal_project_id: projectId,
+        order_id: orderId,
+        association_date: associationDate,
+        association_reason: formData.get('association_reason') || '',
+    };
+    
+    try {
+        const response = await fetch('/api/twins/internal_project_order', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(associationData)
+        });
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('创建关联失败: ' + result.error);
+            return;
+        }
+        
+        document.getElementById('associate-project-modal').classList.add('hidden');
+        await loadAllData();
+        alert('关联成功！');
+    } catch (error) {
+        alert('创建关联失败: ' + error.message);
+    }
+}
+
+// 从合同拆分订单
+async function splitOrderFromContract(contractId) {
+    try {
+        // 加载客户合同列表
+        const contractsResponse = await fetch('/api/twins/client_contract');
+        const contractsResult = await contractsResponse.json();
+        
+        const contractSelect = document.getElementById('split-contract-id');
+        contractSelect.innerHTML = '<option value="">请选择合同</option>';
+        
+        if (contractsResult.success && contractsResult.data) {
+            contractsResult.data.forEach(contract => {
+                const option = document.createElement('option');
+                option.value = contract.id;
+                option.textContent = `${contract.contract_number} - ${contract.contract_name}`;
+                if (contractId && contract.id === contractId) {
+                    option.selected = true;
+                }
+                contractSelect.appendChild(option);
+            });
+        }
+        
+        // 渲染订单表单字段到拆分订单表单容器
+        renderFormFields(orderSchema, {}, 'order', 'split-order-form-fields');
+        
+        // 监听合同选择变化，自动设置订单类型
+        contractSelect.onchange = async function() {
+            const selectedContractId = parseInt(this.value);
+            if (selectedContractId) {
+                const contractResponse = await fetch(`/api/twins/client_contract/${selectedContractId}`);
+                const contractResult = await contractResponse.json();
+                if (contractResult.success) {
+                    const contractType = contractResult.data.current.contract_type;
+                    const orderTypeField = document.getElementById('order-order_type');
+                    if (orderTypeField && contractType) {
+                        orderTypeField.value = contractType;
+                    }
+                }
+            }
+        };
+        
+        // 如果指定了合同ID，触发change事件
+        if (contractId) {
+            contractSelect.value = contractId;
+            contractSelect.dispatchEvent(new Event('change'));
+        }
+        
+        document.getElementById('split-order-modal').classList.remove('hidden');
+    } catch (error) {
+        alert('加载失败: ' + error.message);
+    }
+}
+
+// 提交拆分订单表单
+async function submitSplitOrderForm(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    const contractId = parseInt(formData.get('client_contract_id'));
+    if (!contractId) {
+        alert('请选择客户合同');
+        return;
+    }
+    
+    // 获取合同类型
+    let contractType = null;
+    try {
+        const contractResponse = await fetch(`/api/twins/client_contract/${contractId}`);
+        const contractResult = await contractResponse.json();
+        if (contractResult.success) {
+            contractType = contractResult.data.current.contract_type;
+        }
+    } catch (err) {
+        console.error('获取合同类型失败:', err);
+    }
+    
+    // 构建订单数据（注意字段ID有'order-'前缀）
+    const orderData = {};
+    const fields = orderSchema.fields || {};
+    const fieldNames = Object.keys(fields);
+    for (const fieldName of fieldNames) {
+        // 尝试获取带前缀的字段值
+        const value = formData.get(`order-${fieldName}`) || formData.get(fieldName);
+        if (value !== null && value !== '') {
+            const fieldDef = fields[fieldName];
+            if (fieldDef.type === 'decimal' || fieldDef.type === 'number') {
+                orderData[fieldName] = parseFloat(value);
+            } else {
+                orderData[fieldName] = value.trim();
+            }
+        }
+    }
+    
+    // 确保订单类型与合同类型一致
+    if (contractType && (!orderData.order_type || orderData.order_type !== contractType)) {
+        orderData.order_type = contractType;
+    }
+    
+    try {
+        // 先创建订单
+        const orderResponse = await fetch('/api/twins/order', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(orderData)
+        });
+        
+        const orderResult = await orderResponse.json();
+        
+        if (!orderResult.success) {
+            alert('创建订单失败: ' + orderResult.error);
+            return;
+        }
+        
+        const orderId = orderResult.data.id;
+        
+        // 创建客户合同-订单关联
+        const splitDate = new Date().toISOString().split('T')[0];
+        const associationData = {
+            client_contract_id: contractId,
+            order_id: orderId,
+            split_date: splitDate,
+            split_reason: formData.get('split_reason') || '',
+            split_by: '当前用户', // TODO: 从用户会话获取
+        };
+        
+        const associationResponse = await fetch('/api/twins/client_contract_order', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(associationData)
+        });
+        
+        const associationResult = await associationResponse.json();
+        
+        if (!associationResult.success) {
+            alert('创建关联失败: ' + associationResult.error);
+            return;
+        }
+        
+        document.getElementById('split-order-modal').classList.add('hidden');
+        await loadAllData();
+        alert('订单创建成功！');
+    } catch (error) {
+        alert('创建失败: ' + error.message);
+    }
+}
+
+// 管理订单参与人员
+async function manageOrderParticipants(orderId) {
+    try {
+        // 获取订单信息
+        const orderResponse = await fetch(`/api/twins/order/${orderId}`);
+        const orderResult = await orderResponse.json();
+        
+        if (!orderResult.success) {
+            alert('加载失败: ' + orderResult.error);
+            return;
+        }
+        
+        const order = orderResult.data.current;
+        const orderType = order.order_type || '专项';
+        
+        // 获取参与人员列表
+        const personResponse = await fetch(`/api/twins/person_order_participation?order_id=${orderId}&enrich=person`);
+        const personResult = await personResponse.json();
+        
+        const modal = document.getElementById('person-participation-modal');
+        const content = document.getElementById('person-participation-content');
+        
+        let html = `<div class="mb-4">
+            <h4 class="text-sm font-semibold text-gray-900">订单: ${order.order_number || `订单 ${orderId}`}</h4>
+            <p class="text-xs text-gray-500 mt-1">订单类型: ${orderType}</p>
+        </div>`;
+        
+        html += '<div class="mb-4">';
+        html += '<button onclick="openAssociatePersonModal(' + orderId + ', \'' + orderType + '\')" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-md">+ 添加参与人员</button>';
+        html += '</div>';
+        
+        if (personResult.success && personResult.data && personResult.data.length > 0) {
+            html += '<div class="overflow-x-auto">';
+            html += '<table class="min-w-full divide-y divide-gray-200">';
+            html += '<thead class="bg-gray-50"><tr>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">姓名</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">参与类型</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">开始时间</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">结束时间</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">打卡方式</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">入项进度</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>';
+            html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+            
+            personResult.data.forEach(item => {
+                const participationType = item.participation_type || '-';
+                const participationTypeColor = participationType === '实际参加' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
+                
+                html += `<tr>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${item.person_name || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${participationTypeColor}">${participationType}</span></td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${item.start_date || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${item.end_date || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${item.attendance_method || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${item.entry_progress || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm">
+                    <button onclick="editPersonParticipation(${item.activity_id}, ${orderId})" class="text-indigo-600 hover:text-indigo-700 mr-2">编辑</button>
+                    <button onclick="deletePersonParticipation(${item.activity_id})" class="text-red-600 hover:text-red-700">删除</button>
+                </td>`;
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table></div>';
+        } else {
+            html += '<div class="text-center py-8 text-gray-500 text-sm">暂无参与人员</div>';
+        }
+        
+        content.innerHTML = html;
+        modal.classList.remove('hidden');
+    } catch (error) {
+        alert('加载失败: ' + error.message);
+    }
+}
+
+// 打开关联人员模态框
+async function openAssociatePersonModal(orderId, orderType) {
+    document.getElementById('associate-person-order-id').value = orderId;
+    document.getElementById('associate-person-activity-id').value = '';
+    
+    // 清空表单
+    document.getElementById('associate-person-form').reset();
+    document.getElementById('associate-person-order-id').value = orderId;
+    
+    // 加载人员列表
+    try {
+        const personsResponse = await fetch('/api/twins/person');
+        const personsResult = await personsResponse.json();
+        
+        const personSelect = document.getElementById('associate-person-person-id');
+        personSelect.innerHTML = '<option value="">请选择人员</option>';
+        
+        if (personsResult.success && personsResult.data) {
+            personsResult.data.forEach(person => {
+                const option = document.createElement('option');
+                option.value = person.id;
+                const name = person.name || person.id_card || `人员 ${person.id}`;
+                option.textContent = name;
+                personSelect.appendChild(option);
+            });
+        }
+        
+        // 根据订单类型显示/隐藏劳务相关字段
+        const laborFields = document.getElementById('labor-order-fields');
+        if (orderType === '劳务') {
+            laborFields.classList.remove('hidden');
+        } else {
+            laborFields.classList.add('hidden');
+        }
+        
+        // 监听参与类型变化
+        const participationTypeSelect = document.getElementById('associate-person-participation-type');
+        participationTypeSelect.onchange = function() {
+            if (orderType === '劳务' && this.value === '实际参加') {
+                laborFields.classList.remove('hidden');
+            } else if (orderType === '劳务' && this.value === '名义参加') {
+                laborFields.classList.add('hidden');
+            }
+        };
+        
+        document.getElementById('associate-person-modal').classList.remove('hidden');
+    } catch (error) {
+        alert('加载人员列表失败: ' + error.message);
+    }
+}
+
+// 编辑人员参与
+async function editPersonParticipation(activityId, orderId) {
+    try {
+        // 获取订单类型
+        const orderResponse = await fetch(`/api/twins/order/${orderId}`);
+        const orderResult = await orderResponse.json();
+        const orderType = orderResult.data?.current?.order_type || '专项';
+        
+        // 获取参与记录
+        const participationResponse = await fetch(`/api/twins/person_order_participation/${activityId}`);
+        const participationResult = await participationResponse.json();
+        
+        if (!participationResult.success) {
+            alert('加载失败: ' + participationResult.error);
+            return;
+        }
+        
+        const participation = participationResult.data;
+        document.getElementById('associate-person-order-id').value = orderId;
+        document.getElementById('associate-person-activity-id').value = activityId;
+        document.getElementById('associate-person-person-id').value = participation.current.person_id;
+        document.getElementById('associate-person-participation-type').value = participation.current.participation_type || '';
+        
+        // 根据订单类型和参与类型显示/隐藏字段
+        const laborFields = document.getElementById('labor-order-fields');
+        if (orderType === '劳务' && participation.current.participation_type === '实际参加') {
+            laborFields.classList.remove('hidden');
+            document.getElementById('associate-person-start-date').value = participation.current.start_date || '';
+            document.getElementById('associate-person-end-date').value = participation.current.end_date || '';
+            document.getElementById('associate-person-attendance-method').value = participation.current.attendance_method || '';
+            document.getElementById('associate-person-entry-progress').value = participation.current.entry_progress || '';
+        } else {
+            laborFields.classList.add('hidden');
+        }
+        
+        // 加载人员列表
+        const personsResponse = await fetch('/api/twins/person');
+        const personsResult = await personsResponse.json();
+        
+        const personSelect = document.getElementById('associate-person-person-id');
+        personSelect.innerHTML = '<option value="">请选择人员</option>';
+        
+        if (personsResult.success && personsResult.data) {
+            personsResult.data.forEach(person => {
+                const option = document.createElement('option');
+                option.value = person.id;
+                const name = person.name || person.id_card || `人员 ${person.id}`;
+                option.textContent = name;
+                if (person.id === participation.current.person_id) {
+                    option.selected = true;
+                }
+                personSelect.appendChild(option);
+            });
+        }
+        
+        // 监听参与类型变化
+        const participationTypeSelect = document.getElementById('associate-person-participation-type');
+        participationTypeSelect.onchange = function() {
+            if (orderType === '劳务' && this.value === '实际参加') {
+                laborFields.classList.remove('hidden');
+            } else {
+                laborFields.classList.add('hidden');
+            }
+        };
+        
+        document.getElementById('associate-person-modal').classList.remove('hidden');
+    } catch (error) {
+        alert('加载失败: ' + error.message);
+    }
+}
+
+// 删除人员参与
+async function deletePersonParticipation(activityId) {
+    if (!confirm('确定要删除这条参与记录吗？')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/twins/person_order_participation/${activityId}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('删除失败: ' + result.error);
+            return;
+        }
+        
+        // 重新加载数据
+        await loadAllData();
+        
+        // 如果人员参与模态框是打开的，刷新它
+        const personModal = document.getElementById('person-participation-modal');
+        if (!personModal.classList.contains('hidden')) {
+            const orderId = document.getElementById('associate-person-order-id').value;
+            if (orderId) {
+                await manageOrderParticipants(parseInt(orderId));
+            }
+        }
+        
+        alert('删除成功！');
+    } catch (error) {
+        alert('删除失败: ' + error.message);
+    }
+}
+
+// 提交关联人员表单
+async function submitAssociatePersonForm(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    const orderId = parseInt(formData.get('order_id'));
+    const personId = parseInt(formData.get('person_id'));
+    const activityId = formData.get('activity_id');
+    const participationType = formData.get('participation_type');
+    
+    if (!orderId || !personId || !participationType) {
+        alert('请填写必填字段');
+        return;
+    }
+    
+    // 获取订单类型
+    const orderResponse = await fetch(`/api/twins/order/${orderId}`);
+    const orderResult = await orderResponse.json();
+    const orderType = orderResult.data?.current?.order_type || '专项';
+    
+    // 构建参与数据
+    const participationData = {
+        person_id: personId,
+        order_id: orderId,
+        participation_type: participationType,
+    };
+    
+    // 如果是劳务订单且是实际参加，添加劳务相关字段
+    if (orderType === '劳务' && participationType === '实际参加') {
+        const startDate = formData.get('start_date');
+        const endDate = formData.get('end_date');
+        const attendanceMethod = formData.get('attendance_method');
+        const entryProgress = formData.get('entry_progress');
+        
+        if (startDate) participationData.start_date = startDate;
+        if (endDate) participationData.end_date = endDate;
+        if (attendanceMethod) participationData.attendance_method = attendanceMethod;
+        if (entryProgress) participationData.entry_progress = entryProgress;
+    }
+    
+    try {
+        let response;
+        if (activityId) {
+            // 更新
+            response = await fetch(`/api/twins/person_order_participation/${activityId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(participationData)
+            });
+        } else {
+            // 创建
+            response = await fetch('/api/twins/person_order_participation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(participationData)
+            });
+        }
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('保存失败: ' + result.error);
+            return;
+        }
+        
+        document.getElementById('associate-person-modal').classList.add('hidden');
+        
+        // 如果人员参与模态框是打开的，刷新它
+        const personModal = document.getElementById('person-participation-modal');
+        if (!personModal.classList.contains('hidden')) {
+            await manageOrderParticipants(orderId);
+        } else {
+            await loadAllData();
+        }
+        
+        alert('保存成功！');
+    } catch (error) {
+        alert('保存失败: ' + error.message);
+    }
+}
+
+// 绑定事件
+document.getElementById('add-project-btn').onclick = addProject;
+document.getElementById('add-contract-btn').onclick = addContract;
+document.getElementById('split-order-btn').onclick = () => splitOrderFromContract(null);
+
+// 拆分订单模态框事件
+document.getElementById('close-split-modal').onclick = () => {
+    document.getElementById('split-order-modal').classList.add('hidden');
+};
+document.getElementById('cancel-split-btn').onclick = () => {
+    document.getElementById('split-order-modal').classList.add('hidden');
+};
+document.getElementById('split-order-form').onsubmit = submitSplitOrderForm;
+
+// 关联项目模态框事件
+document.getElementById('close-associate-project-modal').onclick = () => {
+    document.getElementById('associate-project-modal').classList.add('hidden');
+};
+document.getElementById('cancel-associate-project-btn').onclick = () => {
+    document.getElementById('associate-project-modal').classList.add('hidden');
+};
+document.getElementById('associate-project-form').onsubmit = submitAssociateProjectForm;
+
+// 人员参与模态框事件
+document.getElementById('close-person-modal').onclick = () => {
+    document.getElementById('person-participation-modal').classList.add('hidden');
+};
+
+document.getElementById('close-associate-person-modal').onclick = () => {
+    document.getElementById('associate-person-modal').classList.add('hidden');
+};
+document.getElementById('cancel-associate-person-btn').onclick = () => {
+    document.getElementById('associate-person-modal').classList.add('hidden');
+};
+document.getElementById('associate-person-form').onsubmit = submitAssociatePersonForm;
+
+document.getElementById('close-form-modal').onclick = () => {
+    document.getElementById('form-modal').classList.add('hidden');
+};
+document.getElementById('cancel-form-btn').onclick = () => {
+    document.getElementById('form-modal').classList.add('hidden');
+};
+document.getElementById('entity-form').onsubmit = submitEntityForm;
+
+// 页面加载时获取数据
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', loadAllData);
+} else {
+    loadAllData();
+}
+</script>
+{% endblock %}

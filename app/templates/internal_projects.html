@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+
+{% block title %}内部项目管理 - HRMS{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="mb-6 flex justify-between items-center">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">内部项目列表</h2>
+            <p class="mt-1 text-sm text-gray-500">根据 Schema 动态渲染的内部项目信息</p>
+        </div>
+        <button id="add-project-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm">
+            + 新增项目
+        </button>
+    </div>
+
+    <!-- 加载状态 -->
+    <div id="loading" class="text-center py-12">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <p class="mt-2 text-sm text-gray-500">加载中...</p>
+    </div>
+
+    <!-- 错误提示 -->
+    <div id="error" class="hidden bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-red-800">加载失败</h3>
+                <p id="error-message" class="mt-2 text-sm text-red-700"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 项目表格 -->
+    <div id="projects-container" class="hidden overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+        <table class="min-w-full divide-y divide-gray-300">
+            <thead class="bg-gray-50">
+                <tr id="table-header">
+                    <!-- 动态生成表头 -->
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 bg-white" id="table-body">
+                <!-- 动态生成表格行 -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 项目详情模态框 -->
+    <div id="project-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">项目详情</h3>
+                    <div class="flex gap-2">
+                        <button id="edit-project-btn" class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
+                            编辑
+                        </button>
+                        <button id="close-modal" class="text-gray-400 hover:text-gray-500">
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="project-detail-content">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 项目表单模态框（新增/编辑） -->
+    <div id="project-form-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 id="project-form-modal-title" class="text-lg font-medium text-gray-900">新增项目</h3>
+                    <button id="close-project-form-modal" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form id="project-form" class="space-y-4">
+                    <div id="project-form-fields">
+                        <!-- 动态生成表单字段 -->
+                    </div>
+                    
+                    <div class="flex justify-end gap-3 pt-4 border-t">
+                        <button type="button" id="cancel-project-form-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                            取消
+                        </button>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/schema-utils.js"></script>
+<script>
+// Schema 定义（从后端传递）
+const schema = {{ schema | tojson }};
+ensureFieldOrder(schema);
+
+let currentEditProjectId = null;
+
+// 基于 Schema 动态渲染项目表单字段
+function renderProjectFormFields(data = {}) {
+    const fields = schema.fields || {};
+    const formFields = document.getElementById('project-form-fields');
+    formFields.innerHTML = '';
+    
+    const fieldNames = Object.keys(fields);
+    for (const fieldName of fieldNames) {
+        const fieldDef = fields[fieldName];
+        const label = fieldDef.label || fieldName;
+        let value = data[fieldName] || '';
+        
+        if (!value && fieldDef.auto) {
+            if (fieldDef.auto === 'date') {
+                value = new Date().toISOString().split('T')[0];
+            }
+        }
+        
+        const required = fieldDef.required || false;
+        const fieldType = fieldDef.type || 'string';
+        const uiComponent = fieldDef.ui?.component || 'text_input';
+        
+        let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
+        fieldHtml += `<div class="md:col-span-1">
+            <label for="project-${fieldName}" class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>
+        </div>`;
+        fieldHtml += '<div class="md:col-span-2">';
+        
+        const inputBaseClasses = "block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors";
+        
+        if (uiComponent === 'textarea') {
+            fieldHtml += `<textarea id="project-${fieldName}" name="${fieldName}" rows="3" class="${inputBaseClasses}" ${required ? 'required' : ''}>${value}</textarea>`;
+        } else if (fieldType === 'enum' && fieldDef.options) {
+            fieldHtml += `<select id="project-${fieldName}" name="${fieldName}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+            fieldHtml += '<option value="">请选择</option>';
+            for (const option of fieldDef.options) {
+                fieldHtml += `<option value="${option}" ${value === option ? 'selected' : ''}>${option}</option>`;
+            }
+            fieldHtml += '</select>';
+        } else if (fieldType === 'date') {
+            fieldHtml += `<input type="date" id="project-${fieldName}" name="${fieldName}" value="${value}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+        } else {
+            fieldHtml += `<input type="text" id="project-${fieldName}" name="${fieldName}" value="${value}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+        }
+        
+        fieldHtml += `<div id="project-${fieldName}-error" class="text-sm text-red-600 mt-1 hidden"></div>`;
+        fieldHtml += '</div></div>';
+        
+        formFields.innerHTML += fieldHtml;
+    }
+}
+
+// 渲染表格
+function renderTable(projects) {
+    const headerRow = document.getElementById('table-header');
+    const tbody = document.getElementById('table-body');
+    
+    if (!headerRow || !tbody) return;
+    
+    headerRow.innerHTML = '';
+    tbody.innerHTML = '';
+    
+    const columns = [
+        { key: 'name', label: '项目名称' },
+        { key: 'department', label: '归属部门' },
+        { key: 'project_manager', label: '项目经理' },
+        { key: 'status', label: '项目状态' },
+        { key: 'start_date', label: '开始日期' },
+        { key: 'end_date', label: '结束日期' },
+    ];
+    
+    columns.forEach(col => {
+        const th = document.createElement('th');
+        th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+        th.textContent = col.label;
+        headerRow.appendChild(th);
+    });
+    
+    projects.forEach(project => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50 cursor-pointer';
+        tr.onclick = () => showProjectDetail(project.id);
+        
+        columns.forEach(col => {
+            const td = document.createElement('td');
+            td.className = 'whitespace-nowrap px-6 py-4 text-sm text-gray-900';
+            
+            let value = project[col.key] || '';
+            
+            if (col.key === 'status' && value) {
+                const statusColors = {
+                    '筹备中': 'bg-yellow-100 text-yellow-800',
+                    '进行中': 'bg-green-100 text-green-800',
+                    '已暂停': 'bg-orange-100 text-orange-800',
+                    '已完成': 'bg-blue-100 text-blue-800',
+                    '已取消': 'bg-red-100 text-red-800'
+                };
+                const colorClass = statusColors[value] || 'bg-gray-100 text-gray-800';
+                td.innerHTML = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
+            } else {
+                td.textContent = value || '-';
+            }
+            
+            tr.appendChild(td);
+        });
+        
+        tbody.appendChild(tr);
+    });
+}
+
+// 显示项目详情
+async function showProjectDetail(projectId) {
+    try {
+        const response = await fetch(`/api/twins/internal_project/${projectId}`);
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('加载失败: ' + result.error);
+            return;
+        }
+        
+        const project = result.data;
+        currentEditProjectId = projectId;
+        const modal = document.getElementById('project-modal');
+        const content = document.getElementById('project-detail-content');
+        
+        document.getElementById('edit-project-btn').onclick = () => {
+            modal.classList.add('hidden');
+            openEditProjectForm(projectId);
+        };
+        
+        let html = '<div class="space-y-6">';
+        html += '<div>';
+        html += '<h4 class="text-md font-semibold text-gray-900 mb-3">当前信息</h4>';
+        html += '<div class="bg-gray-50 rounded-lg p-4 space-y-3">';
+        
+        const fields = schema.fields || {};
+        const fieldNames = Object.keys(fields);
+        for (const fieldName of fieldNames) {
+            const fieldDef = fields[fieldName];
+            const value = project.current[fieldName];
+            if (value !== undefined && value !== null && value !== '') {
+                const label = fieldDef.label || fieldName;
+                html += `<div class="flex">
+                    <span class="text-sm font-medium text-gray-700 w-32">${label}:</span>
+                    <span class="text-sm text-gray-900 flex-1">${value}</span>
+                </div>`;
+            }
+        }
+        
+        html += '</div></div>';
+        
+        if (project.history && project.history.length > 1) {
+            html += '<div>';
+            html += '<h4 class="text-md font-semibold text-gray-900 mb-3">历史记录</h4>';
+            html += '<div class="overflow-x-auto">';
+            html += '<table class="min-w-full divide-y divide-gray-200">';
+            html += '<thead class="bg-gray-50"><tr>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">版本</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">时间</th>';
+            
+            for (const fieldName of fieldNames) {
+                const fieldDef = fields[fieldName];
+                const label = fieldDef.label || fieldName;
+                html += `<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">${label}</th>`;
+            }
+            
+            html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+            
+            for (const record of project.history) {
+                html += '<tr>';
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${record.version}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-500">${new Date(record.ts).toLocaleString()}</td>`;
+                
+                for (const fieldName of fieldNames) {
+                    const value = record.data[fieldName] || '';
+                    html += `<td class="px-4 py-3 text-sm text-gray-900">${value}</td>`;
+                }
+                
+                html += '</tr>';
+            }
+            
+            html += '</tbody></table></div></div>';
+        }
+        
+        html += '</div>';
+        content.innerHTML = html;
+        modal.classList.remove('hidden');
+    } catch (error) {
+        alert('加载失败: ' + error.message);
+    }
+}
+
+// 加载项目列表
+async function loadProjects() {
+    try {
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const container = document.getElementById('projects-container');
+        
+        const response = await fetch('/api/twins/internal_project');
+        const result = await response.json();
+        
+        loading.classList.add('hidden');
+        
+        if (!result.success) {
+            error.classList.remove('hidden');
+            document.getElementById('error-message').textContent = result.error || '加载失败';
+            return;
+        }
+        
+        error.classList.add('hidden');
+        container.classList.remove('hidden');
+        
+        if (result.data && result.data.length > 0) {
+            renderTable(result.data);
+        } else {
+            container.innerHTML = '<div class="text-center py-12 text-gray-500">暂无数据</div>';
+        }
+    } catch (err) {
+        console.error('加载项目列表失败:', err);
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        if (loading) loading.classList.add('hidden');
+        if (error) {
+            error.classList.remove('hidden');
+            document.getElementById('error-message').textContent = err.message || '加载失败，请刷新页面重试';
+        }
+    }
+}
+
+// 打开新增项目表单
+function openAddProjectForm() {
+    currentEditProjectId = null;
+    document.getElementById('project-form-modal-title').textContent = '新增项目';
+    renderProjectFormFields({});
+    document.getElementById('project-form-modal').classList.remove('hidden');
+}
+
+// 打开编辑项目表单
+function openEditProjectForm(projectId) {
+    currentEditProjectId = projectId;
+    document.getElementById('project-form-modal-title').textContent = '编辑项目';
+    
+    fetch(`/api/twins/internal_project/${projectId}`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                renderProjectFormFields(result.data.current);
+                document.getElementById('project-form-modal').classList.remove('hidden');
+            } else {
+                alert('加载失败: ' + result.error);
+            }
+        })
+        .catch(error => {
+            alert('加载失败: ' + error.message);
+        });
+}
+
+// 提交项目表单
+async function submitProjectForm(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    const data = {};
+    const fields = schema.fields || {};
+    const fieldNames = Object.keys(fields);
+    for (const fieldName of fieldNames) {
+        const value = formData.get(fieldName);
+        if (value !== null && value !== '') {
+            const fieldDef = fields[fieldName];
+            if (fieldDef.type === 'decimal' || fieldDef.type === 'number') {
+                data[fieldName] = parseFloat(value);
+            } else {
+                data[fieldName] = value.trim();
+            }
+        }
+    }
+    
+    try {
+        const url = currentEditProjectId 
+            ? `/api/twins/internal_project/${currentEditProjectId}`
+            : '/api/twins/internal_project';
+        const method = currentEditProjectId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('保存失败: ' + result.error);
+            return;
+        }
+        
+        document.getElementById('project-form-modal').classList.add('hidden');
+        loadProjects();
+        
+        if (currentEditProjectId) {
+            document.getElementById('project-modal').classList.add('hidden');
+        }
+    } catch (error) {
+        alert('保存失败: ' + error.message);
+    }
+}
+
+// 绑定事件
+document.getElementById('add-project-btn').onclick = openAddProjectForm;
+document.getElementById('close-project-form-modal').onclick = () => {
+    document.getElementById('project-form-modal').classList.add('hidden');
+};
+document.getElementById('cancel-project-form-btn').onclick = () => {
+    document.getElementById('project-form-modal').classList.add('hidden');
+};
+document.getElementById('close-modal').onclick = () => {
+    document.getElementById('project-modal').classList.add('hidden');
+};
+document.getElementById('project-form').onsubmit = submitProjectForm;
+
+// 页面加载时获取数据
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', loadProjects);
+} else {
+    loadProjects();
+}
+</script>
+{% endblock %}

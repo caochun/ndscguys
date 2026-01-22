@@ -88,48 +88,47 @@ twins:
         ui:
           component: text_input
 
-  project:
+  internal_project:
     type: entity
-    label: "项目"
-    description: "项目实体"
-    table: "projects"
-    state_table: "project_history"
+    label: "内部项目"
+    description: "公司内部立项形成的项目"
+    table: "internal_projects"
+    state_table: "internal_project_history"
     mode: versioned
-    unique_key: [project_id, version]
+    unique_key: [internal_project_id, version]
     
     fields:
-      project_type:
-        type: enum
-        required: true
-        label: "项目类型"
-        options: ["劳务型", "专项型"]
-        ui:
-          component: select
-      
-      internal_project_name:
+      name:
         type: string
         required: true
-        label: "内部项目名称"
+        label: "项目名称"
         ui:
           component: text_input
       
-      external_project_name:
-        type: string
-        required: true
-        label: "外部项目名称"
-        ui:
-          component: text_input
-      
-      project_code:
+      department:
         type: string
         required: false
-        label: "项目编号"
+        label: "归属部门"
         ui:
           component: text_input
+      
+      project_manager:
+        type: string
+        required: false
+        label: "项目经理"
+        ui:
+          component: text_input
+      
+      description:
+        type: string
+        required: false
+        label: "项目描述"
+        ui:
+          component: textarea
       
       status:
         type: enum
-        required: true
+        required: false
         label: "项目状态"
         options: ["筹备中", "进行中", "已暂停", "已完成", "已取消"]
         ui:
@@ -148,23 +147,163 @@ twins:
         label: "结束日期"
         ui:
           component: date_picker
+
+  client_contract:
+    type: entity
+    label: "客户合同"
+    description: "公司与客户签订的合同"
+    table: "client_contracts"
+    state_table: "client_contract_history"
+    mode: versioned
+    unique_key: [client_contract_id, version]
+    
+    fields:
+      contract_number:
+        type: string
+        required: true
+        label: "合同编号"
+        ui:
+          component: text_input
       
-      description:
+      contract_name:
+        type: string
+        required: true
+        label: "合同名称"
+        ui:
+          component: text_input
+      
+      contract_type:
+        type: enum
+        required: true
+        label: "合同类型"
+        options: ["劳务", "专项"]
+        ui:
+          component: select
+      
+      client_company:
+        type: string
+        required: true
+        label: "甲方单位"
+        ui:
+          component: text_input
+      
+      client_department:
         type: string
         required: false
-        label: "项目描述"
+        label: "甲方部门"
         ui:
-          component: textarea
+          component: text_input
       
-      budget:
+      client_manager:
+        type: string
+        required: false
+        label: "甲方经理"
+        ui:
+          component: text_input
+      
+      contract_date:
+        type: date
+        required: false
+        label: "合同签订日期"
+        ui:
+          component: date_picker
+      
+      contract_amount:
         type: decimal
         required: false
-        label: "项目预算"
+        label: "合同金额"
         validation:
           min: 0
         ui:
           component: number_input
           suffix: "元"
+      
+      status:
+        type: enum
+        required: false
+        label: "合同状态"
+        options: ["草稿", "已签订", "执行中", "已完成", "已终止", "已取消"]
+        ui:
+          component: select
+      
+      description:
+        type: string
+        required: false
+        label: "合同描述"
+        ui:
+          component: textarea
+      
+  order:
+    type: entity
+    label: "订单"
+    description: "客户合同逻辑拆分出的订单"
+    table: "orders"
+    state_table: "order_history"
+    mode: versioned
+    unique_key: [order_id, version]
+    
+    fields:
+      order_number:
+        type: string
+        required: true
+        label: "订单编号"
+        ui:
+          component: text_input
+      
+      order_type:
+        type: enum
+        required: true
+        label: "订单类型"
+        options: ["劳务", "专项"]
+        ui:
+          component: select
+      
+      amount:
+        type: decimal
+        required: false
+        label: "订单金额"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      status:
+        type: enum
+        required: false
+        label: "订单状态"
+        options: ["待确认", "已确认", "执行中", "已完成", "已取消"]
+        ui:
+          component: select
+      
+      execution_start_date:
+        type: date
+        required: false
+        label: "执行开始时间"
+        description: "订单开始执行的日期"
+        ui:
+          component: date_picker
+      
+      description:
+        type: string
+        required: false
+        label: "订单描述"
+        ui:
+          component: textarea
+      
+      expected_delivery_date:
+        type: date
+        required: false
+        label: "预期交付日期"
+        ui:
+          component: date_picker
+      
+      actual_delivery_date:
+        type: date
+        required: false
+        label: "实际交付日期"
+        ui:
+          component: date_picker
 
   # ========== Activity Twins ==========
   person_company_employment:
@@ -329,71 +468,6 @@ twins:
           component: number_input
           suffix: "小时"
 
-  person_project_participation:
-    type: activity
-    label: "人员-项目参与活动"
-    description: "记录人员参与项目的情况，包括入项、出项及劳务定价"
-    table: "person_project_participation_activities"
-    
-    related_entities:
-      - entity: person
-        role: participant
-        key: person_id
-        required: true
-      - entity: project
-        role: project
-        key: project_id
-        required: true
-    
-    state_table: "person_project_participation_history"
-    mode: versioned
-    unique_key: [activity_id, version]
-    
-    fields:
-      person_id:
-        type: reference
-        reference_entity: person
-        required: true
-        storage: foreign_key
-      
-      project_id:
-        type: reference
-        reference_entity: project
-        required: true
-        storage: foreign_key
-      
-      status:
-        type: enum
-        required: true
-        label: "参与状态"
-        options: ["入项", "出项"]
-        ui:
-          component: select
-      
-      change_date:
-        type: date
-        required: true
-        label: "变动日期"
-        description: "记录状态变更的日期（入项或出项的日期），保存时自动设置为当前日期"
-        auto: date  # 自动设置为当前日期（YYYY-MM-DD）
-        ui:
-          component: date_picker
-      
-      labor_price:
-        type: decimal
-        required: false
-        label: "劳务定价"
-        description: "劳务型项目的定价（单位：元/天或元/月，根据项目类型确定）"
-        validation:
-          min: 0
-        ui:
-          component: number_input
-          suffix: "元"
-          conditional_display:
-            field: "project_type"
-            value: "劳务型"
-            operator: "equals"
-
   person_assessment:
     type: activity
     label: "人员考核活动"
@@ -448,6 +522,371 @@ twins:
         description: "考核的详细评语和意见"
         ui:
           component: textarea
+
+  social_security_config:
+    type: entity
+    label: "社保公积金配置"
+    description: "系统级社保和公积金缴费比例及参数配置，支持版本化管理"
+    table: "social_security_configs"
+    state_table: "social_security_config_history"
+    mode: versioned
+    unique_key: [config_id, version]
+    
+    fields:
+      region:
+        type: string
+        required: false
+        label: "适用地区"
+        description: "配置适用的地区（如：北京、上海），为空表示全国通用"
+        ui:
+          component: text_input
+      
+      effective_date:
+        type: date
+        required: true
+        label: "生效日期"
+        description: "配置生效的日期，用于版本控制"
+        ui:
+          component: date_picker
+      
+      # ===== 养老保险 =====
+      pension_employer_rate:
+        type: decimal
+        required: true
+        label: "养老单位缴费比例"
+        description: "养老保险单位缴费比例（如：0.16 表示 16%）"
+        validation:
+          min: 0
+          max: 1
+        ui:
+          component: number_input
+          suffix: "%"
+          step: 0.01
+      
+      pension_employee_rate:
+        type: decimal
+        required: true
+        label: "养老个人缴费比例"
+        description: "养老保险个人缴费比例（如：0.08 表示 8%）"
+        validation:
+          min: 0
+          max: 1
+        ui:
+          component: number_input
+          suffix: "%"
+          step: 0.01
+      
+      # ===== 工伤保险 =====
+      work_injury_employer_rate:
+        type: decimal
+        required: true
+        label: "工伤单位缴费比例"
+        description: "工伤保险单位缴费比例（个人不缴费）"
+        validation:
+          min: 0
+          max: 1
+        ui:
+          component: number_input
+          suffix: "%"
+          step: 0.01
+      
+      # ===== 失业保险 =====
+      unemployment_employer_rate:
+        type: decimal
+        required: true
+        label: "失业单位缴费比例"
+        description: "失业保险单位缴费比例"
+        validation:
+          min: 0
+          max: 1
+        ui:
+          component: number_input
+          suffix: "%"
+          step: 0.01
+      
+      unemployment_employee_rate:
+        type: decimal
+        required: true
+        label: "失业个人缴费比例"
+        description: "失业保险个人缴费比例"
+        validation:
+          min: 0
+          max: 1
+        ui:
+          component: number_input
+          suffix: "%"
+          step: 0.01
+      
+      # ===== 医疗保险 =====
+      medical_employer_rate:
+        type: decimal
+        required: true
+        label: "医疗单位缴费比例"
+        description: "医疗保险单位缴费比例"
+        validation:
+          min: 0
+          max: 1
+        ui:
+          component: number_input
+          suffix: "%"
+          step: 0.01
+      
+      medical_employee_rate:
+        type: decimal
+        required: true
+        label: "医疗个人缴费比例"
+        description: "医疗保险个人缴费比例"
+        validation:
+          min: 0
+          max: 1
+        ui:
+          component: number_input
+          suffix: "%"
+          step: 0.01
+      
+      # ===== 生育保险 =====
+      maternity_employer_rate:
+        type: decimal
+        required: true
+        label: "生育单位缴费比例"
+        description: "生育保险单位缴费比例（个人不缴费）"
+        validation:
+          min: 0
+          max: 1
+        ui:
+          component: number_input
+          suffix: "%"
+          step: 0.01
+      
+      # ===== 大病保险 =====
+      serious_illness_employee_amount:
+        type: decimal
+        required: true
+        label: "大病个人缴费金额"
+        description: "大病保险个人缴费金额（固定金额，非比例）"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元/月"
+          step: 0.01
+      
+      # ===== 住房公积金 =====
+      housing_fund_employer_rate:
+        type: decimal
+        required: true
+        label: "公积金单位缴费比例"
+        description: "住房公积金单位缴费比例"
+        validation:
+          min: 0
+          max: 1
+        ui:
+          component: number_input
+          suffix: "%"
+          step: 0.01
+      
+      housing_fund_employee_rate:
+        type: decimal
+        required: true
+        label: "公积金个人缴费比例"
+        description: "住房公积金个人缴费比例"
+        validation:
+          min: 0
+          max: 1
+        ui:
+          component: number_input
+          suffix: "%"
+          step: 0.01
+      
+      description:
+        type: string
+        required: false
+        label: "备注说明"
+        description: "配置的备注说明，如政策依据、变更原因等"
+        ui:
+          component: textarea
+
+  client_contract_order:
+    type: activity
+    label: "客户合同-订单关联"
+    description: "记录订单从客户合同拆分出来的关系"
+    table: "client_contract_order_activities"
+    
+    related_entities:
+      - entity: client_contract
+        role: contract
+        key: client_contract_id
+        required: true
+      - entity: order
+        role: order
+        key: order_id
+        required: true
+    
+    state_table: "client_contract_order_history"
+    mode: versioned
+    unique_key: [activity_id, version]
+    
+    fields:
+      client_contract_id:
+        type: reference
+        reference_entity: client_contract
+        required: true
+        storage: foreign_key
+      
+      order_id:
+        type: reference
+        reference_entity: order
+        required: true
+        storage: foreign_key
+      
+      split_date:
+        type: date
+        required: false
+        label: "拆分日期"
+        description: "订单从合同拆分出来的日期"
+        ui:
+          component: date_picker
+      
+      split_reason:
+        type: string
+        required: false
+        label: "拆分原因"
+        description: "订单拆分的原因说明"
+        ui:
+          component: textarea
+      
+      split_by:
+        type: string
+        required: false
+        label: "拆分人"
+        description: "执行拆分操作的人员"
+        ui:
+          component: text_input
+
+  internal_project_order:
+    type: activity
+    label: "内部项目-订单关联"
+    description: "记录内部项目与订单的关联关系"
+    table: "internal_project_order_activities"
+    
+    related_entities:
+      - entity: internal_project
+        role: project
+        key: internal_project_id
+        required: true
+      - entity: order
+        role: order
+        key: order_id
+        required: true
+    
+    state_table: "internal_project_order_history"
+    mode: versioned
+    unique_key: [activity_id, version]
+    
+    fields:
+      internal_project_id:
+        type: reference
+        reference_entity: internal_project
+        required: true
+        storage: foreign_key
+      
+      order_id:
+        type: reference
+        reference_entity: order
+        required: true
+        storage: foreign_key
+      
+      association_date:
+        type: date
+        required: false
+        label: "关联日期"
+        description: "内部项目与订单关联的日期"
+        auto: date
+        ui:
+          component: date_picker
+      
+      association_reason:
+        type: string
+        required: false
+        label: "关联原因"
+        description: "内部项目与订单关联的原因说明"
+        ui:
+          component: textarea
+
+  person_order_participation:
+    type: activity
+    label: "人员-订单参与活动"
+    description: "记录人员参与订单的情况，包括参与类型、劳务订单的打卡方式和入项进度"
+    table: "person_order_participation_activities"
+    
+    related_entities:
+      - entity: person
+        role: participant
+        key: person_id
+        required: true
+      - entity: order
+        role: order
+        key: order_id
+        required: true
+    
+    state_table: "person_order_participation_history"
+    mode: versioned
+    unique_key: [activity_id, version]
+    
+    fields:
+      person_id:
+        type: reference
+        reference_entity: person
+        required: true
+        storage: foreign_key
+      
+      order_id:
+        type: reference
+        reference_entity: order
+        required: true
+        storage: foreign_key
+      
+      participation_type:
+        type: enum
+        required: true
+        label: "参与类型"
+        options: ["实际参加", "名义参加"]
+        ui:
+          component: select
+      
+      start_date:
+        type: date
+        required: false
+        label: "开始时间"
+        description: "劳务订单的开始时间（仅劳务订单需要）"
+        ui:
+          component: date_picker
+      
+      end_date:
+        type: date
+        required: false
+        label: "结束时间"
+        description: "劳务订单的结束时间（仅劳务订单需要）"
+        ui:
+          component: date_picker
+      
+      attendance_method:
+        type: enum
+        required: false
+        label: "打卡方式"
+        description: "劳务订单的打卡方式（仅劳务订单需要）"
+        options: ["现场打卡", "线上打卡"]
+        ui:
+          component: select
+      
+      entry_progress:
+        type: enum
+        required: false
+        label: "入项进度"
+        description: "劳务订单的入项进度（仅劳务订单需要）"
+        options: ["材料准备中", "已提交", "面试中"]
+        ui:
+          component: select
 
   person_company_social_security_base:
     type: activity

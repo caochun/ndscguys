@@ -58,20 +58,6 @@ def employments():
     return render_template("employments.html", schema=schema_dict)
 
 
-@web_bp.route("/projects")
-def projects():
-    """项目列表页"""
-    schema_dict = build_schema_dict("project", "项目")
-    participation_schema_dict = build_schema_dict("person_project_participation", "人员项目参与")
-    
-    # 添加 related_entities（仅对 participation schema）
-    participation_schema = _schema_loader.get_twin_schema("person_project_participation")
-    if participation_schema:
-        participation_schema_dict["related_entities"] = participation_schema.get("related_entities", [])
-    
-    return render_template("projects.html", schema=schema_dict, participation_schema=participation_schema_dict)
-
-
 @web_bp.route("/assessments")
 def assessments():
     """考核列表页"""
@@ -96,3 +82,76 @@ def payroll():
     """工资管理页"""
     schema_dict = build_schema_dict("person_company_payroll", "工资管理")
     return render_template("payroll.html", schema=schema_dict)
+
+
+@web_bp.route("/internal-projects")
+def internal_projects():
+    """内部项目管理页"""
+    schema_dict = build_schema_dict("internal_project", "内部项目")
+    return render_template("internal_projects.html", schema=schema_dict)
+
+
+@web_bp.route("/client-contracts")
+def client_contracts():
+    """客户合同管理页"""
+    schema_dict = build_schema_dict("client_contract", "客户合同")
+    return render_template("client_contracts.html", schema=schema_dict)
+
+
+@web_bp.route("/orders")
+def orders():
+    """订单管理页"""
+    order_schema = build_schema_dict("order", "订单")
+    contract_order_schema = build_schema_dict("client_contract_order", "客户合同-订单关联")
+    project_order_schema = build_schema_dict("internal_project_order", "内部项目-订单关联")
+    
+    # 添加 related_entities
+    contract_order_twin = _schema_loader.get_twin_schema("client_contract_order")
+    if contract_order_twin:
+        contract_order_schema["related_entities"] = contract_order_twin.get("related_entities", [])
+    
+    project_order_twin = _schema_loader.get_twin_schema("internal_project_order")
+    if project_order_twin:
+        project_order_schema["related_entities"] = project_order_twin.get("related_entities", [])
+    
+    person_order_schema = build_schema_dict("person_order_participation", "人员-订单参与")
+    return render_template("orders.html", 
+                          order_schema=order_schema,
+                          contract_order_schema=contract_order_schema,
+                          project_order_schema=project_order_schema,
+                          person_order_schema=person_order_schema)
+
+
+@web_bp.route("/social-security-config")
+def social_security_config():
+    """社保公积金配置管理页"""
+    schema_dict = build_schema_dict("social_security_config", "社保公积金配置")
+    return render_template("social_security_config.html", schema=schema_dict)
+
+
+@web_bp.route("/project-center")
+def project_center():
+    """项目管理中心 - 统一管理合同、项目、订单"""
+    order_schema = build_schema_dict("order", "订单")
+    contract_schema = build_schema_dict("client_contract", "客户合同")
+    project_schema = build_schema_dict("internal_project", "内部项目")
+    person_order_schema = build_schema_dict("person_order_participation", "人员-订单参与")
+    
+    # 添加 related_entities
+    contract_order_twin = _schema_loader.get_twin_schema("client_contract_order")
+    contract_order_schema = build_schema_dict("client_contract_order", "客户合同-订单关联")
+    if contract_order_twin:
+        contract_order_schema["related_entities"] = contract_order_twin.get("related_entities", [])
+    
+    project_order_twin = _schema_loader.get_twin_schema("internal_project_order")
+    project_order_schema = build_schema_dict("internal_project_order", "内部项目-订单关联")
+    if project_order_twin:
+        project_order_schema["related_entities"] = project_order_twin.get("related_entities", [])
+    
+    return render_template("project_center.html", 
+                          order_schema=order_schema,
+                          contract_schema=contract_schema,
+                          project_schema=project_schema,
+                          person_order_schema=person_order_schema,
+                          contract_order_schema=contract_order_schema,
+                          project_order_schema=project_order_schema)

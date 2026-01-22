@@ -130,7 +130,7 @@ def generate_test_data(db_path: Optional[str] = None):
         })
         employments.append((employment_id, person_id, company_id))
         print(f"  创建聘用记录: Person {person_id} -> Company {company_id}")
-        
+
         # 50% 的聘用记录有岗位变动
         if random.random() < 0.5:
             # 追加岗位变动记录
@@ -232,110 +232,6 @@ def generate_test_data(db_path: Optional[str] = None):
     
     print(f"  生成打卡记录: {attendance_count} 条")
     
-    # 生成项目数据
-    print("\n生成项目数据...")
-    projects = []
-    project_types = ["劳务型", "专项型"]
-    project_statuses = ["筹备中", "进行中", "已暂停", "已完成", "已取消"]
-    
-    internal_project_names = [
-        "智慧城市平台开发", "企业数字化转型", "AI智能客服系统", "大数据分析平台",
-        "移动应用开发", "云服务迁移", "区块链应用", "物联网平台",
-        "电商平台升级", "金融风控系统", "物流管理系统", "医疗信息化"
-    ]
-    
-    external_project_names = [
-        "智慧城市V1.0", "企业数字化V2.0", "AI客服V1.5", "大数据平台V3.0",
-        "移动应用V2.0", "云迁移V1.0", "区块链应用V1.0", "物联网平台V2.0",
-        "电商升级V3.0", "风控系统V2.5", "物流系统V1.0", "医疗信息化V2.0"
-    ]
-    
-    for i in range(12):
-        project_id = twin_dao.create_entity_twin("project")
-        project_type = random.choice(project_types)
-        project_status = random.choice(project_statuses)
-        
-        # 生成项目日期
-        start_date = (datetime.now() - timedelta(days=random.randint(0, 365))).strftime("%Y-%m-%d")
-        end_date = None
-        if project_status in ["已完成", "已取消"]:
-            end_date = (datetime.now() - timedelta(days=random.randint(0, 180))).strftime("%Y-%m-%d")
-        
-        project_code = f"PRJ{random.randint(1000, 9999)}"
-        budget = random.randint(100000, 5000000) if random.random() < 0.7 else None
-        
-        state_dao.append("project", project_id, {
-            "project_type": project_type,
-            "internal_project_name": internal_project_names[i],
-            "external_project_name": external_project_names[i],
-            "project_code": project_code,
-            "status": project_status,
-            "start_date": start_date,
-            "end_date": end_date,
-            "description": f"{internal_project_names[i]}项目描述",
-            "budget": budget,
-        })
-        projects.append(project_id)
-        print(f"  创建项目: {internal_project_names[i]} (ID: {project_id}, 类型: {project_type})")
-    
-    # 生成人员参与项目数据
-    print("\n生成人员参与项目数据...")
-    participation_count = 0
-    
-    # 获取所有项目的最新状态，构建项目类型映射
-    all_project_states = state_dao.query_latest_states("project")
-    project_type_map = {}
-    for state in all_project_states:
-        project_type_map[state.twin_id] = state.data.get("project_type", "专项型")
-    
-    # 为每个项目分配一些参与人员
-    for project_id in projects:
-        project_type = project_type_map.get(project_id, "专项型")
-        
-        # 每个项目随机分配 2-5 个人员
-        num_participants = random.randint(2, 5)
-        selected_persons = random.sample(persons, min(num_participants, len(persons)))
-        
-        for person_id in selected_persons:
-            # 创建参与活动
-            participation_id = twin_dao.create_activity_twin(
-                "person_project_participation",
-                {
-                    "person_id": person_id,
-                    "project_id": project_id,
-                }
-            )
-            
-            # 生成入项记录
-            entry_date = (datetime.now() - timedelta(days=random.randint(0, 180))).strftime("%Y-%m-%d")
-            labor_price = None
-            if project_type == "劳务型":
-                # 劳务型项目需要记录定价（元/天）
-                labor_price = random.choice([300, 400, 500, 600, 800, 1000])
-            
-            state_dao.append("person_project_participation", participation_id, {
-                "person_id": person_id,
-                "project_id": project_id,
-                "status": "入项",
-                "change_date": entry_date,
-                "labor_price": labor_price,
-            })
-            participation_count += 1
-            
-            # 30% 的概率有出项记录
-            if random.random() < 0.3:
-                exit_date = (datetime.now() - timedelta(days=random.randint(0, 30))).strftime("%Y-%m-%d")
-                state_dao.append("person_project_participation", participation_id, {
-                    "person_id": person_id,
-                    "project_id": project_id,
-                    "status": "出项",
-                    "change_date": exit_date,
-                    "labor_price": labor_price,  # 保留入项时的定价
-                })
-                participation_count += 1
-    
-    print(f"  生成参与记录: {participation_count} 条")
-    
     # 生成社保基数数据
     print("\n生成社保基数数据...")
     social_base_count = 0
@@ -345,7 +241,7 @@ def generate_test_data(db_path: Optional[str] = None):
         # 为每个 person-company 组合创建一个社保基数活动
         social_base_id = twin_dao.create_activity_twin(
             "person_company_social_security_base",
-            {
+        {
                 "person_id": person_id,
                 "company_id": company_id,
             }
@@ -435,7 +331,7 @@ def generate_test_data(db_path: Optional[str] = None):
                     "person_id": person_id,
                 }
             )
-            
+
             # 生成考核日期（过去一年内）
             assessment_date = (datetime.now() - timedelta(days=random.randint(0, 365))).strftime("%Y-%m-%d")
             assessment_period = random.choice(assessment_periods)
@@ -570,17 +466,253 @@ def generate_test_data(db_path: Optional[str] = None):
     
     print(f"  生成专项附加扣除记录: {tax_deduction_count} 条")
     
+    # 生成客户合同数据
+    print("\n生成客户合同数据...")
+    client_contracts = []
+    contract_names = [
+        "智慧城市平台开发合同", "企业数字化转型合同", "AI智能客服系统合同", "大数据分析平台合同",
+        "移动应用开发合同", "云服务迁移合同", "区块链应用合同", "物联网平台合同",
+        "电商平台升级合同", "金融风控系统合同", "物流管理系统合同", "医疗信息化合同"
+    ]
+    client_companies = ["阿里巴巴", "腾讯", "百度", "京东", "字节跳动", "美团", "滴滴", "小米", "华为", "中兴", "联想", "网易"]
+    contract_statuses = ["草稿", "已签订", "执行中", "已完成", "已终止", "已取消"]
+    contract_types = ["劳务", "专项"]
+    
+    # 存储合同类型映射，供后续订单使用
+    contract_type_map = {}
+    
+    for i in range(12):
+        contract_id = twin_dao.create_entity_twin("client_contract")
+        contract_status = random.choice(contract_statuses)
+        contract_type = random.choice(contract_types)
+        contract_date = (datetime.now() - timedelta(days=random.randint(0, 365))).strftime("%Y-%m-%d")
+        contract_amount = random.randint(500000, 10000000)
+        
+        state_dao.append("client_contract", contract_id, {
+            "contract_number": f"HT{random.randint(100000, 999999)}",
+            "contract_name": contract_names[i],
+            "contract_type": contract_type,
+            "client_company": client_companies[i],
+            "client_department": random.choice(["技术部", "产品部", "运营部", "市场部", "研发部"]),
+            "client_manager": random.choice(["张", "李", "王", "刘", "陈"]) + random.choice(["总", "经理", "主管"]),
+            "contract_date": contract_date,
+            "contract_amount": float(contract_amount),
+            "status": contract_status,
+            "description": f"{contract_names[i]}的详细描述",
+        })
+        client_contracts.append(contract_id)
+        contract_type_map[contract_id] = contract_type
+        print(f"  创建客户合同: {contract_names[i]} (ID: {contract_id}, 类型: {contract_type})")
+    
+    # 生成订单数据
+    print("\n生成订单数据...")
+    orders = []
+    order_statuses = ["待确认", "已确认", "执行中", "已完成", "已取消"]
+    
+    # 为每个客户合同生成 2-4 个订单
+    for contract_id in client_contracts:
+        # 获取合同的类型，订单类型与合同类型保持一致
+        contract_type = contract_type_map.get(contract_id, random.choice(["劳务", "专项"]))
+        
+        num_orders = random.randint(2, 4)
+        for j in range(num_orders):
+            order_id = twin_dao.create_entity_twin("order")
+            order_status = random.choice(order_statuses)
+            
+            # 生成订单金额（合同金额的一部分）
+            contract_state = state_dao.query_latest_states("client_contract", {"twin_id": contract_id})
+            contract_amount = contract_state[0].data.get("contract_amount", 1000000) if contract_state else 1000000
+            order_amount = float(contract_amount / num_orders * random.uniform(0.8, 1.2))
+            
+            execution_start_date = None
+            expected_delivery_date = None
+            actual_delivery_date = None
+            
+            if order_status in ["执行中", "已完成"]:
+                execution_start_date = (datetime.now() - timedelta(days=random.randint(0, 180))).strftime("%Y-%m-%d")
+                expected_delivery_date = (datetime.now() + timedelta(days=random.randint(30, 180))).strftime("%Y-%m-%d")
+                if order_status == "已完成":
+                    actual_delivery_date = (datetime.now() - timedelta(days=random.randint(0, 30))).strftime("%Y-%m-%d")
+            
+            state_dao.append("order", order_id, {
+                "order_number": f"DD{random.randint(100000, 999999)}",
+                "order_type": contract_type,  # 订单类型与合同类型保持一致
+                "amount": order_amount,
+                "status": order_status,
+                "execution_start_date": execution_start_date,
+                "description": f"订单 {j+1} 的详细描述",
+                "expected_delivery_date": expected_delivery_date,
+                "actual_delivery_date": actual_delivery_date,
+            })
+            orders.append((order_id, contract_id))
+            print(f"  创建订单: DD{order_id} (ID: {order_id}, 合同: {contract_id}, 类型: {contract_type})")
+    
+    # 生成客户合同-订单关联数据
+    print("\n生成客户合同-订单关联数据...")
+    contract_order_count = 0
+    
+    for order_id, contract_id in orders:
+        # 创建关联活动
+        association_id = twin_dao.create_activity_twin(
+            "client_contract_order",
+            {
+                "client_contract_id": contract_id,
+                "order_id": order_id,
+            }
+        )
+        
+        # 获取订单的执行开始日期作为拆分日期
+        order_state = state_dao.query_latest_states("order", {"twin_id": order_id})
+        execution_start_date = order_state[0].data.get("execution_start_date") if order_state else None
+        split_date = execution_start_date or (datetime.now() - timedelta(days=random.randint(0, 180))).strftime("%Y-%m-%d")
+        
+        state_dao.append("client_contract_order", association_id, {
+            "client_contract_id": contract_id,
+            "order_id": order_id,
+            "split_date": split_date,
+            "split_reason": random.choice([
+                "按阶段拆分", "按模块拆分", "按交付物拆分", "按时间节点拆分", "按功能拆分"
+            ]),
+            "split_by": random.choice(["张经理", "李经理", "王经理", "刘经理", "陈经理"]),
+        })
+        contract_order_count += 1
+    
+    print(f"  生成客户合同-订单关联: {contract_order_count} 条")
+    
+    # 生成内部项目数据
+    print("\n生成内部项目数据...")
+    internal_projects = []
+    internal_project_names = [
+        "智慧城市平台", "企业数字化转型", "AI智能客服", "大数据分析",
+        "移动应用开发", "云服务迁移", "区块链应用", "物联网平台",
+        "电商平台升级", "金融风控", "物流管理", "医疗信息化"
+    ]
+    project_statuses = ["筹备中", "进行中", "已暂停", "已完成", "已取消"]
+    departments = ["研发部", "产品部", "技术部", "创新部", "战略部"]
+    
+    for i in range(10):
+        project_id = twin_dao.create_entity_twin("internal_project")
+        project_status = random.choice(project_statuses)
+        
+        start_date = (datetime.now() - timedelta(days=random.randint(0, 365))).strftime("%Y-%m-%d")
+        end_date = None
+        if project_status in ["已完成", "已取消"]:
+            end_date = (datetime.now() - timedelta(days=random.randint(0, 180))).strftime("%Y-%m-%d")
+        
+        state_dao.append("internal_project", project_id, {
+            "name": internal_project_names[i],
+            "department": random.choice(departments),
+            "project_manager": random.choice(["张", "李", "王", "刘", "陈"]) + random.choice(["总", "经理", "主管"]),
+            "description": f"{internal_project_names[i]}项目的详细描述",
+            "status": project_status,
+            "start_date": start_date,
+            "end_date": end_date,
+        })
+        internal_projects.append(project_id)
+        print(f"  创建内部项目: {internal_project_names[i]} (ID: {project_id})")
+    
+    # 生成内部项目-订单关联数据
+    print("\n生成内部项目-订单关联数据...")
+    project_order_count = 0
+    
+    # 每个内部项目关联 2-5 个订单
+    for project_id in internal_projects:
+        num_associations = random.randint(2, 5)
+        selected_orders = random.sample([oid for oid, _ in orders], min(num_associations, len(orders)))
+        
+        for order_id in selected_orders:
+            # 创建关联活动
+            association_id = twin_dao.create_activity_twin(
+                "internal_project_order",
+                {
+                    "internal_project_id": project_id,
+                    "order_id": order_id,
+                }
+            )
+            
+            association_date = (datetime.now() - timedelta(days=random.randint(0, 180))).strftime("%Y-%m-%d")
+            
+            state_dao.append("internal_project_order", association_id, {
+                "internal_project_id": project_id,
+                "order_id": order_id,
+                "association_date": association_date,
+                "association_reason": random.choice([
+                    "项目需要", "资源分配", "业务需求", "战略规划", "客户要求"
+                ]),
+            })
+            project_order_count += 1
+    
+    print(f"  生成内部项目-订单关联: {project_order_count} 条")
+    
+    # 生成人员参与订单数据
+    print("\n生成人员参与订单数据...")
+    participation_count = 0
+    
+    # 获取所有订单的最新状态，构建订单类型映射
+    all_order_states = state_dao.query_latest_states("order")
+    order_type_map = {}
+    for state in all_order_states:
+        order_type_map[state.twin_id] = state.data.get("order_type", "专项")
+    
+    # 为每个订单分配一些参与人员
+    for order_id, contract_id in orders:
+        order_type = order_type_map.get(order_id, "专项")
+        
+        # 每个订单随机分配 1-3 个人员
+        num_participants = random.randint(1, 3)
+        selected_persons = random.sample(persons, min(num_participants, len(persons)))
+        
+        for person_id in selected_persons:
+            # 创建参与活动
+            participation_id = twin_dao.create_activity_twin(
+                "person_order_participation",
+                {
+                    "person_id": person_id,
+                    "order_id": order_id,
+                }
+            )
+            
+            participation_type = random.choice(["实际参加", "名义参加"])
+            
+            # 构建参与数据
+            participation_data = {
+                "person_id": person_id,
+                "order_id": order_id,
+                "participation_type": participation_type,
+            }
+            
+            # 如果是劳务订单且是实际参加，添加劳务相关字段
+            if order_type == "劳务" and participation_type == "实际参加":
+                start_date = (datetime.now() - timedelta(days=random.randint(0, 90))).strftime("%Y-%m-%d")
+                end_date = None
+                if random.random() < 0.7:  # 70% 的概率有结束时间
+                    end_date = (datetime.now() + timedelta(days=random.randint(30, 180))).strftime("%Y-%m-%d")
+                
+                participation_data["start_date"] = start_date
+                participation_data["end_date"] = end_date
+                participation_data["attendance_method"] = random.choice(["现场打卡", "线上打卡"])
+                participation_data["entry_progress"] = random.choice(["材料准备中", "已提交", "面试中"])
+            
+            state_dao.append("person_order_participation", participation_id, participation_data)
+            participation_count += 1
+    
+    print(f"  生成人员参与订单记录: {participation_count} 条")
+    
     print("\n测试数据生成完成！")
     print(f"  公司: {len(companies)} 个")
     print(f"  人员: {len(persons)} 个")
     print(f"  聘用记录: {len(employments)} 个")
     print(f"  打卡记录: {attendance_count} 条")
-    print(f"  项目: {len(projects)} 个")
-    print(f"  项目参与记录: {participation_count} 条")
     print(f"  社保基数记录: {social_base_count} 条")
     print(f"  公积金基数记录: {housing_fund_base_count} 条")
     print(f"  专项附加扣除记录: {tax_deduction_count} 条")
     print(f"  考核记录: {assessment_count} 条")
+    print(f"  客户合同: {len(client_contracts)} 个")
+    print(f"  订单: {len(orders)} 个")
+    print(f"  客户合同-订单关联: {contract_order_count} 条")
+    print(f"  内部项目: {len(internal_projects)} 个")
+    print(f"  内部项目-订单关联: {project_order_count} 条")
+    print(f"  人员参与订单记录: {participation_count} 条")
 
 
 if __name__ == "__main__":
