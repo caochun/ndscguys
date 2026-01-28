@@ -184,7 +184,7 @@ function renderFilterFields() {
             fieldName: 'grade',
             label: '考核等级',
             type: 'select',
-            options: ['优秀', '良好', '合格', '不合格']
+            options: ['A', 'B', 'C', 'D', 'E']
         },
         {
             fieldName: 'assessment_date',
@@ -344,10 +344,11 @@ function renderTable(assessments) {
             // 特殊处理考核等级（添加颜色标签）
             if (col.key === 'grade' && value) {
                 const gradeColors = {
-                    '优秀': 'bg-green-100 text-green-800',
-                    '良好': 'bg-blue-100 text-blue-800',
-                    '合格': 'bg-yellow-100 text-yellow-800',
-                    '不合格': 'bg-red-100 text-red-800'
+                    'A': 'bg-green-100 text-green-800',
+                    'B': 'bg-blue-100 text-blue-800',
+                    'C': 'bg-yellow-100 text-yellow-800',
+                    'D': 'bg-gray-100 text-gray-800',
+                    'E': 'bg-red-100 text-red-800'
                 };
                 const colorClass = gradeColors[value] || 'bg-gray-100 text-gray-800';
                 td.innerHTML = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
@@ -407,10 +408,11 @@ async function showAssessmentDetail(assessmentId) {
                 // 特殊处理考核等级
                 if (fieldName === 'grade' && fieldDef.type === 'enum') {
                     const gradeColors = {
-                        '优秀': 'bg-green-100 text-green-800',
-                        '良好': 'bg-blue-100 text-blue-800',
-                        '合格': 'bg-yellow-100 text-yellow-800',
-                        '不合格': 'bg-red-100 text-red-800'
+                        'A': 'bg-green-100 text-green-800',
+                        'B': 'bg-blue-100 text-blue-800',
+                        'C': 'bg-yellow-100 text-yellow-800',
+                        'D': 'bg-gray-100 text-gray-800',
+                        'E': 'bg-red-100 text-red-800'
                     };
                     const colorClass = gradeColors[value] || 'bg-gray-100 text-gray-800';
                     displayValue = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
@@ -457,13 +459,14 @@ async function showAssessmentDetail(assessmentId) {
                     const fieldDef = fields[fieldName];
                     if (fieldDef.type !== 'reference') {
                         let value = record.data[fieldName] || '';
-                        if (fieldName === 'grade' && value) {
-                            const gradeColors = {
-                                '优秀': 'bg-green-100 text-green-800',
-                                '良好': 'bg-blue-100 text-blue-800',
-                                '合格': 'bg-yellow-100 text-yellow-800',
-                                '不合格': 'bg-red-100 text-red-800'
-                            };
+                    if (fieldName === 'grade' && value) {
+                        const gradeColors = {
+                            'A': 'bg-green-100 text-green-800',
+                            'B': 'bg-blue-100 text-blue-800',
+                            'C': 'bg-yellow-100 text-yellow-800',
+                            'D': 'bg-gray-100 text-gray-800',
+                            'E': 'bg-red-100 text-red-800'
+                        };
                             const colorClass = gradeColors[value] || 'bg-gray-100 text-gray-800';
                             value = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
                         }

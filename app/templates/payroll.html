@@ -56,6 +56,64 @@
             </div>
         </div>
 
+        <!-- 公式试算（可选） -->
+        <div class="mt-6 bg-white rounded-lg shadow-sm border border-dashed border-indigo-300 p-6">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <h3 class="text-md font-semibold text-gray-900">公式试算（临时）</h3>
+                    <p class="mt-1 text-xs text-gray-500">
+                        从左侧拖动或点击变量（中文名称），右侧编辑公式（使用变量名），基于当前选择的人员与周期进行一次性试算，不会写入工资单。
+                    </p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- 变量列表 -->
+                <div class="md:col-span-1">
+                    <h4 class="text-sm font-medium text-gray-700 mb-2">可用变量</h4>
+                    <div id="formula-variable-list" class="max-h-72 overflow-y-auto space-y-2 border border-gray-200 rounded-md p-2 bg-gray-50 text-xs text-gray-700">
+                        <div class="text-gray-400 text-xs">加载中...</div>
+                    </div>
+                </div>
+
+                <!-- 公式编辑与结果 -->
+                <div class="md:col-span-2 flex flex-col gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            公式（中文变量 Token）
+                        </label>
+                        <div id="formula-editor" contenteditable="true" class="w-full min-h-[120px] px-3 py-2 border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-400">
+                        </div>
+                        <input type="hidden" id="formula-expression">
+                        <p class="mt-1 text-xs text-gray-400">
+                            在此区域中编辑公式：可以输入数字、+ - * / 和括号，点击左侧变量会插入<strong>中文变量 Token</strong>（不可拆分），系统会自动映射到内部变量名并进行计算。
+                        </p>
+                    </div>
+
+                    <div>
+                        <h4 class="text-xs font-medium text-gray-700 mb-1">可用函数</h4>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" id="fn-grade-coef" class="px-2 py-0.5 bg-white border border-gray-300 rounded-full text-[11px] text-gray-700 hover:bg-indigo-50 hover:border-indigo-400" title="将绩效等级（A-E）转换为系数：A=1.2, B=1.0, C=0.8, D=0.6, E=0.4">
+                                绩效等级系数：grade_coef(等级)
+                            </button>
+                            <span class="text-[11px] text-gray-400 self-center">例如：基本薪资 × grade_coef(人员考核活动.考核等级)</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between mt-1">
+                        <button id="formula-eval-btn" class="inline-flex items-center px-3 py-1.5 border border-indigo-600 text-xs font-medium rounded-md text-indigo-600 bg-white hover:bg-indigo-50">
+                            试算当前工资
+                        </button>
+                        <div class="text-xs text-gray-500">
+                            试算结果：
+                            <span id="formula-result-value" class="font-semibold text-indigo-600">-</span>
+                            <span id="formula-result-error" class="ml-2 text-red-500 hidden"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 计算结果预览 -->
         <div id="calculation-result" class="hidden mt-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div class="flex justify-between items-center mb-4">
@@ -237,15 +295,10 @@
 
 {% block scripts %}
 <script>
-// Schema 定义（从后端传递）
-const schema = {{ schema | tojson }};
-
-// 确保字段顺序
-ensureFieldOrder(schema);
-
 // 当前计算参数
 let currentCalculationParams = null;
 let currentCalculationResult = null;
+let formulaVariablesLoaded = false;
 
 // Tab 切换逻辑
 function switchTab(tab) {
@@ -283,6 +336,91 @@ document.getElementById('tab-generate').addEventListener('click', () => switchTa
 document.getElementById('tab-list').addEventListener('click', () => switchTab('list'));
 
 // ========== 生成工资单 Tab ==========
+
+// 加载公式变量列表
+async function loadFormulaVariables() {
+    if (formulaVariablesLoaded) return;
+    const container = document.getElementById('formula-variable-list');
+    if (!container) return;
+
+    try {
+        const response = await fetch('/api/schema/variables');
+        const result = await response.json();
+        container.innerHTML = '';
+
+        if (!result.success || !result.data || result.data.length === 0) {
+            container.innerHTML = '<div class="text-gray-400 text-xs">暂无可用变量</div>';
+            return;
+        }
+
+        result.data.forEach(group => {
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'mb-2';
+
+            const title = document.createElement('div');
+            title.className = 'text-xs font-semibold text-gray-700 mb-1';
+            title.textContent = group.twin_label || group.twin;
+            groupDiv.appendChild(title);
+
+            const fieldList = document.createElement('div');
+            fieldList.className = 'flex flex-wrap gap-1';
+
+            (group.fields || []).forEach(field => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'px-2 py-0.5 bg-white border border-gray-300 rounded-full text-[11px] text-gray-700 hover:bg-indigo-50 hover:border-indigo-400';
+                btn.textContent = field.full_label || field.label || field.key;
+                btn.title = `变量名: ${field.key}`;
+                btn.dataset.variableKey = field.key;
+                btn.dataset.evalKey = field.eval_key || field.key;
+                btn.onclick = () => insertVariableIntoFormula(field.full_label || field.label || field.key, field.eval_key || field.key);
+                fieldList.appendChild(btn);
+            });
+
+            groupDiv.appendChild(fieldList);
+            container.appendChild(groupDiv);
+        });
+
+        formulaVariablesLoaded = true;
+    } catch (error) {
+        console.error('加载公式变量失败:', error);
+        container.innerHTML = '<div class="text-red-500 text-xs">加载变量失败，请刷新页面重试</div>';
+    }
+}
+
+// 将变量 Token 插入到公式编辑器中（不可拆分的中文 Token）
+function insertVariableIntoFormula(displayLabel, evalKey) {
+    const editor = document.getElementById('formula-editor');
+    if (!editor) return;
+    editor.focus();
+
+    const token = document.createElement('span');
+    token.className = 'inline-flex items-center px-1.5 py-0.5 mx-[1px] my-[1px] rounded bg-indigo-50 border border-indigo-300 text-[11px] text-indigo-700 align-middle';
+    token.textContent = displayLabel;
+    token.setAttribute('data-eval-key', evalKey);
+    token.setAttribute('contenteditable', 'false');
+
+    const space = document.createTextNode(' ');
+
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        if (editor.contains(range.startContainer)) {
+            range.deleteContents();
+            range.insertNode(space);
+            range.insertNode(token);
+            range.setStartAfter(space);
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            return;
+        }
+    }
+
+    // 如果没有有效的光标位置，则追加到末尾
+    editor.appendChild(token);
+    editor.appendChild(space);
+}
 
 // 加载公司列表
 async function loadCompanies() {
@@ -698,7 +836,201 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('generate-period').value = currentMonth;
     
     loadCompanies();
+    loadFormulaVariables();
     switchTab('generate');
+    // 预置示例公式
+    setupInitialFormula();
 });
+
+// 从公式编辑器构建表达式字符串（将 Token 替换为 eval_key）
+function buildExpressionFromEditor() {
+    const editor = document.getElementById('formula-editor');
+    if (!editor) return '';
+    
+    let expression = '';
+    
+    function walk(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            expression += node.textContent;
+            return;
+        }
+        if (node.nodeType === Node.ELEMENT_NODE) {
+            const el = node;
+            const evalKey = el.getAttribute && el.getAttribute('data-eval-key');
+            if (evalKey) {
+                expression += evalKey;
+                return;
+            }
+            const children = el.childNodes;
+            for (let i = 0; i < children.length; i++) {
+                walk(children[i]);
+            }
+        }
+    }
+    
+    walk(editor);
+    return expression.trim();
+}
+
+// 预置一个示例公式到编辑器中（仅在编辑器为空时）
+function setupInitialFormula() {
+    const editor = document.getElementById('formula-editor');
+    if (!editor) return;
+    if (editor.textContent && editor.textContent.trim()) {
+        // 用户已经编辑过，不覆盖
+        return;
+    }
+
+    // 清空编辑器
+    editor.innerHTML = '';
+
+    // 第一行：人员-公司聘用活动.薪资 * grade_coef(人员考核活动.考核等级)
+    insertVariableIntoFormula('人员-公司聘用活动.薪资', 'v_person_company_employment_salary');
+    editor.appendChild(document.createTextNode(' * '));
+    editor.appendChild(document.createTextNode('grade_coef('));
+    insertVariableIntoFormula('人员考核活动.考核等级', 'v_person_assessment_grade');
+    editor.appendChild(document.createTextNode(')\n'));
+
+    // 第二行：- 人员-公司社保基数.缴费基数 * 0.105
+    editor.appendChild(document.createTextNode('- '));
+    insertVariableIntoFormula('人员-公司社保基数.缴费基数', 'v_person_company_social_security_base_base_amount');
+    editor.appendChild(document.createTextNode(' * 0.105\n'));
+
+    // 第三行：- 人员-公司公积金基数.缴费基数 * 0.12
+    editor.appendChild(document.createTextNode('- '));
+    insertVariableIntoFormula('人员-公司公积金基数.缴费基数', 'v_person_company_housing_fund_base_base_amount');
+    editor.appendChild(document.createTextNode(' * 0.12\n'));
+
+    // 第四行：- max(
+    editor.appendChild(document.createTextNode('- max(\n'));
+
+    // 第五行：    (
+    editor.appendChild(document.createTextNode('    (\n'));
+
+    // 第六行：      人员-公司聘用活动.薪资 * grade_coef(人员考核活动.考核等级)
+    editor.appendChild(document.createTextNode('      '));
+    insertVariableIntoFormula('人员-公司聘用活动.薪资', 'v_person_company_employment_salary');
+    editor.appendChild(document.createTextNode(' * '));
+    editor.appendChild(document.createTextNode('grade_coef('));
+    insertVariableIntoFormula('人员考核活动.考核等级', 'v_person_assessment_grade');
+    editor.appendChild(document.createTextNode(')\n'));
+
+    // 第七行：      - 人员-公司社保基数.缴费基数 * 0.105
+    editor.appendChild(document.createTextNode('      - '));
+    insertVariableIntoFormula('人员-公司社保基数.缴费基数', 'v_person_company_social_security_base_base_amount');
+    editor.appendChild(document.createTextNode(' * 0.105\n'));
+
+    // 第八行：      - 人员-公司公积金基数.缴费基数 * 0.12
+    editor.appendChild(document.createTextNode('      - '));
+    insertVariableIntoFormula('人员-公司公积金基数.缴费基数', 'v_person_company_housing_fund_base_base_amount');
+    editor.appendChild(document.createTextNode(' * 0.12\n'));
+
+    // 第九行：      - 人员专项附加扣除.合计扣除金额
+    editor.appendChild(document.createTextNode('      - '));
+    insertVariableIntoFormula('人员专项附加扣除.合计扣除金额', 'tax_deduction_total');
+    editor.appendChild(document.createTextNode('\n'));
+
+    // 第十行：      - 5000
+    editor.appendChild(document.createTextNode('      - 5000\n'));
+
+    // 第十一行：    ) * 0.1,
+    editor.appendChild(document.createTextNode('    ) * 0.1,\n'));
+
+    // 第十二行：    0
+    editor.appendChild(document.createTextNode('    0\n'));
+
+    // 第十三行：  )
+    editor.appendChild(document.createTextNode('  )'));
+}
+
+// 在公式编辑器插入函数模板（如 grade_coef()）
+function insertFunctionIntoEditor(template) {
+    const editor = document.getElementById('formula-editor');
+    if (!editor) return;
+    editor.focus();
+
+    const selection = window.getSelection();
+    const textNode = document.createTextNode(template);
+
+    if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        if (editor.contains(range.startContainer)) {
+            range.deleteContents();
+            range.insertNode(textNode);
+            // 将光标放在插入文本的括号中间
+            const pos = template.indexOf('(') + 1;
+            const newRange = document.createRange();
+            newRange.setStart(textNode, pos > 0 ? pos : textNode.length);
+            newRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+            return;
+        }
+    }
+
+    editor.appendChild(textNode);
+}
+
+// 公式试算按钮
+const formulaEvalBtn = document.getElementById('formula-eval-btn');
+if (formulaEvalBtn) {
+    formulaEvalBtn.addEventListener('click', async () => {
+        const exprHidden = document.getElementById('formula-expression');
+        const errorEl = document.getElementById('formula-result-error');
+        const valueEl = document.getElementById('formula-result-value');
+
+        if (!exprHidden || !errorEl || !valueEl) return;
+
+        errorEl.classList.add('hidden');
+        errorEl.textContent = '';
+
+        const expression = buildExpressionFromEditor();
+        exprHidden.value = expression;
+
+        if (!expression) {
+            errorEl.textContent = '请先输入公式（插入变量并添加运算符）';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+
+        if (!currentCalculationParams) {
+            errorEl.textContent = '请先选择周期、公司、人员并点击“计算工资”，再进行公式试算。';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/payroll/eval-formula', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...currentCalculationParams,
+                    expression
+                })
+            });
+            const result = await response.json();
+            if (!result.success) {
+                errorEl.textContent = result.error || '试算失败';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            const val = result.data && typeof result.data.value !== 'undefined'
+                ? result.data.value
+                : null;
+            valueEl.textContent = val === null ? '-' : formatCurrency(val);
+        } catch (err) {
+            errorEl.textContent = err.message || '试算失败';
+            errorEl.classList.remove('hidden');
+        }
+    });
+}
+
+// 绩效等级系数函数按钮
+const gradeCoefBtn = document.getElementById('fn-grade-coef');
+if (gradeCoefBtn) {
+    gradeCoefBtn.addEventListener('click', () => {
+        insertFunctionIntoEditor('grade_coef()');
+    });
+}
 </script>
 {% endblock %}

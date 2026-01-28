@@ -511,7 +511,7 @@ twins:
         type: enum
         required: true
         label: "考核等级"
-        options: ["优秀", "良好", "合格", "不合格"]
+        options: ["A", "B", "C", "D", "E"]
         ui:
           component: select
       
@@ -1192,7 +1192,7 @@ twins:
         required: false
         label: "考核等级"
         description: "最近一次考核等级（影响绩效奖金）"
-        options: ["优秀", "良好", "合格", "不合格"]
+        options: ["A", "B", "C", "D", "E"]
         ui:
           component: select
       

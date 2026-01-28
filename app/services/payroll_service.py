@@ -311,13 +311,21 @@ class PayrollService:
         """根据考核等级计算绩效奖金（Demo 版，可替换为配置驱动）"""
         if base_salary <= 0 or not grade:
             return 0.0
+        # 兼容旧数据（优秀/良好/合格/不合格）和新数据（A/B/C/D/E）
         bonus_rates = {
-            "优秀": 0.2,
-            "良好": 0.1,
-            "合格": 0.0,
+            # 新等级（推荐）：A-E
+            "A": 0.3,
+            "B": 0.2,
+            "C": 0.1,
+            "D": 0.0,
+            "E": -0.1,
+            # 旧等级（向后兼容）
+            "优秀": 0.3,
+            "良好": 0.2,
+            "合格": 0.1,
             "不合格": -0.1,
         }
-        rate = bonus_rates.get(grade, 0.0)
+        rate = bonus_rates.get(str(grade), 0.0)
         return base_salary * rate
 
     def _calculate_tax(self, taxable_income: float) -> float:

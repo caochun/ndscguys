@@ -311,7 +311,7 @@ def generate_test_data(db_path: Optional[str] = None):
     # 生成考核数据
     print("\n生成考核数据...")
     assessment_count = 0
-    assessment_grades = ["优秀", "良好", "合格", "不合格"]
+    assessment_grades = ["A", "B", "C", "D", "E"]
     assessment_periods = [
         "2024年第一季度", "2024年第二季度", "2024年第三季度", "2024年第四季度",
         "2023年年度", "2024年年度"
@@ -339,10 +339,11 @@ def generate_test_data(db_path: Optional[str] = None):
             
             # 生成评语（根据等级）
             comments_map = {
-                "优秀": "工作表现突出，业绩显著，值得表扬。",
-                "良好": "工作表现良好，能够完成工作任务。",
-                "合格": "工作表现符合要求，基本完成任务。",
-                "不合格": "工作表现有待改进，需要加强学习和提升。"
+                "A": "绩效等级A：工作表现突出，业绩显著，值得表扬。",
+                "B": "绩效等级B：工作表现良好，能够完成工作任务。",
+                "C": "绩效等级C：工作表现符合要求，基本完成任务。",
+                "D": "绩效等级D：工作表现一般，有一定提升空间。",
+                "E": "绩效等级E：工作表现有待改进，需要加强学习和提升。"
             }
             comments = comments_map.get(grade, "")
             

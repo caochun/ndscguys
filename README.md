@@ -260,7 +260,7 @@ Service 不写任何业务 if/else，全靠 Schema。
 
 - **人员考核： `person_assessment`**
   - 关联：`person`
-  - 字段：考核周期、日期、等级（优秀/良好/合格/不合格）、评语等
+  - 字段：考核周期、日期、等级（A/B/C/D/E）、评语等
   - 模式：`versioned`
 
 - **社保基数： `person_company_social_security_base`**
