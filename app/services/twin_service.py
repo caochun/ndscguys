@@ -124,13 +124,14 @@ class TwinService:
         
         return twins
     
-    def get_twin(self, twin_name: str, twin_id: int) -> Optional[Dict[str, Any]]:
+    def get_twin(self, twin_name: str, twin_id: int, enrich: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         获取 Twin 详情（包括历史）
         
         Args:
             twin_name: Twin 名称
             twin_id: Twin ID
+            enrich: 可选，enrich 参数（如 "person,company"），仅对 Activity Twin 有效，用于填充关联实体名称等
         
         Returns:
             Twin 详情，包含 id、current（当前状态）、history（历史记录）
@@ -150,10 +151,11 @@ class TwinService:
         
         result = {
             "id": twin_id,
-            "current": latest_state.data,
+            "current": dict(latest_state.data),
             "history": [
                 {
                     "version": h.version,
+                    "time_key": h.time_key,
                     "ts": h.ts,
                     "data": h.data,
                 }
@@ -161,12 +163,42 @@ class TwinService:
             ]
         }
         
-        # 如果是 Activity Twin，添加关联实体ID
+        # 如果是 Activity Twin，添加关联实体ID，并在需要时 enrich 关联实体名称
         if self._is_activity_twin(twin_name):
             activity = self.twin_dao.get_twin(twin_name, twin_id)
             if activity and isinstance(activity, ActivityTwin):
                 for key, value in activity.related_entity_ids.items():
                     result[key] = value
+                
+                # 若请求了 enrich，则根据 related_entities 查询关联实体的最新状态并填充名称等
+                if enrich:
+                    schema = self.schema_loader.get_twin_schema(twin_name)
+                    if schema and schema.get("related_entities"):
+                        entities_to_enrich = [e.strip() for e in enrich.split(",") if e.strip()]
+                        for rel_entity in schema.get("related_entities", []):
+                            entity_name = rel_entity.get("entity")
+                            if entity_name not in entities_to_enrich:
+                                continue
+                            key = rel_entity.get("key")  # e.g. person_id, company_id
+                            entity_id = activity.related_entity_ids.get(key)
+                            if entity_id is None:
+                                continue
+                            entity_state = self.state_dao.get_latest(entity_name, entity_id)
+                            if entity_state and entity_state.data:
+                                prefix = entity_name
+                                for field_name, field_value in entity_state.data.items():
+                                    if field_name in ("name", "label", "title"):
+                                        enrich_key = f"{prefix}_{field_name}"
+                                        result[enrich_key] = field_value
+                                        result["current"][enrich_key] = field_value
+                                        break
+                                else:
+                                    # 若没有 name/label/title，取第一个非 id 字段作为展示名
+                                    for field_name, field_value in entity_state.data.items():
+                                        if field_name != "id" and field_value is not None:
+                                            result[f"{prefix}_{field_name}"] = field_value
+                                            result["current"][f"{prefix}_{field_name}"] = field_value
+                                            break
         
         return result
     
@@ -244,8 +276,30 @@ class TwinService:
             
             twin_id = self.twin_dao.create_activity_twin(twin_name, related_entity_ids)
         
+        # 检查是否为 time_series 模式，如果是，需要提取 time_key
+        time_key = None
+        if schema.get("mode") == "time_series":
+            # 查找 unique_key 中包含 time_key 的字段，或者查找 storage: unique_key 的字段
+            unique_key = schema.get("unique_key", [])
+            fields = schema.get("fields", {})
+            
+            # 查找作为 time_key 的字段（通常是 unique_key 中除了 activity_id 或 twin_id 之外的字段）
+            for field_name, field_def in fields.items():
+                if field_def.get("storage") == "unique_key" or field_name in unique_key:
+                    # 排除 reference 类型的字段（它们通常是外键）
+                    if field_def.get("type") != "reference" and field_name in data:
+                        time_key = data.get(field_name)
+                        break
+            
+            # 如果没找到，尝试从 unique_key 中查找（排除 id 字段）
+            if not time_key:
+                for key in unique_key:
+                    if key not in ["activity_id", "twin_id", "id"] and key in data:
+                        time_key = data.get(key)
+                        break
+        
         # 添加初始状态
-        self.state_dao.append(twin_name, twin_id, data)
+        self.state_dao.append(twin_name, twin_id, data, time_key=time_key)
         
         # 返回创建的 Twin 信息
         return self.get_twin(twin_name, twin_id)
@@ -269,8 +323,31 @@ class TwinService:
         # 应用自动字段
         data = self._apply_auto_fields(twin_name, data)
         
+        # 检查是否为 time_series 模式，如果是，需要提取 time_key
+        schema = self.schema_loader.get_twin_schema(twin_name)
+        time_key = None
+        if schema and schema.get("mode") == "time_series":
+            # 查找 unique_key 中包含 time_key 的字段，或者查找 storage: unique_key 的字段
+            unique_key = schema.get("unique_key", [])
+            fields = schema.get("fields", {})
+            
+            # 查找作为 time_key 的字段（通常是 unique_key 中除了 activity_id 或 twin_id 之外的字段）
+            for field_name, field_def in fields.items():
+                if field_def.get("storage") == "unique_key" or field_name in unique_key:
+                    # 排除 reference 类型的字段（它们通常是外键）
+                    if field_def.get("type") != "reference" and field_name in data:
+                        time_key = data.get(field_name)
+                        break
+            
+            # 如果没找到，尝试从 unique_key 中查找（排除 id 字段）
+            if not time_key:
+                for key in unique_key:
+                    if key not in ["activity_id", "twin_id", "id"] and key in data:
+                        time_key = data.get(key)
+                        break
+        
         # 追加新状态
-        self.state_dao.append(twin_name, twin_id, data)
+        self.state_dao.append(twin_name, twin_id, data, time_key=time_key)
         
         # 返回更新后的 Twin 信息
         return self.get_twin(twin_name, twin_id)

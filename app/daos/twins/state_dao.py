@@ -152,6 +152,29 @@ class TwinStateDAO(BaseDAO):
         twin_type = TwinType.ENTITY if schema.type == "entity" else TwinType.ACTIVITY
         return TwinState.from_row(dict(row), twin_name, twin_type)
     
+    def get_state_by_time_key(
+        self, twin_name: str, twin_id: int, time_key: str
+    ) -> Optional[TwinState]:
+        """按 time_key 获取时间序列 Twin 的某条状态（仅 time_series 模式有效）"""
+        schema = self._get_twin_schema(twin_name)
+        if schema.mode != StateStreamMode.TIME_SERIES:
+            return None
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                f"""
+                SELECT * FROM {schema.state_table}
+                WHERE twin_id = ? AND time_key = ?
+                LIMIT 1
+                """,
+                (twin_id, time_key),
+            )
+            row = cursor.fetchone()
+        if not row:
+            return None
+        twin_type = TwinType.ENTITY if schema.type == "entity" else TwinType.ACTIVITY
+        return TwinState.from_row(dict(row), twin_name, twin_type)
+    
     def list_states(
         self,
         twin_name: str,

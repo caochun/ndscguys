@@ -4,6 +4,10 @@ API 路由 - REST API 端点
 """
 from __future__ import annotations
 
+import json
+from pathlib import Path
+import json
+from pathlib import Path
 from flask import Blueprint, jsonify, request
 from typing import Optional, Dict, Any
 
@@ -84,10 +88,12 @@ def get_twin(twin_name: str, twin_id: int):
     获取指定 Twin 的详情（包含历史）
     
     GET /api/twins/<twin_name>/<twin_id>
+    GET /api/twins/<twin_name>/<twin_id>?enrich=person,company  （Activity Twin 可携带 enrich 以返回关联实体名称等）
     """
     try:
+        enrich = request.args.get("enrich", "").strip() or None
         service = get_twin_service()
-        twin = service.get_twin(twin_name, twin_id)
+        twin = service.get_twin(twin_name, twin_id, enrich=enrich)
         
         if not twin:
             return standard_response(False, error=f"{twin_name} not found", status_code=404)
@@ -262,6 +268,34 @@ def list_schema_variables():
                     }
                 )
 
+        # 确保考勤记录（事假、病假、奖惩）在可选变量中
+        if not any(g.get("twin") == "person_company_attendance_record" for g in result):
+            att_schema = loader.get_twin_schema("person_company_attendance_record")
+            if att_schema:
+                att_label = att_schema.get("label", "人员-公司考勤记录")
+                att_fields_def = att_schema.get("fields", {})
+                att_fields = []
+                for fn in ("sick_leave_days", "personal_leave_days", "reward_punishment_amount"):
+                    if fn not in att_fields_def:
+                        continue
+                    fd = att_fields_def[fn]
+                    if fd.get("type") not in ("decimal", "number", "integer", "int", "float", "enum"):
+                        continue
+                    raw_key = f"person_company_attendance_record.{fn}"
+                    eval_key = _make_eval_key(raw_key)
+                    att_fields.append({
+                        "key": raw_key,
+                        "eval_key": eval_key,
+                        "label": fd.get("label", fn),
+                        "full_label": f"{att_label}.{fd.get('label', fn)}",
+                    })
+                if att_fields:
+                    result.append({
+                        "twin": "person_company_attendance_record",
+                        "twin_label": att_label,
+                        "fields": att_fields,
+                    })
+
         return standard_response(True, result)
     except Exception as e:
         return standard_response(False, error=str(e), status_code=500)
@@ -319,6 +353,25 @@ def eval_payroll_formula():
             if real_key in base_result:
                 eval_key = _make_eval_key(alias)
                 variables[eval_key] = base_result[real_key]
+
+        # 考勤记录变量：按 person_id, company_id, period 取当期的病假、事假、奖惩
+        twin_service = get_twin_service()
+        att_twins = twin_service.list_twins(
+            "person_company_attendance_record",
+            filters={"person_id": str(person_id), "company_id": str(company_id)},
+        )
+        if att_twins:
+            activity_id = att_twins[0].get("id")
+            if activity_id is not None:
+                att_state = twin_service.state_dao.get_state_by_time_key(
+                    "person_company_attendance_record", int(activity_id), str(period)
+                )
+                if att_state and att_state.data:
+                    for fn in ("sick_leave_days", "personal_leave_days", "reward_punishment_amount"):
+                        raw_key = f"person_company_attendance_record.{fn}"
+                        eval_key = _make_eval_key(raw_key)
+                        val = att_state.data.get(fn)
+                        variables[eval_key] = float(val) if val is not None else 0.0
 
         # 评估表达式
         try:
@@ -449,5 +502,45 @@ def generate_payroll():
         return standard_response(True, result, status_code=201)
     except ValueError as e:
         return standard_response(False, error=str(e), status_code=400)
+    except Exception as e:
+        return standard_response(False, error=str(e), status_code=500)
+
+
+@api_bp.route("/payroll/formula", methods=["GET", "POST"])
+def payroll_formula():
+    """
+    保存或加载工资计算公式（应发薪资 + 社保公积金扣除 + 个税扣除）
+    
+    GET /api/payroll/formula - 加载保存的公式
+    POST /api/payroll/formula - 保存公式
+    Body: {"gross_formula": "...", "deduction_formula": "...", "tax_formula": "..."}
+    兼容旧版: formula 视为 gross_formula
+    """
+    try:
+        formula_file = Config.BASE_DIR / "data" / "payroll_formula.json"
+        formula_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        if request.method == "GET":
+            if formula_file.exists():
+                with open(formula_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if "gross_formula" not in data and "formula" in data:
+                        data["gross_formula"] = data.pop("formula", "")
+                    if "deduction_formula" not in data:
+                        data["deduction_formula"] = ""
+                    if "tax_formula" not in data:
+                        data["tax_formula"] = ""
+                    return standard_response(True, data)
+            return standard_response(True, {"gross_formula": "", "deduction_formula": "", "tax_formula": ""})
+        
+        elif request.method == "POST":
+            payload = request.get_json() or {}
+            gross = payload.get("gross_formula", payload.get("formula", ""))
+            deduction = payload.get("deduction_formula", "")
+            tax = payload.get("tax_formula", "")
+            with open(formula_file, "w", encoding="utf-8") as f:
+                json.dump({"gross_formula": gross, "deduction_formula": deduction, "tax_formula": tax}, f, ensure_ascii=False, indent=2)
+            return standard_response(True, {"message": "公式已保存"})
+    
     except Exception as e:
         return standard_response(False, error=str(e), status_code=500)

@@ -364,7 +364,26 @@ twins:
         type: enum
         required: false
         label: "员工类别"
-        options: ["正式员工", "试用期员工", "实习生", "部门负责人", "其他"]
+        description: "实习、试用、外聘、正式，显示时用不同颜色"
+        options: ["实习", "试用", "外聘", "正式"]
+        ui:
+          component: select
+      
+      position_category:
+        type: enum
+        required: false
+        label: "岗位类别"
+        description: "普通员工、部门负责人、BOSS，显示时用不同颜色"
+        options: ["普通员工", "部门负责人", "BOSS"]
+        ui:
+          component: select
+      
+      job_level:
+        type: enum
+        required: false
+        label: "职位级别"
+        description: "初级、中级、高级、其他，显示时用不同颜色"
+        options: ["初级", "中级", "高级", "其他"]
         ui:
           component: select
       
@@ -467,6 +486,92 @@ twins:
         ui:
           component: number_input
           suffix: "小时"
+
+  person_company_attendance_record:
+    type: activity
+    label: "人员-公司考勤记录"
+    description: "记录人员每月的考勤汇总数据，包括事假、病假、其他情况和奖惩金额"
+    table: "person_company_attendance_record_activities"
+    
+    related_entities:
+      - entity: person
+        role: employee
+        key: person_id
+        required: true
+      - entity: company
+        role: employer
+        key: company_id
+        required: true
+    
+    state_table: "person_company_attendance_record_history"
+    mode: time_series
+    unique_key: [activity_id, period]
+    
+    fields:
+      person_id:
+        type: reference
+        reference_entity: person
+        required: true
+        storage: foreign_key
+      
+      company_id:
+        type: reference
+        reference_entity: company
+        required: true
+        storage: foreign_key
+      
+      period:
+        type: string
+        required: true
+        label: "考勤周期"
+        description: "考勤记录所属周期，格式：YYYY-MM，如 2024-01"
+        validation:
+          pattern: "^\\d{4}-\\d{2}$"
+        storage: unique_key
+        ui:
+          component: text_input
+      
+      sick_leave_days:
+        type: decimal
+        required: false
+        label: "事假天数"
+        description: "当月事假天数"
+        validation:
+          min: 0
+        default: 0
+        ui:
+          component: number_input
+          suffix: "天"
+      
+      personal_leave_days:
+        type: decimal
+        required: false
+        label: "病假天数"
+        description: "当月病假天数"
+        validation:
+          min: 0
+        default: 0
+        ui:
+          component: number_input
+          suffix: "天"
+      
+      other:
+        type: string
+        required: false
+        label: "其他"
+        description: "其他考勤情况说明（用户自定义输入）"
+        ui:
+          component: textarea
+      
+      reward_punishment_amount:
+        type: decimal
+        required: false
+        label: "奖惩金额"
+        description: "当月奖惩金额，正数表示奖励，负数表示惩罚"
+        default: 0
+        ui:
+          component: number_input
+          suffix: "元"
 
   person_assessment:
     type: activity

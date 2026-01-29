@@ -65,6 +65,13 @@ def assessments():
     return render_template("assessments.html", schema=schema_dict)
 
 
+@web_bp.route("/attendance-records")
+def attendance_records():
+    """考勤记录列表页"""
+    schema_dict = build_schema_dict("person_company_attendance_record", "考勤记录")
+    return render_template("attendance_records.html", schema=schema_dict)
+
+
 @web_bp.route("/contributions")
 def contributions():
     """缴费与专项附加扣除汇总页（Tab 视图）"""

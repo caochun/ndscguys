@@ -112,7 +112,9 @@ def generate_test_data(db_path: Optional[str] = None):
         
         positions = ["软件工程师", "高级软件工程师", "产品经理", "项目经理", "测试工程师", "UI设计师"]
         departments = ["研发部", "产品部", "测试部", "设计部"]
-        employee_types = ["正式员工", "试用期员工", "部门负责人"]
+        employee_types = ["实习", "试用", "外聘", "正式"]
+        position_categories = ["普通员工", "部门负责人", "BOSS"]
+        job_levels = ["初级", "中级", "高级", "其他"]
         
         salary_type, salary = generate_salary()
         
@@ -123,6 +125,8 @@ def generate_test_data(db_path: Optional[str] = None):
             "department": random.choice(departments),
             "employee_number": employee_number,
             "employee_type": random.choice(employee_types),
+            "position_category": random.choice(position_categories),
+            "job_level": random.choice(job_levels),
             "salary_type": salary_type,
             "salary": salary,
             "change_type": "入职",
@@ -161,6 +165,8 @@ def generate_test_data(db_path: Optional[str] = None):
                     "department": new_department,
                     "employee_number": new_employee_number,
                     "employee_type": random.choice(employee_types),
+                    "position_category": random.choice(position_categories),
+                    "job_level": random.choice(job_levels),
                     "salary_type": new_salary_type,
                     "salary": new_salary,
                     "change_type": "转公司",
@@ -178,6 +184,8 @@ def generate_test_data(db_path: Optional[str] = None):
                     "department": new_department,
                     "employee_number": employee_number,  # 员工号不变
                     "employee_type": random.choice(employee_types),
+                    "position_category": random.choice(position_categories),
+                    "job_level": random.choice(job_levels),
                     "salary_type": new_salary_type,
                     "salary": new_salary,
                     "change_type": "转岗",
@@ -699,6 +707,60 @@ def generate_test_data(db_path: Optional[str] = None):
     
     print(f"  生成人员参与订单记录: {participation_count} 条")
     
+    # 生成考勤记录数据
+    print("\n生成考勤记录数据...")
+    attendance_record_count = 0
+    
+    # 为有聘用记录的人员生成最近3个月的考勤记录
+    for employment_id, person_id, company_id in employments:
+        # 为每个 person-company 组合创建一个考勤记录活动
+        attendance_record_id = twin_dao.create_activity_twin(
+            "person_company_attendance_record",
+            {
+                "person_id": person_id,
+                "company_id": company_id,
+            }
+        )
+        
+        # 生成最近3个月的考勤记录
+        for month_offset in range(3):
+            period_date = datetime.now() - timedelta(days=30 * month_offset)
+            period = period_date.strftime("%Y-%m")
+            
+            # 随机生成考勤数据
+            sick_leave = random.choice([0, 0, 0, 0, 0.5, 1, 1.5, 2])  # 大部分为0，少数有请假
+            personal_leave = random.choice([0, 0, 0, 0, 0.5, 1, 2])  # 大部分为0，少数有病假
+            
+            other = None
+            if random.random() < 0.3:  # 30% 概率有其他情况
+                other_options = [
+                    "调休半天",
+                    "外出培训",
+                    "出差3天",
+                    "加班补休",
+                    "年假2天",
+                    "婚假3天"
+                ]
+                other = random.choice(other_options)
+            
+            # 奖惩金额（大部分为0，少数有奖惩）
+            reward_punishment = 0
+            if random.random() < 0.2:  # 20% 概率有奖惩
+                reward_punishment = random.choice([-200, -100, 0, 100, 200, 300, 500])
+            
+            state_dao.append("person_company_attendance_record", attendance_record_id, {
+                "person_id": person_id,
+                "company_id": company_id,
+                "period": period,
+                "sick_leave_days": float(sick_leave),
+                "personal_leave_days": float(personal_leave),
+                "other": other,
+                "reward_punishment_amount": float(reward_punishment),
+            }, time_key=period)
+            attendance_record_count += 1
+    
+    print(f"  生成考勤记录: {attendance_record_count} 条")
+    
     print("\n测试数据生成完成！")
     print(f"  公司: {len(companies)} 个")
     print(f"  人员: {len(persons)} 个")
@@ -714,6 +776,7 @@ def generate_test_data(db_path: Optional[str] = None):
     print(f"  内部项目: {len(internal_projects)} 个")
     print(f"  内部项目-订单关联: {project_order_count} 条")
     print(f"  人员参与订单记录: {participation_count} 条")
+    print(f"  考勤记录: {attendance_record_count} 条")
 
 
 if __name__ == "__main__":

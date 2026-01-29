@@ -80,23 +80,59 @@
                 <div class="md:col-span-2 flex flex-col gap-3">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">
-                            公式（中文变量 Token）
+                            应发薪资计算公式（中文变量 Token）
                         </label>
-                        <div id="formula-editor" contenteditable="true" class="w-full min-h-[120px] px-3 py-2 border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-400">
+                        <div id="formula-editor" contenteditable="true" class="w-full min-h-[100px] px-3 py-2 border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-400">
                         </div>
                         <input type="hidden" id="formula-expression">
                         <p class="mt-1 text-xs text-gray-400">
-                            在此区域中编辑公式：可以输入数字、+ - * / 和括号，点击左侧变量会插入<strong>中文变量 Token</strong>（不可拆分），系统会自动映射到内部变量名并进行计算。
+                            在此区域编辑应发公式：可输入数字、+ - * / 和括号，点击左侧变量插入<strong>中文变量 Token</strong>，系统会映射到内部变量名并计算。
                         </p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            社保公积金扣除计算公式（中文变量 Token）
+                        </label>
+                        <div id="deduction-formula-editor" contenteditable="true" class="w-full min-h-[100px] px-3 py-2 border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-400">
+                        </div>
+                        <input type="hidden" id="deduction-formula-expression">
+                        <p class="mt-1 text-xs text-gray-400">
+                            在此区域编辑社保、公积金等扣除的合计表达式，同样使用左侧变量与函数。
+                        </p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            个税扣除计算公式（中文变量 Token）
+                        </label>
+                        <div id="tax-formula-editor" contenteditable="true" class="w-full min-h-[100px] px-3 py-2 border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-400">
+                        </div>
+                        <input type="hidden" id="tax-formula-expression">
+                        <p class="mt-1 text-xs text-gray-400">
+                            在此区域编辑个人所得税扣除的表达式，同样使用左侧变量与函数。
+                        </p>
+                        <div class="mt-2">
+                            <button id="formula-save-btn" class="inline-flex items-center px-3 py-1.5 border border-green-600 text-xs font-medium rounded-md text-green-600 bg-white hover:bg-green-50">
+                                保存公式
+                            </button>
+                        </div>
                     </div>
 
                     <div>
                         <h4 class="text-xs font-medium text-gray-700 mb-1">可用函数</h4>
-                        <div class="flex flex-wrap gap-2">
+                        <div class="flex flex-wrap gap-2 items-center">
                             <button type="button" id="fn-grade-coef" class="px-2 py-0.5 bg-white border border-gray-300 rounded-full text-[11px] text-gray-700 hover:bg-indigo-50 hover:border-indigo-400" title="将绩效等级（A-E）转换为系数：A=1.2, B=1.0, C=0.8, D=0.6, E=0.4">
                                 绩效等级系数：grade_coef(等级)
                             </button>
-                            <span class="text-[11px] text-gray-400 self-center">例如：基本薪资 × grade_coef(人员考核活动.考核等级)</span>
+                            <button type="button" id="fn-prorate" class="px-2 py-0.5 bg-white border border-gray-300 rounded-full text-[11px] text-gray-700 hover:bg-indigo-50 hover:border-indigo-400" title="对薪资进行折算（用于中途入职或中途转正等情况）：prorate(薪资)">
+                                薪资折算：prorate(薪资)
+                            </button>
+                            <button type="button" id="fn-position-base-coef" class="px-2 py-0.5 bg-white border border-gray-300 rounded-full text-[11px] text-gray-700 hover:bg-indigo-50 hover:border-indigo-400" title="根据岗位返回基础薪资系数：position_base_coef(岗位)">
+                                岗位基础薪资系数：position_base_coef(岗位)
+                            </button>
+                            <button type="button" id="fn-position-perf-coef" class="px-2 py-0.5 bg-white border border-gray-300 rounded-full text-[11px] text-gray-700 hover:bg-indigo-50 hover:border-indigo-400" title="根据岗位返回绩效薪资系数：position_perf_coef(岗位)">
+                                岗位绩效薪资系数：position_perf_coef(岗位)
+                            </button>
+                            <span class="text-[11px] text-gray-400 self-center">例如：基本薪资 × grade_coef(人员考核活动.考核等级) 或 prorate(基本薪资)</span>
                         </div>
                     </div>
 
@@ -388,9 +424,28 @@ async function loadFormulaVariables() {
     }
 }
 
+// 记录最后获得焦点的公式编辑器（点击变量时焦点在按钮上，用此判断插入到哪个编辑框）
+let lastFocusedFormulaEditor = null;
+function getActiveFormulaEditor() {
+    const gross = document.getElementById('formula-editor');
+    const deduction = document.getElementById('deduction-formula-editor');
+    const tax = document.getElementById('tax-formula-editor');
+    const active = document.activeElement;
+    if (active === gross || active === deduction || active === tax) return active;
+    return lastFocusedFormulaEditor || gross || deduction || tax;
+}
+function initFormulaEditorFocusTracking() {
+    const gross = document.getElementById('formula-editor');
+    const deduction = document.getElementById('deduction-formula-editor');
+    const tax = document.getElementById('tax-formula-editor');
+    if (gross) gross.addEventListener('focus', () => { lastFocusedFormulaEditor = gross; });
+    if (deduction) deduction.addEventListener('focus', () => { lastFocusedFormulaEditor = deduction; });
+    if (tax) tax.addEventListener('focus', () => { lastFocusedFormulaEditor = tax; });
+}
+
 // 将变量 Token 插入到公式编辑器中（不可拆分的中文 Token）
 function insertVariableIntoFormula(displayLabel, evalKey) {
-    const editor = document.getElementById('formula-editor');
+    const editor = getActiveFormulaEditor();
     if (!editor) return;
     editor.focus();
 
@@ -837,9 +892,12 @@ window.addEventListener('DOMContentLoaded', () => {
     
     loadCompanies();
     loadFormulaVariables();
+    initFormulaEditorFocusTracking();
     switchTab('generate');
     // 预置示例公式
     setupInitialFormula();
+    // 加载保存的公式
+    loadSavedFormula();
 });
 
 // 从公式编辑器构建表达式字符串（将 Token 替换为 eval_key）
@@ -874,78 +932,16 @@ function buildExpressionFromEditor() {
 
 // 预置一个示例公式到编辑器中（仅在编辑器为空时）
 function setupInitialFormula() {
+    // 不再初始化公式，保持空白
     const editor = document.getElementById('formula-editor');
     if (!editor) return;
-    if (editor.textContent && editor.textContent.trim()) {
-        // 用户已经编辑过，不覆盖
-        return;
-    }
-
-    // 清空编辑器
+    // 确保编辑器为空
     editor.innerHTML = '';
-
-    // 第一行：人员-公司聘用活动.薪资 * grade_coef(人员考核活动.考核等级)
-    insertVariableIntoFormula('人员-公司聘用活动.薪资', 'v_person_company_employment_salary');
-    editor.appendChild(document.createTextNode(' * '));
-    editor.appendChild(document.createTextNode('grade_coef('));
-    insertVariableIntoFormula('人员考核活动.考核等级', 'v_person_assessment_grade');
-    editor.appendChild(document.createTextNode(')\n'));
-
-    // 第二行：- 人员-公司社保基数.缴费基数 * 0.105
-    editor.appendChild(document.createTextNode('- '));
-    insertVariableIntoFormula('人员-公司社保基数.缴费基数', 'v_person_company_social_security_base_base_amount');
-    editor.appendChild(document.createTextNode(' * 0.105\n'));
-
-    // 第三行：- 人员-公司公积金基数.缴费基数 * 0.12
-    editor.appendChild(document.createTextNode('- '));
-    insertVariableIntoFormula('人员-公司公积金基数.缴费基数', 'v_person_company_housing_fund_base_base_amount');
-    editor.appendChild(document.createTextNode(' * 0.12\n'));
-
-    // 第四行：- max(
-    editor.appendChild(document.createTextNode('- max(\n'));
-
-    // 第五行：    (
-    editor.appendChild(document.createTextNode('    (\n'));
-
-    // 第六行：      人员-公司聘用活动.薪资 * grade_coef(人员考核活动.考核等级)
-    editor.appendChild(document.createTextNode('      '));
-    insertVariableIntoFormula('人员-公司聘用活动.薪资', 'v_person_company_employment_salary');
-    editor.appendChild(document.createTextNode(' * '));
-    editor.appendChild(document.createTextNode('grade_coef('));
-    insertVariableIntoFormula('人员考核活动.考核等级', 'v_person_assessment_grade');
-    editor.appendChild(document.createTextNode(')\n'));
-
-    // 第七行：      - 人员-公司社保基数.缴费基数 * 0.105
-    editor.appendChild(document.createTextNode('      - '));
-    insertVariableIntoFormula('人员-公司社保基数.缴费基数', 'v_person_company_social_security_base_base_amount');
-    editor.appendChild(document.createTextNode(' * 0.105\n'));
-
-    // 第八行：      - 人员-公司公积金基数.缴费基数 * 0.12
-    editor.appendChild(document.createTextNode('      - '));
-    insertVariableIntoFormula('人员-公司公积金基数.缴费基数', 'v_person_company_housing_fund_base_base_amount');
-    editor.appendChild(document.createTextNode(' * 0.12\n'));
-
-    // 第九行：      - 人员专项附加扣除.合计扣除金额
-    editor.appendChild(document.createTextNode('      - '));
-    insertVariableIntoFormula('人员专项附加扣除.合计扣除金额', 'tax_deduction_total');
-    editor.appendChild(document.createTextNode('\n'));
-
-    // 第十行：      - 5000
-    editor.appendChild(document.createTextNode('      - 5000\n'));
-
-    // 第十一行：    ) * 0.1,
-    editor.appendChild(document.createTextNode('    ) * 0.1,\n'));
-
-    // 第十二行：    0
-    editor.appendChild(document.createTextNode('    0\n'));
-
-    // 第十三行：  )
-    editor.appendChild(document.createTextNode('  )'));
 }
 
 // 在公式编辑器插入函数模板（如 grade_coef()）
 function insertFunctionIntoEditor(template) {
-    const editor = document.getElementById('formula-editor');
+    const editor = getActiveFormulaEditor();
     if (!editor) return;
     editor.focus();
 
@@ -1032,5 +1028,107 @@ if (gradeCoefBtn) {
         insertFunctionIntoEditor('grade_coef()');
     });
 }
+
+// 薪资折算函数按钮
+const prorateBtn = document.getElementById('fn-prorate');
+if (prorateBtn) {
+    prorateBtn.addEventListener('click', () => {
+        insertFunctionIntoEditor('prorate(薪资)');
+    });
+}
+
+// 岗位基础薪资系数函数按钮
+const positionBaseCoefBtn = document.getElementById('fn-position-base-coef');
+if (positionBaseCoefBtn) {
+    positionBaseCoefBtn.addEventListener('click', () => {
+        insertFunctionIntoEditor('position_base_coef(岗位)');
+    });
+}
+
+// 岗位绩效薪资系数函数按钮
+const positionPerfCoefBtn = document.getElementById('fn-position-perf-coef');
+if (positionPerfCoefBtn) {
+    positionPerfCoefBtn.addEventListener('click', () => {
+        insertFunctionIntoEditor('position_perf_coef(岗位)');
+    });
+}
+
+// 从公式编辑器获取HTML内容（保留token样式）
+function getFormulaHTML() {
+    const editor = document.getElementById('formula-editor');
+    if (!editor) return '';
+    return editor.innerHTML || '';
+}
+function getDeductionFormulaHTML() {
+    const editor = document.getElementById('deduction-formula-editor');
+    if (!editor) return '';
+    return editor.innerHTML || '';
+}
+function getTaxFormulaHTML() {
+    const editor = document.getElementById('tax-formula-editor');
+    if (!editor) return '';
+    return editor.innerHTML || '';
+}
+
+// 从公式编辑器获取纯文本内容（用于构建表达式）
+function getFormulaText() {
+    const editor = document.getElementById('formula-editor');
+    if (!editor) return '';
+    return editor.textContent || editor.innerText || '';
+}
+
+// 加载保存的公式（应发 + 社保公积金扣除 + 个税扣除）
+async function loadSavedFormula() {
+    try {
+        const response = await fetch('/api/payroll/formula');
+        const result = await response.json();
+        if (!result.success || !result.data) return;
+        const data = result.data;
+        const grossHTML = data.gross_formula != null ? data.gross_formula : (data.formula || '');
+        const deductionHTML = data.deduction_formula || '';
+        const taxHTML = data.tax_formula || '';
+        const grossEditor = document.getElementById('formula-editor');
+        const deductionEditor = document.getElementById('deduction-formula-editor');
+        const taxEditor = document.getElementById('tax-formula-editor');
+        if (grossEditor) grossEditor.innerHTML = grossHTML;
+        if (deductionEditor) deductionEditor.innerHTML = deductionHTML;
+        if (taxEditor) taxEditor.innerHTML = taxHTML;
+    } catch (error) {
+        console.error('加载公式失败:', error);
+    }
+}
+
+// 保存公式按钮（同时保存应发、社保公积金扣除、个税扣除公式）
+const saveFormulaBtn = document.getElementById('formula-save-btn');
+if (saveFormulaBtn) {
+    saveFormulaBtn.addEventListener('click', async () => {
+        const grossHTML = getFormulaHTML();
+        const deductionHTML = getDeductionFormulaHTML();
+        const taxHTML = getTaxFormulaHTML();
+        const grossText = getFormulaText();
+        const deductionText = (document.getElementById('deduction-formula-editor') || {}).textContent || '';
+        const taxText = (document.getElementById('tax-formula-editor') || {}).textContent || '';
+        if (!grossText.trim() && !deductionText.trim() && !taxText.trim()) {
+            alert('请至少填写一项公式（应发薪资、社保公积金扣除或个税扣除）');
+            return;
+        }
+        try {
+            const response = await fetch('/api/payroll/formula', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gross_formula: grossHTML, deduction_formula: deductionHTML, tax_formula: taxHTML })
+            });
+            const result = await response.json();
+            if (result.success) {
+                alert('公式已保存');
+            } else {
+                alert('保存失败: ' + (result.error || '未知错误'));
+            }
+        } catch (error) {
+            alert('保存失败: ' + error.message);
+        }
+    });
+}
+
 </script>
 {% endblock %}

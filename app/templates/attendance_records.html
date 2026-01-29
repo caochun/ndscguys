@@ -1,0 +1,650 @@
+{% extends "base.html" %}
+
+{% block title %}考勤记录管理 - HRMS{% endblock %}
+
+{% block extra_head %}
+<script src="/static/js/schema-utils.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="mb-6 flex justify-between items-center">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">考勤记录管理</h2>
+            <p class="mt-1 text-sm text-gray-500">记录人员每月的考勤汇总数据，包括事假、病假、其他情况和奖惩金额</p>
+        </div>
+        <button id="add-attendance-record-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm text-sm">
+            + 新增考勤记录
+        </button>
+    </div>
+
+    <!-- 过滤器区域 -->
+    <div id="filter-section" class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-medium text-gray-700">筛选条件</h3>
+            <button id="toggle-filter" class="text-sm text-indigo-600 hover:text-indigo-700">
+                <span id="filter-toggle-text">展开</span>
+                <svg id="filter-toggle-icon" class="inline-block w-4 h-4 ml-1 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+        </div>
+        <div id="filter-content" class="hidden">
+            <div id="filter-fields" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- 动态生成过滤器字段 -->
+            </div>
+            <div class="flex justify-end gap-3 mt-4 pt-4 border-t">
+                <button id="reset-filter-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                    重置
+                </button>
+                <button id="apply-filter-btn" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                    应用筛选
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载状态 -->
+    <div id="loading" class="text-center py-12">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <p class="mt-2 text-sm text-gray-500">加载中...</p>
+    </div>
+
+    <!-- 错误提示 -->
+    <div id="error" class="hidden bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-red-800">加载失败</h3>
+                <p id="error-message" class="mt-2 text-sm text-red-700"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 考勤记录表格 -->
+    <div id="attendance-records-container" class="hidden overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+        <table class="min-w-full divide-y divide-gray-300">
+            <thead class="bg-gray-50">
+                <tr id="table-header">
+                    <!-- 动态生成表头 -->
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 bg-white" id="table-body">
+                <!-- 动态生成表格行 -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 考勤记录详情模态框 -->
+    <div id="attendance-record-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">考勤记录详情</h3>
+                    <button id="close-modal" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div id="attendance-record-detail-content">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 考勤记录表单模态框（新增/编辑） -->
+    <div id="attendance-record-form-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 id="attendance-record-form-modal-title" class="text-lg font-medium text-gray-900">新增考勤记录</h3>
+                    <button id="close-attendance-record-form-modal" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form id="attendance-record-form" class="space-y-4">
+                    <div id="attendance-record-form-fields">
+                        <!-- 动态生成表单字段 -->
+                    </div>
+                    
+                    <div class="flex justify-end gap-3 pt-4 border-t">
+                        <button type="button" id="cancel-attendance-record-form-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                            取消
+                        </button>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Schema 定义（从后端传递）
+const schema = {{ schema | tojson }};
+
+// 确保字段顺序
+ensureFieldOrder(schema);
+
+// 当前过滤条件
+let currentFilters = {};
+let currentEditAttendanceRecordId = null;
+let allPersons = [];
+let allCompanies = [];
+
+// 切换过滤器可见性
+function toggleFilter() {
+    const filterContent = document.getElementById('filter-content');
+    const toggleText = document.getElementById('filter-toggle-text');
+    const toggleIcon = document.getElementById('filter-toggle-icon');
+    
+    filterContent.classList.toggle('hidden');
+    if (filterContent.classList.contains('hidden')) {
+        toggleText.textContent = '展开';
+        toggleIcon.classList.remove('rotate-180');
+    } else {
+        toggleText.textContent = '收起';
+        toggleIcon.classList.add('rotate-180');
+    }
+}
+
+// 基于 Schema 动态渲染过滤器字段
+function renderFilterFields() {
+    const filterFields = document.getElementById('filter-fields');
+    if (!filterFields) return;
+    
+    filterFields.innerHTML = '';
+    
+    // 定义筛选字段配置（包括 enrich 字段）
+    const filterableFieldsConfig = [
+        {
+            fieldName: 'person_name',
+            label: '人员-姓名',
+            type: 'text'
+        },
+        {
+            fieldName: 'company_name',
+            label: '公司-名称',
+            type: 'text'
+        },
+        {
+            fieldName: 'period',
+            label: '考勤周期',
+            type: 'text',
+            placeholder: '格式：YYYY-MM，如 2024-01'
+        }
+    ];
+    
+    // 渲染每个筛选字段
+    filterableFieldsConfig.forEach(config => {
+        const value = currentFilters[config.fieldName] || '';
+        
+        let fieldHtml = '<div class="flex flex-col">';
+        fieldHtml += `<label for="filter-${config.fieldName}" class="text-sm font-medium text-gray-700 mb-1">${config.label}</label>`;
+        
+        if (config.type === 'text') {
+            fieldHtml += `<input type="text" id="filter-${config.fieldName}" name="filter-${config.fieldName}" value="${value}" placeholder="${config.placeholder || '请输入' + config.label}" class="px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors">`;
+        }
+        
+        fieldHtml += '</div>';
+        filterFields.innerHTML += fieldHtml;
+    });
+}
+
+// 获取当前过滤条件
+function getFilterValues() {
+    const filters = {};
+    const filterableFields = ['person_name', 'company_name', 'period'];
+    
+    filterableFields.forEach(fieldName => {
+        const filterInput = document.getElementById(`filter-${fieldName}`);
+        if (filterInput && filterInput.value && filterInput.value.trim()) {
+            filters[fieldName] = filterInput.value.trim();
+        }
+    });
+    
+    return filters;
+}
+
+// 应用筛选
+function applyFilters() {
+    currentFilters = getFilterValues();
+    loadAttendanceRecords(currentFilters);
+}
+
+// 重置筛选
+function resetFilters() {
+    currentFilters = {};
+    renderFilterFields(); // 重新渲染以清空输入
+    loadAttendanceRecords();
+}
+
+// 加载考勤记录列表
+async function loadAttendanceRecords(filters = {}) {
+    const loading = document.getElementById('loading');
+    const error = document.getElementById('error');
+    const container = document.getElementById('attendance-records-container');
+    
+    try {
+        loading.classList.remove('hidden');
+        error.classList.add('hidden');
+        container.classList.add('hidden');
+        
+        let url = '/api/twins/person_company_attendance_record?enrich=person,company';
+        const queryParams = new URLSearchParams();
+        for (const key in filters) {
+            queryParams.append(key, filters[key]);
+        }
+        if (queryParams.toString()) {
+            url += `&${queryParams.toString()}`;
+        }
+        
+        const response = await fetch(url);
+        const result = await response.json();
+        
+        loading.classList.add('hidden');
+        
+        if (!result.success) {
+            error.classList.remove('hidden');
+            document.getElementById('error-message').textContent = result.error;
+            return;
+        }
+        
+        error.classList.add('hidden');
+        container.classList.remove('hidden');
+        
+        // 渲染表格
+        if (result.data && result.data.length > 0) {
+            renderTable(result.data);
+        } else {
+            container.innerHTML = '<div class="text-center py-12 text-gray-500">暂无数据</div>';
+        }
+    } catch (err) {
+        loading.classList.add('hidden');
+        error.classList.remove('hidden');
+        document.getElementById('error-message').textContent = err.message;
+    }
+}
+
+// 渲染表格
+function renderTable(records) {
+    const headerRow = document.getElementById('table-header');
+    const tbody = document.getElementById('table-body');
+    
+    if (!headerRow || !tbody) return;
+    
+    headerRow.innerHTML = '';
+    tbody.innerHTML = '';
+    
+    // 定义表格列
+    const columns = [
+        { key: 'person_name', label: '人员姓名' },
+        { key: 'company_name', label: '公司名称' },
+        { key: 'period', label: '考勤周期' },
+        { key: 'sick_leave_days', label: '事假天数' },
+        { key: 'personal_leave_days', label: '病假天数' },
+        { key: 'other', label: '其他' },
+        { key: 'reward_punishment_amount', label: '奖惩金额' },
+        { key: 'actions', label: '操作' }
+    ];
+    
+    // 渲染表头
+    columns.forEach(col => {
+        const th = document.createElement('th');
+        th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+        th.textContent = col.label;
+        headerRow.appendChild(th);
+    });
+    
+    // 渲染表格行
+    records.forEach(record => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50';
+        
+        columns.forEach(col => {
+            const td = document.createElement('td');
+            td.className = 'whitespace-nowrap px-6 py-4 text-sm text-gray-900';
+            
+            if (col.key === 'actions') {
+                td.innerHTML = `
+                    <button onclick="showAttendanceRecordDetail('${record.id}')" class="text-indigo-600 hover:text-indigo-900 mr-3">查看</button>
+                    <button onclick="editAttendanceRecord('${record.id}')" class="text-indigo-600 hover:text-indigo-900 mr-3">编辑</button>
+                `;
+            } else if (col.key === 'reward_punishment_amount') {
+                const amount = record[col.key] || 0;
+                const color = amount >= 0 ? 'text-green-600' : 'text-red-600';
+                td.className += ` font-semibold ${color}`;
+                td.textContent = amount >= 0 ? `+¥${amount.toFixed(2)}` : `-¥${Math.abs(amount).toFixed(2)}`;
+            } else if (col.key === 'sick_leave_days' || col.key === 'personal_leave_days') {
+                const days = record[col.key] || 0;
+                td.textContent = days > 0 ? `${days} 天` : '-';
+            } else if (col.key === 'other') {
+                td.textContent = record[col.key] || '-';
+                td.className = 'px-6 py-4 text-sm text-gray-900'; // 允许换行
+            } else {
+                td.textContent = record[col.key] || '-';
+            }
+            
+            tr.appendChild(td);
+        });
+        
+        tbody.appendChild(tr);
+    });
+}
+
+// 显示考勤记录详情
+async function showAttendanceRecordDetail(recordId) {
+    try {
+        const response = await fetch(`/api/twins/person_company_attendance_record/${recordId}?enrich=person,company`);
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('加载失败: ' + result.error);
+            return;
+        }
+        
+        const record = result.data;
+        const data = record.current;
+        const modal = document.getElementById('attendance-record-modal');
+        const content = document.getElementById('attendance-record-detail-content');
+        
+        let html = '<div class="space-y-6">';
+        
+        // 当前信息
+        html += '<div>';
+        html += '<h4 class="text-md font-semibold text-gray-900 mb-3">当前信息</h4>';
+        html += '<div class="bg-gray-50 rounded-lg p-4 grid grid-cols-2 gap-4">';
+        html += `<div><span class="text-sm font-medium text-gray-700">人员姓名:</span> <span class="text-sm text-gray-900">${data.person_name || '-'}</span></div>`;
+        html += `<div><span class="text-sm font-medium text-gray-700">公司名称:</span> <span class="text-sm text-gray-900">${data.company_name || '-'}</span></div>`;
+        html += `<div><span class="text-sm font-medium text-gray-700">考勤周期:</span> <span class="text-sm text-gray-900">${data.period || '-'}</span></div>`;
+        html += `<div><span class="text-sm font-medium text-gray-700">事假天数:</span> <span class="text-sm text-gray-900">${data.sick_leave_days || 0} 天</span></div>`;
+        html += `<div><span class="text-sm font-medium text-gray-700">病假天数:</span> <span class="text-sm text-gray-900">${data.personal_leave_days || 0} 天</span></div>`;
+        html += `<div><span class="text-sm font-medium text-gray-700">奖惩金额:</span> <span class="text-sm font-semibold ${(data.reward_punishment_amount || 0) >= 0 ? 'text-green-600' : 'text-red-600'}">${(data.reward_punishment_amount || 0) >= 0 ? '+' : ''}¥${(data.reward_punishment_amount || 0).toFixed(2)}</span></div>`;
+        html += `</div>`;
+        if (data.other) {
+            html += `<div class="mt-2"><span class="text-sm font-medium text-gray-700">其他情况:</span> <p class="text-sm text-gray-900 mt-1">${data.other}</p></div>`;
+        }
+        html += '</div>';
+        
+        // 历史版本列表
+        if (record.history && record.history.length > 0) {
+            html += '<div>';
+            html += '<h4 class="text-md font-semibold text-gray-900 mb-3">历史版本</h4>';
+            html += '<div class="overflow-x-auto">';
+            html += '<table class="min-w-full divide-y divide-gray-200">';
+            html += '<thead class="bg-gray-50">';
+            html += '<tr>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">周期</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">更新时间</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">公司</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">事假(天)</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">病假(天)</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">其他</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">奖惩(元)</th>';
+            html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+            
+            const companyName = data.company_name || '-';
+            for (const h of record.history) {
+                const d = h.data || {};
+                const period = h.time_key || d.period || '-';
+                const ts = h.ts ? new Date(h.ts).toLocaleString('zh-CN') : '-';
+                const sick = d.sick_leave_days != null ? d.sick_leave_days : '-';
+                const personal = d.personal_leave_days != null ? d.personal_leave_days : '-';
+                const other = d.other || '-';
+                const amount = d.reward_punishment_amount != null ? d.reward_punishment_amount : '-';
+                const amountDisplay = amount === '-' ? '-' : (amount >= 0 ? `+¥${Number(amount).toFixed(2)}` : `-¥${Math.abs(Number(amount)).toFixed(2)}`);
+                const amountClass = amount !== '-' && Number(amount) >= 0 ? 'text-green-600' : amount !== '-' ? 'text-red-600' : '';
+                html += '<tr>';
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${period}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-500">${ts}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${companyName}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${sick}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${personal}</td>`;
+                const otherEscaped = (other != null ? String(other) : '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                html += `<td class="px-4 py-3 text-sm text-gray-900 max-w-xs truncate" title="${otherEscaped}">${other || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm font-medium ${amountClass}">${amountDisplay}</td>`;
+                html += '</tr>';
+            }
+            
+            html += '</tbody></table></div></div>';
+        }
+        
+        html += '</div>';
+        
+        content.innerHTML = html;
+        modal.classList.remove('hidden');
+    } catch (error) {
+        alert('加载失败: ' + error.message);
+    }
+}
+
+// 打开新增表单
+function openAddForm() {
+    currentEditAttendanceRecordId = null;
+    document.getElementById('attendance-record-form-modal-title').textContent = '新增考勤记录';
+    document.getElementById('attendance-record-form').reset();
+    document.getElementById('attendance-record-form-fields').innerHTML = '';
+    
+    // 动态生成表单字段
+    renderFormFields({});
+    
+    document.getElementById('attendance-record-form-modal').classList.remove('hidden');
+}
+
+// 编辑考勤记录
+async function editAttendanceRecord(recordId) {
+    try {
+        const response = await fetch(`/api/twins/person_company_attendance_record/${recordId}?enrich=person,company`);
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('加载失败: ' + result.error);
+            return;
+        }
+        
+        currentEditAttendanceRecordId = recordId;
+        document.getElementById('attendance-record-form-modal-title').textContent = '编辑考勤记录';
+        document.getElementById('attendance-record-form').reset();
+        document.getElementById('attendance-record-form-fields').innerHTML = '';
+        
+        // 动态生成表单字段并填充数据
+        renderFormFields(result.data.current);
+        
+        document.getElementById('attendance-record-form-modal').classList.remove('hidden');
+    } catch (error) {
+        alert('加载失败: ' + error.message);
+    }
+}
+
+// 渲染表单字段
+function renderFormFields(data = {}) {
+    const formFields = document.getElementById('attendance-record-form-fields');
+    if (!formFields) return;
+    
+    formFields.innerHTML = '';
+    
+    const fields = schema.fields || {};
+    const fieldsToRender = ['person_id', 'company_id', 'period', 'sick_leave_days', 'personal_leave_days', 'other', 'reward_punishment_amount'];
+    
+    fieldsToRender.forEach(fieldName => {
+        const fieldDef = fields[fieldName];
+        if (!fieldDef) return;
+        
+        const label = fieldDef.label || fieldName;
+        const required = fieldDef.required || false;
+        const fieldType = fieldDef.type || 'string';
+        const uiComponent = fieldDef.ui?.component || 'text_input';
+        
+        let value = data[fieldName] || fieldDef.default || '';
+        
+        // 两列布局
+        let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
+        fieldHtml += `<div class="md:col-span-1">
+            <label for="attendance-record-${fieldName}" class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>`;
+        fieldHtml += '</div>';
+        
+        fieldHtml += '<div class="md:col-span-2">';
+        
+        const inputBaseClasses = "block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors";
+        
+        // reference 类型的字段
+        if (fieldDef.type === 'reference' && fieldDef.storage === 'foreign_key') {
+            if (fieldName === 'person_id') {
+                fieldHtml += `<select id="attendance-record-${fieldName}" name="${fieldName}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+                fieldHtml += '<option value="">请选择人员</option>';
+                allPersons.forEach(person => {
+                    const personName = person.current?.name || `人员 ${person.id}`;
+                    fieldHtml += `<option value="${person.id}" ${value == person.id ? 'selected' : ''}>${personName}</option>`;
+                });
+                fieldHtml += '</select>';
+            } else if (fieldName === 'company_id') {
+                fieldHtml += `<select id="attendance-record-${fieldName}" name="${fieldName}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+                fieldHtml += '<option value="">请选择公司</option>';
+                allCompanies.forEach(company => {
+                    const companyName = company.current?.name || `公司 ${company.id}`;
+                    fieldHtml += `<option value="${company.id}" ${value == company.id ? 'selected' : ''}>${companyName}</option>`;
+                });
+                fieldHtml += '</select>';
+            }
+        } else if (uiComponent === 'textarea') {
+            fieldHtml += `<textarea id="attendance-record-${fieldName}" name="${fieldName}" rows="3" class="${inputBaseClasses}" ${required ? 'required' : ''}>${value}</textarea>`;
+        } else if (fieldType === 'decimal' || fieldType === 'number') {
+            fieldHtml += `<input type="number" id="attendance-record-${fieldName}" name="${fieldName}" value="${value}" step="${fieldName.includes('days') ? '0.5' : '0.01'}" min="${fieldDef.validation?.min || ''}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+        } else {
+            fieldHtml += `<input type="text" id="attendance-record-${fieldName}" name="${fieldName}" value="${value}" placeholder="${fieldDef.ui?.placeholder || ''}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
+        }
+        
+        fieldHtml += '</div></div>';
+        formFields.innerHTML += fieldHtml;
+    });
+    
+    // 加载人员和公司列表（如果还没有加载）
+    if (allPersons.length === 0) {
+        loadPersons();
+    }
+    if (allCompanies.length === 0) {
+        loadCompanies();
+    }
+}
+
+// 加载人员列表
+async function loadPersons() {
+    try {
+        const response = await fetch('/api/twins/person');
+        const result = await response.json();
+        if (result.success) {
+            allPersons = result.data || [];
+        }
+    } catch (error) {
+        console.error('加载人员列表失败:', error);
+    }
+}
+
+// 加载公司列表
+async function loadCompanies() {
+    try {
+        const response = await fetch('/api/twins/company');
+        const result = await response.json();
+        if (result.success) {
+            allCompanies = result.data || [];
+        }
+    } catch (error) {
+        console.error('加载公司列表失败:', error);
+    }
+}
+
+// 提交表单
+async function submitForm(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    const data = {};
+    const fields = schema.fields || {};
+    const fieldNames = Object.keys(fields);
+    
+    for (const fieldName of fieldNames) {
+        const value = formData.get(fieldName);
+        if (value !== null && value !== '') {
+            const fieldDef = fields[fieldName];
+            if (fieldDef.type === 'decimal' || fieldDef.type === 'number') {
+                data[fieldName] = parseFloat(value);
+            } else {
+                data[fieldName] = value.trim();
+            }
+        }
+    }
+    
+    try {
+        const url = currentEditAttendanceRecordId 
+            ? `/api/twins/person_company_attendance_record/${currentEditAttendanceRecordId}`
+            : '/api/twins/person_company_attendance_record';
+        const method = currentEditAttendanceRecordId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('保存失败: ' + result.error);
+            return;
+        }
+        
+        // 关闭表单模态框
+        document.getElementById('attendance-record-form-modal').classList.add('hidden');
+        
+        // 重新加载列表
+        loadAttendanceRecords(currentFilters);
+        
+        alert('保存成功！');
+    } catch (error) {
+        alert('保存失败: ' + error.message);
+    }
+}
+
+// 绑定事件
+document.getElementById('toggle-filter').onclick = toggleFilter;
+document.getElementById('apply-filter-btn').onclick = applyFilters;
+document.getElementById('reset-filter-btn').onclick = resetFilters;
+document.getElementById('add-attendance-record-btn').onclick = openAddForm;
+document.getElementById('close-modal').onclick = () => {
+    document.getElementById('attendance-record-modal').classList.add('hidden');
+};
+document.getElementById('close-attendance-record-form-modal').onclick = () => {
+    document.getElementById('attendance-record-form-modal').classList.add('hidden');
+};
+document.getElementById('cancel-attendance-record-form-btn').onclick = () => {
+    document.getElementById('attendance-record-form-modal').classList.add('hidden');
+};
+document.getElementById('attendance-record-form').onsubmit = submitForm;
+
+// 初始化
+window.addEventListener('DOMContentLoaded', () => {
+    renderFilterFields();
+    loadPersons();
+    loadCompanies();
+    loadAttendanceRecords();
+});
+</script>
+{% endblock %}

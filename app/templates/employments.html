@@ -163,10 +163,13 @@ async function showPersonEmployments(personId) {
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">部门</th>';
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">员工号</th>';
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">员工类别</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">岗位类别</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">职位级别</th>';
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">薪资类型</th>';
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">薪资</th>';
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">变动类型</th>';
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">变动日期</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>';
             html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
             
             // 按变动日期排序（最新的在前）
@@ -184,13 +187,25 @@ async function showPersonEmployments(personId) {
                     '离职': 'bg-red-100 text-red-800'
                 };
                 const colorClass = changeTypeColors[emp.change_type] || 'bg-gray-100 text-gray-800';
+                const employeeTypeColors = { '实习': 'bg-amber-100 text-amber-800', '试用': 'bg-sky-100 text-sky-800', '外聘': 'bg-violet-100 text-violet-800', '正式': 'bg-green-100 text-green-800' };
+                const positionCategoryColors = { '普通员工': 'bg-slate-100 text-slate-800', '部门负责人': 'bg-indigo-100 text-indigo-800', 'BOSS': 'bg-amber-100 text-amber-800' };
+                const jobLevelColors = { '初级': 'bg-teal-100 text-teal-800', '中级': 'bg-blue-100 text-blue-800', '高级': 'bg-purple-100 text-purple-800', '其他': 'bg-gray-100 text-gray-800' };
+                
+                const empTypeVal = emp.employee_type || '-';
+                const empTypeSpan = empTypeVal !== '-' ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${employeeTypeColors[empTypeVal] || 'bg-gray-100 text-gray-800'}">${empTypeVal}</span>` : '-';
+                const posCatVal = emp.position_category || '-';
+                const posCatSpan = posCatVal !== '-' ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${positionCategoryColors[posCatVal] || 'bg-gray-100 text-gray-800'}">${posCatVal}</span>` : '-';
+                const jobLvlVal = emp.job_level || '-';
+                const jobLvlSpan = jobLvlVal !== '-' ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${jobLevelColors[jobLvlVal] || 'bg-gray-100 text-gray-800'}">${jobLvlVal}</span>` : '-';
                 
                 html += '<tr class="hover:bg-gray-50">';
                 html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.company_name || '-'}</td>`;
                 html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.position || '-'}</td>`;
                 html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.department || '-'}</td>`;
                 html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.employee_number || '-'}</td>`;
-                html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.employee_type || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm">${empTypeSpan}</td>`;
+                html += `<td class="px-4 py-3 text-sm">${posCatSpan}</td>`;
+                html += `<td class="px-4 py-3 text-sm">${jobLvlSpan}</td>`;
                 // 薪资类型
                 html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.salary_type || '-'}</td>`;
                 // 薪资金额（带单位）
@@ -217,6 +232,7 @@ async function showPersonEmployments(personId) {
                     </span>
                 </td>`;
                 html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.change_date || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm"><button type="button" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium" onclick="event.stopPropagation(); showEmploymentDetail(${emp.id}, ${personId})">详情</button></td>`;
                 html += '</tr>';
             });
             
@@ -228,6 +244,101 @@ async function showPersonEmployments(personId) {
         html += '</div>';
         html += '</div>';
         
+        content.innerHTML = html;
+        modal.classList.remove('hidden');
+    } catch (error) {
+        alert('加载失败: ' + error.message);
+    }
+}
+
+// 单条聘用详情（含历史记录），历史表中展示岗位类别、职位级别并带颜色
+async function showEmploymentDetail(employmentId, personId) {
+    const modal = document.getElementById('employment-modal');
+    const content = document.getElementById('employment-detail-content');
+    try {
+        const response = await fetch(`/api/twins/person_company_employment/${employmentId}?enrich=person,company`);
+        const result = await response.json();
+        if (!result.success) {
+            alert('加载聘用详情失败: ' + (result.error || '未知错误'));
+            return;
+        }
+        const employment = result.data;
+        const current = employment.current || {};
+        const history = employment.history || [];
+        const employeeTypeColors = { '实习': 'bg-amber-100 text-amber-800', '试用': 'bg-sky-100 text-sky-800', '外聘': 'bg-violet-100 text-violet-800', '正式': 'bg-green-100 text-green-800' };
+        const positionCategoryColors = { '普通员工': 'bg-slate-100 text-slate-800', '部门负责人': 'bg-indigo-100 text-indigo-800', 'BOSS': 'bg-amber-100 text-amber-800' };
+        const jobLevelColors = { '初级': 'bg-teal-100 text-teal-800', '中级': 'bg-blue-100 text-blue-800', '高级': 'bg-purple-100 text-purple-800', '其他': 'bg-gray-100 text-gray-800' };
+        const changeTypeColors = { '入职': 'bg-green-100 text-green-800', '转岗': 'bg-blue-100 text-blue-800', '转公司': 'bg-purple-100 text-purple-800', '离职': 'bg-red-100 text-red-800' };
+        function badge(val, colorMap) {
+            if (!val || val === '-') return '-';
+            const c = colorMap[val] || 'bg-gray-100 text-gray-800';
+            return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${c}">${val}</span>`;
+        }
+        function salaryCell(data) {
+            const salary = data.salary;
+            const type = data.salary_type || '';
+            if (salary === undefined || salary === null) return '-';
+            const amount = parseFloat(salary);
+            if (isNaN(amount)) return '-';
+            if (type === '年薪') return `¥${amount.toLocaleString()} / 年`;
+            if (type === '月薪') return `¥${amount.toLocaleString()} / 月`;
+            if (type === '日薪') return `¥${amount.toLocaleString()} / 日`;
+            return `¥${amount.toLocaleString()}`;
+        }
+        let html = '<div class="space-y-6">';
+        html += '<div class="flex justify-between items-center"><button type="button" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium" onclick="showPersonEmployments(' + personId + ')">← 返回聘用记录</button></div>';
+        html += '<div><h4 class="text-md font-semibold text-gray-900 mb-3">当前聘用信息</h4>';
+        html += '<div class="bg-gray-50 rounded-lg p-4 space-y-3">';
+        html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">公司:</span><span class="text-sm text-gray-900 flex-1">${employment.company_name || current.company_name || '-'}</span></div>`;
+        html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">职位:</span><span class="text-sm text-gray-900 flex-1">${current.position || '-'}</span></div>`;
+        html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">部门:</span><span class="text-sm text-gray-900 flex-1">${current.department || '-'}</span></div>`;
+        html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">员工号:</span><span class="text-sm text-gray-900 flex-1">${current.employee_number || '-'}</span></div>`;
+        html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">员工类别:</span><span class="text-sm flex-1">${badge(current.employee_type, employeeTypeColors)}</span></div>`;
+        html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">岗位类别:</span><span class="text-sm flex-1">${badge(current.position_category, positionCategoryColors)}</span></div>`;
+        html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">职位级别:</span><span class="text-sm flex-1">${badge(current.job_level, jobLevelColors)}</span></div>`;
+        html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">薪资类型:</span><span class="text-sm text-gray-900 flex-1">${current.salary_type || '-'}</span></div>`;
+        html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">薪资:</span><span class="text-sm text-gray-900 flex-1">${salaryCell(current)}</span></div>`;
+        html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">变动类型:</span><span class="text-sm flex-1">${badge(current.change_type, changeTypeColors)}</span></div>`;
+        html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">变动日期:</span><span class="text-sm text-gray-900 flex-1">${current.change_date || '-'}</span></div>`;
+        html += '</div></div>';
+        // 历史记录表（含岗位类别、职位级别及颜色）
+        if (history.length > 0) {
+            html += '<div><h4 class="text-md font-semibold text-gray-900 mb-3">历史记录</h4>';
+            html += '<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200">';
+            html += '<thead class="bg-gray-50"><tr>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">版本</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">时间</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">职位</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">部门</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">员工号</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">员工类别</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">岗位类别</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">职位级别</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">薪资类型</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">薪资</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">变动类型</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">变动日期</th>';
+            html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+            history.forEach(record => {
+                const d = record.data || {};
+                html += '<tr class="hover:bg-gray-50">';
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${record.version ?? record.time_key ?? '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-500">${record.ts ? new Date(record.ts).toLocaleString() : '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${d.position || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${d.department || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${d.employee_number || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm">${badge(d.employee_type, employeeTypeColors)}</td>`;
+                html += `<td class="px-4 py-3 text-sm">${badge(d.position_category, positionCategoryColors)}</td>`;
+                html += `<td class="px-4 py-3 text-sm">${badge(d.job_level, jobLevelColors)}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${d.salary_type || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${salaryCell(d)}</td>`;
+                html += `<td class="px-4 py-3 text-sm">${badge(d.change_type, changeTypeColors)}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${d.change_date || '-'}</td>`;
+                html += '</tr>';
+            });
+            html += '</tbody></table></div></div>';
+        }
+        html += '</div>';
         content.innerHTML = html;
         modal.classList.remove('hidden');
     } catch (error) {
@@ -257,6 +368,8 @@ function renderTable(employments) {
         { key: 'department', label: '部门', type: 'employment' },
         { key: 'employee_number', label: '员工号', type: 'employment' },
         { key: 'employee_type', label: '员工类别', type: 'employment' },
+        { key: 'position_category', label: '岗位类别', type: 'employment' },
+        { key: 'job_level', label: '职位级别', type: 'employment' },
         { key: 'salary_type', label: '薪资类型', type: 'employment' },
         { key: 'salary', label: '薪资', type: 'employment' },
         { key: 'change_type', label: '变动类型', type: 'employment' },
@@ -308,8 +421,20 @@ function renderTable(employments) {
             
             let value = emp[col.key] || '';
             
-            // 特殊处理变动类型（添加颜色标签）
-            if (col.key === 'change_type' && value) {
+            // 特殊处理：员工类别、岗位类别、职位级别、变动类型（添加颜色标签）
+            if (col.key === 'employee_type' && value) {
+                const colors = { '实习': 'bg-amber-100 text-amber-800', '试用': 'bg-sky-100 text-sky-800', '外聘': 'bg-violet-100 text-violet-800', '正式': 'bg-green-100 text-green-800' };
+                const colorClass = colors[value] || 'bg-gray-100 text-gray-800';
+                td.innerHTML = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
+            } else if (col.key === 'position_category' && value) {
+                const colors = { '普通员工': 'bg-slate-100 text-slate-800', '部门负责人': 'bg-indigo-100 text-indigo-800', 'BOSS': 'bg-amber-100 text-amber-800' };
+                const colorClass = colors[value] || 'bg-gray-100 text-gray-800';
+                td.innerHTML = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
+            } else if (col.key === 'job_level' && value) {
+                const colors = { '初级': 'bg-teal-100 text-teal-800', '中级': 'bg-blue-100 text-blue-800', '高级': 'bg-purple-100 text-purple-800', '其他': 'bg-gray-100 text-gray-800' };
+                const colorClass = colors[value] || 'bg-gray-100 text-gray-800';
+                td.innerHTML = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">${value}</span>`;
+            } else if (col.key === 'change_type' && value) {
                 const changeTypeColors = {
                     '入职': 'bg-green-100 text-green-800',
                     '转岗': 'bg-blue-100 text-blue-800',
@@ -363,7 +488,9 @@ function renderFilterFields() {
         'company_name': { label: '公司', type: 'text' },
         'position': { label: '职位', type: 'text' },
         'department': { label: '部门', type: 'text' },
-        'employee_type': { label: '员工类别', type: 'select', options: ['正式员工', '试用期员工', '实习生', '部门负责人', '其他'] },
+        'employee_type': { label: '员工类别', type: 'select', options: ['实习', '试用', '外聘', '正式'] },
+        'position_category': { label: '岗位类别', type: 'select', options: ['普通员工', '部门负责人', 'BOSS'] },
+        'job_level': { label: '职位级别', type: 'select', options: ['初级', '中级', '高级', '其他'] },
         'change_type': { label: '变动类型', type: 'select', options: ['入职', '转岗', '调部门', '转公司', '停薪留职', '返岗', '离职'] }
     };
     
