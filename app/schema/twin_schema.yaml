@@ -1194,6 +1194,18 @@ twins:
           component: number_input
           suffix: "元/月"
       
+      infant_childcare_amount:
+        type: decimal
+        required: false
+        label: "3岁以下婴幼儿照护扣除金额"
+        description: "每月3岁以下婴幼儿照护专项附加扣除金额（单位：元）"
+        validation:
+          min: 0
+          max: 2000
+        ui:
+          component: number_input
+          suffix: "元/月"
+      
       effective_date:
         type: date
         required: true

@@ -91,6 +91,12 @@ def payroll():
     return render_template("payroll.html", schema=schema_dict)
 
 
+@web_bp.route("/payroll/tax-steps")
+def payroll_tax_steps_page():
+    """个税计算步骤页 - 查看并编辑 14 步公式"""
+    return render_template("payroll_tax_steps.html")
+
+
 @web_bp.route("/internal-projects")
 def internal_projects():
     """内部项目管理页"""

@@ -374,7 +374,7 @@ def generate_test_data(db_path: Optional[str] = None):
     print("\n生成专项附加扣除数据...")
     tax_deduction_count = 0
     # 为 70% 的人员生成专项附加扣除记录
-    # 现在每个人只有一个 person_tax_deduction 记录，包含所有6种扣除类型的金额
+    # 现在每个人只有一个 person_tax_deduction 记录，包含所有 7 种扣除类型的金额
     persons_with_deductions = random.sample(persons, int(len(persons) * 0.7))
     
     for person_id in persons_with_deductions:
@@ -392,6 +392,7 @@ def generate_test_data(db_path: Optional[str] = None):
         housing_loan_interest_amount = random.choice([0, 1000]) if random.random() < 0.4 else 0
         housing_rent_amount = random.choice([0, 800, 1100, 1500]) if random.random() < 0.5 else 0
         elderly_support_amount = random.choice([0, 1000, 2000]) if random.random() < 0.5 else 0
+        infant_childcare_amount = random.choice([0, 1000, 2000]) if random.random() < 0.3 else 0
         
         # 生效日期：从过去一年内随机一天
         effective_date = (datetime.now() - timedelta(days=random.randint(0, 365))).strftime("%Y-%m-%d")
@@ -418,6 +419,8 @@ def generate_test_data(db_path: Optional[str] = None):
             remarks_parts.append(f"住房租金：{random.choice(['XX市XX区XX路', 'XX市XX区XX街道'])}")
         if elderly_support_amount > 0:
             remarks_parts.append(f"赡养老人：{random.choice(['父亲', '母亲', '父母'])}")
+        if infant_childcare_amount > 0:
+            remarks_parts.append(f"3岁以下婴幼儿照护：{random.choice(['子女甲', '子女乙'])}")
         
         remarks = "；".join(remarks_parts) if remarks_parts else None
         
@@ -435,6 +438,7 @@ def generate_test_data(db_path: Optional[str] = None):
                     "housing_loan_interest_amount": float(housing_loan_interest_amount),
                     "housing_rent_amount": float(housing_rent_amount),
                     "elderly_support_amount": float(elderly_support_amount),
+                    "infant_childcare_amount": float(infant_childcare_amount),
                     "effective_date": effective_date,
                     "expiry_date": expiry_date,
                     "status": status,
@@ -448,6 +452,7 @@ def generate_test_data(db_path: Optional[str] = None):
                 new_housing_loan = max(0, housing_loan_interest_amount + random.choice([-1000, 0, 1000]))
                 new_housing_rent = max(0, housing_rent_amount + random.choice([-300, 0, 300]))
                 new_elderly_support = max(0, elderly_support_amount + random.choice([-1000, 0, 1000]))
+                new_infant_childcare = max(0, infant_childcare_amount + random.choice([-1000, 0, 1000]))
                 
                 new_status = status
                 new_expiry_date = expiry_date
@@ -465,6 +470,7 @@ def generate_test_data(db_path: Optional[str] = None):
                     "housing_loan_interest_amount": float(new_housing_loan),
                     "housing_rent_amount": float(new_housing_rent),
                     "elderly_support_amount": float(new_elderly_support),
+                    "infant_childcare_amount": float(new_infant_childcare),
                     "effective_date": effective_date,
                     "expiry_date": new_expiry_date,
                     "status": new_status,

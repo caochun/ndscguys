@@ -63,9 +63,22 @@ class PayrollService:
         housing_fund_base = float(
             (ctx.housing_base or {}).get("base_amount") or 0.0
         )
-        tax_deduction_total = sum(
-            float(d.get("amount") or 0.0) for d in ctx.tax_deductions
+        # 专项附加扣除：每人可有多个生效中记录，每月项（元/月）求和，大病医疗为年度/12
+        _monthly_deduction_keys = (
+            "children_education_amount",
+            "continuing_education_amount",
+            "housing_loan_interest_amount",
+            "housing_rent_amount",
+            "elderly_support_amount",
+            "infant_childcare_amount",
         )
+        tax_deduction_total = 0.0
+        for d in ctx.tax_deductions:
+            tax_deduction_total += sum(
+                float(d.get(k) or 0.0) for k in _monthly_deduction_keys
+            )
+            # 大病医疗为年度扣除，按月均摊（简化：/12）
+            tax_deduction_total += float(d.get("medical_expense_amount") or 0.0) / 12.0
 
         # 4. 绩效奖金
         performance_bonus = self._calculate_performance_bonus(
