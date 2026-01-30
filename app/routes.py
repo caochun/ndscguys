@@ -91,10 +91,10 @@ def payroll():
     return render_template("payroll.html", schema=schema_dict)
 
 
-@web_bp.route("/payroll/tax-steps")
-def payroll_tax_steps_page():
-    """工资计算页 - 应发、社保公积金、个税三步块与步骤预览"""
-    return render_template("payroll_tax_steps.html")
+@web_bp.route("/payroll/calculation")
+def payroll_calculation_page():
+    """工资计算明细过程页 - 应发、社保公积金、个税三步块与步骤预览"""
+    return render_template("payroll_calculation.html")
 
 
 @web_bp.route("/internal-projects")
