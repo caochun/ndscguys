@@ -10,6 +10,10 @@ from typing import Dict, Any, List, Optional
 from app.services.twin_service import TwinService
 
 
+# 月计薪天数（考勤扣减公式用）
+MONTHLY_WORK_DAYS = 21.75
+
+
 @dataclass
 class PayrollContext:
     """工资计算上下文（方便调试和前端展示明细）"""
@@ -18,6 +22,7 @@ class PayrollContext:
     social_base: Optional[Dict[str, Any]]
     housing_base: Optional[Dict[str, Any]]
     tax_deductions: List[Dict[str, Any]]
+    attendance_record: Optional[Dict[str, Any]] = None
 
 
 class PayrollService:
@@ -43,27 +48,101 @@ class PayrollService:
         period: str,
     ) -> Dict[str, Any]:
         """
-        计算指定人员在指定周期的工资（仅计算，不写库）
+        计算指定人员在指定周期的工资（仅计算，不写库）。
+        应发 6 步：岗位划分 → 员工类别折算 → 绩效系数 → 考勤扣减 → 奖惩 → 应发；
+        社保公积金 4 步：三险个人 + 公积金个人 + 大病个人 → 合计。
         """
-        # 获取上下文数据
         ctx = self._build_context(person_id, company_id, period)
-
-        # 1. 基本薪资
         employment = ctx.employment or {}
-        base_salary = float(employment.get("salary") or 0.0)
+        assessment = ctx.assessment or {}
+        attendance = ctx.attendance_record or {}
+
         salary_type = employment.get("salary_type") or "月薪"
+        assessment_grade = assessment.get("grade")
 
-        # 2. 最近一次考核
-        assessment_grade = ctx.assessment.get("grade") if ctx.assessment else None
+        # 聘用薪资（月薪等价），用于岗位划分与考勤公式
+        employment_salary = self._employment_salary_monthly(employment)
 
-        # 3. 各类基数与扣除
+        # ----- 应发计算 6 步 -----
+        # 第 1 步：按岗位类别划分基础/绩效
+        position_category = employment.get("position_category")
+        ratio = self._get_position_salary_ratio(position_category)
+        base_ratio = float(ratio.get("base_ratio", 0.7)) if ratio else 0.7
+        perf_ratio = float(ratio.get("performance_ratio", 0.3)) if ratio else 0.3
+        base_salary_part = employment_salary * base_ratio
+        performance_salary_part = employment_salary * perf_ratio
+
+        # 第 2 步：按员工类别折算
+        employee_type = employment.get("employee_type")
+        discount = self._get_employee_type_discount(employee_type)
+        discounted_base_salary = base_salary_part * discount
+        discounted_performance_salary = performance_salary_part * discount
+
+        # 第 3 步：考核等级绩效系数
+        performance_coefficient = self._get_assessment_grade_coefficient(
+            assessment_grade
+        )
+        actual_performance_salary = discounted_performance_salary * performance_coefficient
+
+        # 第 4 步：考勤扣减（事假 100%、病假 30%）
+        personal_leave_days = float(attendance.get("personal_leave_days") or 0)
+        sick_leave_days = float(attendance.get("sick_leave_days") or 0)
+        personal_leave_deduction = (
+            employment_salary / MONTHLY_WORK_DAYS * personal_leave_days
+        )
+        sick_leave_deduction = (
+            employment_salary / MONTHLY_WORK_DAYS * 0.3 * sick_leave_days
+        )
+        attendance_deduction = personal_leave_deduction + sick_leave_deduction
+
+        # 第 5 步：奖惩金额
+        reward_punishment_amount = float(
+            attendance.get("reward_punishment_amount") or 0
+        )
+
+        # 第 6 步：应发
+        base_amount = (
+            discounted_base_salary
+            + actual_performance_salary
+            - attendance_deduction
+            + reward_punishment_amount
+        )
+        base_amount = max(0.0, base_amount)
+
+        # ----- 社保公积金扣除 4 步 -----
         social_security_base = float(
             (ctx.social_base or {}).get("base_amount") or 0.0
         )
         housing_fund_base = float(
             (ctx.housing_base or {}).get("base_amount") or 0.0
         )
-        # 专项附加扣除：每人可有多个生效中记录，每月项（元/月）求和，大病医疗为年度/12
+        config = self._get_social_security_config(period)
+        if config:
+            pension = float(config.get("pension_employee_rate") or 0)
+            unemployment = float(config.get("unemployment_employee_rate") or 0)
+            medical = float(config.get("medical_employee_rate") or 0)
+            housing_rate = float(config.get("housing_fund_employee_rate") or 0)
+            serious_illness_amount = float(
+                config.get("serious_illness_employee_amount") or 0
+            )
+            social_insurance_deduction = social_security_base * (
+                pension + unemployment + medical
+            )
+            housing_fund_deduction = housing_fund_base * housing_rate
+            social_housing_total_deduction = (
+                social_insurance_deduction
+                + housing_fund_deduction
+                + serious_illness_amount
+            )
+        else:
+            social_insurance_deduction = social_security_base * 0.105
+            housing_fund_deduction = housing_fund_base * 0.12
+            serious_illness_amount = 0.0
+            social_housing_total_deduction = (
+                social_insurance_deduction + housing_fund_deduction
+            )
+
+        # 专项附加扣除
         _monthly_deduction_keys = (
             "children_education_amount",
             "continuing_education_amount",
@@ -77,60 +156,63 @@ class PayrollService:
             tax_deduction_total += sum(
                 float(d.get(k) or 0.0) for k in _monthly_deduction_keys
             )
-            # 大病医疗为年度扣除，按月均摊（简化：/12）
             tax_deduction_total += float(d.get("medical_expense_amount") or 0.0) / 12.0
 
-        # 4. 绩效奖金
-        performance_bonus = self._calculate_performance_bonus(
-            base_salary, assessment_grade
-        )
-
-        # 5. 应发金额
-        base_amount = base_salary + performance_bonus
-
-        # 6. 各项扣除（这里只用简单比例，真实项目可以改为规则/配置驱动）
-        social_security_deduction = social_security_base * 0.105  # 个人约 10.5%
-        housing_fund_deduction = housing_fund_base * 0.12        # 个人 12%
-
-        # 7. 应纳税所得额
+        # 应纳税所得额与个税
         tax_threshold = 5000.0
         taxable_income = max(
             0.0,
             base_amount
-            - social_security_deduction
-            - housing_fund_deduction
+            - social_housing_total_deduction
             - tax_deduction_total
             - tax_threshold,
         )
-
-        # 8. 个税
         tax_deduction = self._calculate_tax(taxable_income)
 
-        # 9. 实发金额
-        total_amount = (
-            base_amount
-            - social_security_deduction
-            - housing_fund_deduction
-            - tax_deduction
+        # 实发
+        total_amount = max(
+            0.0,
+            base_amount - social_housing_total_deduction - tax_deduction,
         )
+
+        def r2(x: float) -> float:
+            return round(float(x), 2)
 
         return {
             "person_id": person_id,
             "company_id": company_id,
             "period": period,
-            "base_salary": round(base_salary, 2),
             "salary_type": salary_type,
             "assessment_grade": assessment_grade,
-            "social_security_base": round(social_security_base, 2),
-            "housing_fund_base": round(housing_fund_base, 2),
-            "tax_deduction_total": round(tax_deduction_total, 2),
-            "base_amount": round(base_amount, 2),
-            "performance_bonus": round(performance_bonus, 2),
-            "social_security_deduction": round(social_security_deduction, 2),
-            "housing_fund_deduction": round(housing_fund_deduction, 2),
-            "taxable_income": round(taxable_income, 2),
-            "tax_deduction": round(tax_deduction, 2),
-            "total_amount": round(total_amount, 2),
+            "social_security_base": r2(social_security_base),
+            "housing_fund_base": r2(housing_fund_base),
+            "tax_deduction_total": r2(tax_deduction_total),
+            # 应发中间结果
+            "employment_salary": r2(employment_salary),
+            "base_salary_part": r2(base_salary_part),
+            "performance_salary_part": r2(performance_salary_part),
+            "discounted_base_salary": r2(discounted_base_salary),
+            "discounted_performance_salary": r2(discounted_performance_salary),
+            "performance_coefficient": r2(performance_coefficient),
+            "actual_performance_salary": r2(actual_performance_salary),
+            "personal_leave_deduction": r2(personal_leave_deduction),
+            "sick_leave_deduction": r2(sick_leave_deduction),
+            "attendance_deduction": r2(attendance_deduction),
+            "reward_punishment_amount": r2(reward_punishment_amount),
+            "base_amount": r2(base_amount),
+            # 社保公积金中间结果
+            "social_insurance_deduction": r2(social_insurance_deduction),
+            "housing_fund_deduction": r2(housing_fund_deduction),
+            "serious_illness_amount": r2(serious_illness_amount),
+            "social_housing_total_deduction": r2(social_housing_total_deduction),
+            # 兼容旧字段
+            "base_salary": r2(discounted_base_salary),
+            "performance_bonus": r2(actual_performance_salary),
+            "social_security_deduction": r2(social_insurance_deduction + serious_illness_amount),
+            #
+            "taxable_income": r2(taxable_income),
+            "tax_deduction": r2(tax_deduction),
+            "total_amount": r2(total_amount),
             "status": "待发放",
         }
 
@@ -184,6 +266,7 @@ class PayrollService:
         social_base = self._get_latest_social_base(person_id, company_id)
         housing_base = self._get_latest_housing_base(person_id, company_id)
         tax_deductions = self._get_active_tax_deductions(person_id, period)
+        attendance_record = self._get_attendance_record(person_id, company_id, period)
 
         return PayrollContext(
             employment=employment,
@@ -191,6 +274,7 @@ class PayrollService:
             social_base=social_base,
             housing_base=housing_base,
             tax_deductions=tax_deductions,
+            attendance_record=attendance_record,
         )
 
     def _get_latest_employment(
@@ -315,6 +399,109 @@ class PayrollService:
                 continue
             active.append(d)
         return active
+
+    def _get_attendance_record(
+        self, person_id: int, company_id: int, period: str
+    ) -> Optional[Dict[str, Any]]:
+        """获取指定人员、公司、周期的考勤记录（time_series，time_key=period）"""
+        twins = self.twin_service.list_twins(
+            "person_company_attendance_record",
+            filters={"person_id": str(person_id), "company_id": str(company_id)},
+        )
+        if not twins:
+            return None
+        twin_id = twins[0].get("id")
+        if twin_id is None:
+            return None
+        state = self.state_dao.get_state_by_time_key(
+            "person_company_attendance_record", twin_id, period
+        )
+        if not state:
+            return None
+        return state.data
+
+    def _get_position_salary_ratio(
+        self, position_category: Optional[str]
+    ) -> Optional[Dict[str, Any]]:
+        """按岗位类别查基础/绩效划分比例"""
+        if not position_category:
+            return None
+        states = self.state_dao.query_latest_states(
+            "position_salary_ratio",
+            filters={"position_category": position_category},
+        )
+        if not states:
+            return None
+        return states[0].data
+
+    def _get_employee_type_discount(self, employee_type: Optional[str]) -> float:
+        """按员工类别查折算系数，默认 1.0"""
+        if not employee_type:
+            return 1.0
+        states = self.state_dao.query_latest_states(
+            "employee_type_discount",
+            filters={"employee_type": employee_type},
+        )
+        if not states:
+            return 1.0
+        return float(states[0].data.get("discount_ratio") or 1.0)
+
+    def _get_assessment_grade_coefficient(self, grade: Optional[str]) -> float:
+        """按考核等级查绩效系数，默认 1.0"""
+        if not grade:
+            return 1.0
+        states = self.state_dao.query_latest_states(
+            "assessment_grade_coefficient",
+            filters={"grade": grade},
+        )
+        if not states:
+            return 1.0
+        return float(states[0].data.get("coefficient") or 1.0)
+
+    def _get_social_security_config(
+        self, period: str
+    ) -> Optional[Dict[str, Any]]:
+        """获取发放周期适用的社保公积金配置（取生效日期不晚于周期末的最新一条）"""
+        twins = self.twin_service.list_twins("social_security_config")
+        if not twins:
+            return None
+        period_end = period + "-01"
+        try:
+            period_date = datetime.strptime(period_end, "%Y-%m-%d").date()
+            if period_date.month == 12:
+                next_month = datetime(period_date.year + 1, 1, 1).date()
+            else:
+                next_month = datetime(
+                    period_date.year, period_date.month + 1, 1
+                ).date()
+            period_end_str = next_month.strftime("%Y-%m-%d")
+        except ValueError:
+            period_end_str = period_end
+        # 只保留 effective_date <= period 末的配置，取 effective_date 最新
+        valid = [
+            t
+            for t in twins
+            if (t.get("effective_date") or "") <= period_end_str
+        ]
+        if not valid:
+            return None
+        return sorted(
+            valid,
+            key=lambda x: x.get("effective_date") or "",
+            reverse=True,
+        )[0]
+
+    def _employment_salary_monthly(self, employment: Dict[str, Any]) -> float:
+        """将聘用薪资转为月薪（元/月），用于应发与考勤扣减公式"""
+        salary = float(employment.get("salary") or 0.0)
+        salary_type = employment.get("salary_type") or "月薪"
+        if salary_type == "月薪":
+            return salary
+        if salary_type == "年薪":
+            return salary / 12.0
+        if salary_type == "日薪":
+            return salary * MONTHLY_WORK_DAYS
+        return salary
 
     # ======== 计算公式 ========
 

@@ -93,7 +93,7 @@ def payroll():
 
 @web_bp.route("/payroll/tax-steps")
 def payroll_tax_steps_page():
-    """个税计算步骤页 - 查看并编辑 14 步公式"""
+    """工资计算页 - 应发、社保公积金、个税三步块与步骤预览"""
     return render_template("payroll_tax_steps.html")
 
 

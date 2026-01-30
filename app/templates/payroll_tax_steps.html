@@ -1,24 +1,30 @@
 {% extends "base.html" %}
 
-{% block title %}个税计算步骤 - HRMS{% endblock %}
+{% block title %}工资计算 - HRMS{% endblock %}
 
 {% block extra_head %}
 <style>
   .step-row { cursor: pointer; }
   .step-row:hover { background-color: #f3f4f6; }
   .step-row.selected { background-color: #e0e7ff; }
+  .step-row.readonly.selected { background-color: #e5e7eb; }
   .source-tag { font-size: 0.7rem; padding: 0.1rem 0.35rem; border-radius: 4px; }
   .source-formula { background: #dbeafe; color: #1e40af; }
   .source-prev_month { background: #e5e7eb; color: #4b5563; }
   .source-tax_bracket { background: #fef3c7; color: #92400e; }
+  .section-title { font-size: 0.75rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.5rem 1rem; background: #f9fafb; border-bottom: 1px solid #e5e7eb; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; }
+  .section-title:hover { background: #f3f4f6; }
+  .section-title .chevron { transition: transform 0.2s; }
+  .section-title.collapsed .chevron { transform: rotate(-90deg); }
+  .section-body.collapsed { display: none; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="px-4 py-6 sm:px-0">
     <div class="mb-6">
-        <h2 class="text-2xl font-bold text-gray-900">个税计算步骤</h2>
-        <p class="mt-1 text-sm text-gray-500">查看并编辑 14 步个税计算规则，支持按人员与周期预览各步结果</p>
+        <h2 class="text-2xl font-bold text-gray-900">工资计算</h2>
+        <p class="mt-1 text-sm text-gray-500">应发薪资、社保公积金扣除、个税三项计算步骤一览；选择发放周期与员工后可预览各步结果</p>
     </div>
 
     <!-- 筛选与预览 -->
@@ -47,118 +53,168 @@
     </div>
 
     <div class="flex flex-col lg:flex-row gap-6">
-        <!-- 左侧：14 步列表 -->
-        <div class="lg:w-80 flex-shrink-0">
+        <!-- 左侧：应发 + 社保公积金 + 个税 三步块 -->
+        <div class="lg:w-96 flex-shrink-0 space-y-4">
+            <!-- 应发薪资计算 -->
             <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                <div class="px-4 py-3 border-b border-gray-200 bg-gray-50">
-                    <h3 class="text-sm font-semibold text-gray-900">计算步骤</h3>
+                <div id="section-gross-title" class="section-title collapsed" data-section="gross" aria-expanded="false">
+                    <span>应发薪资计算</span>
+                    <span class="chevron text-gray-400">▼</span>
                 </div>
-                <ul id="step-list" class="divide-y divide-gray-200 max-h-[32rem] overflow-y-auto">
-                    <!-- 动态填充 -->
-                </ul>
+                <div id="section-gross-body" class="section-body collapsed">
+                    <ul id="gross-step-list" class="divide-y divide-gray-200 max-h-64 overflow-y-auto">
+                        <!-- 动态填充 -->
+                    </ul>
+                </div>
+            </div>
+            <!-- 社保公积金扣除计算 -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div id="section-social-title" class="section-title collapsed" data-section="social" aria-expanded="false">
+                    <span>社保公积金扣除计算</span>
+                    <span class="chevron text-gray-400">▼</span>
+                </div>
+                <div id="section-social-body" class="section-body collapsed">
+                    <ul id="social-housing-step-list" class="divide-y divide-gray-200">
+                        <!-- 动态填充 -->
+                    </ul>
+                </div>
+            </div>
+            <!-- 个税计算 -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div id="section-tax-title" class="section-title collapsed" data-section="tax" aria-expanded="false">
+                    <span>个税计算</span>
+                    <span class="chevron text-gray-400">▼</span>
+                </div>
+                <div id="section-tax-body" class="section-body collapsed">
+                    <ul id="step-list" class="divide-y divide-gray-200 max-h-80 overflow-y-auto">
+                        <!-- 动态填充 -->
+                    </ul>
+                </div>
             </div>
         </div>
 
         <!-- 右侧：选中步骤详情 -->
         <div class="flex-1 min-w-0">
-            <div id="step-detail" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hidden">
-                <div class="mb-4">
-                    <span id="detail-step-num" class="text-sm font-medium text-indigo-600"></span>
-                    <h3 id="detail-field-name" class="text-lg font-semibold text-gray-900 mt-1"></h3>
-                    <span id="detail-source-tag" class="inline-block mt-2 source-tag"></span>
+            <!-- 统一右侧详情：区块 + 步骤名 + 说明 + 预览值（应发/社保/个税一致） -->
+            <div id="detail-readonly" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hidden">
+                <div class="mb-2">
+                    <span id="detail-readonly-section" class="text-xs font-medium text-gray-500"></span>
                 </div>
-
-                <!-- 本月公式：公式编辑 + 变量插入 -->
-                <div id="detail-formula-block" class="hidden">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">计算规则（公式）</label>
-                    <textarea id="detail-formula" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-mono" placeholder="如：step_1 + step_2"></textarea>
-                    <div class="mt-2 flex flex-wrap gap-2">
-                        <span class="text-xs text-gray-500">插入变量：</span>
-                        <select id="variable-picker" class="text-xs border border-gray-300 rounded px-2 py-1">
-                            <option value="">选择变量...</option>
-                        </select>
-                        <button type="button" id="insert-variable-btn" class="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">插入</button>
-                    </div>
-                    <p class="mt-2 text-xs text-gray-500">可用：base_salary, base_amount, social_security_deduction, housing_fund_deduction, tax_deduction_total, step_1～step_14 等</p>
-                </div>
-
-                <!-- 上月带入：说明 -->
-                <div id="detail-prev-month-block" class="hidden">
-                    <p class="text-sm text-gray-600">该值由<strong>上月计算结束时保存的对应累计值</strong>带入，本月不可通过公式计算。当前预览中上月带入暂为 0。</p>
-                </div>
-
-                <!-- 税率表：步骤 12 -->
-                <div id="detail-tax-bracket-block" class="hidden">
-                    <p class="text-sm text-gray-600 mb-4">根据<strong>累计计税部分（步骤 11）</strong>查下表得到累计个税，不可编辑公式。</p>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full text-sm border border-gray-300">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-3 py-2 text-left border-b">累计应纳税所得额上限</th>
-                                    <th class="px-3 py-2 text-left border-b">税率</th>
-                                    <th class="px-3 py-2 text-left border-b">速算扣除数</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr><td class="px-3 py-2 border-b">不超过 36,000</td><td class="px-3 py-2 border-b">3%</td><td class="px-3 py-2 border-b">0</td></tr>
-                                <tr><td class="px-3 py-2 border-b">超过 36,000 至 144,000</td><td class="px-3 py-2 border-b">10%</td><td class="px-3 py-2 border-b">2,520</td></tr>
-                                <tr><td class="px-3 py-2 border-b">超过 144,000 至 300,000</td><td class="px-3 py-2 border-b">20%</td><td class="px-3 py-2 border-b">16,920</td></tr>
-                                <tr><td class="px-3 py-2 border-b">超过 300,000 至 420,000</td><td class="px-3 py-2 border-b">25%</td><td class="px-3 py-2 border-b">31,920</td></tr>
-                                <tr><td class="px-3 py-2 border-b">超过 420,000 至 660,000</td><td class="px-3 py-2 border-b">30%</td><td class="px-3 py-2 border-b">52,920</td></tr>
-                                <tr><td class="px-3 py-2 border-b">超过 660,000 至 960,000</td><td class="px-3 py-2 border-b">35%</td><td class="px-3 py-2 border-b">85,920</td></tr>
-                                <tr><td class="px-3 py-2 border-b">超过 960,000</td><td class="px-3 py-2 border-b">45%</td><td class="px-3 py-2 border-b">181,920</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="mt-6 pt-4 border-t border-gray-200 flex justify-between">
-                    <div id="detail-preview-value" class="text-sm text-gray-600 hidden">
-                        当前预览值：<strong id="detail-preview-value-num" class="text-gray-900"></strong>
-                    </div>
-                    <button type="button" id="save-step-formula-btn" class="hidden px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">保存本步公式</button>
+                <h3 id="detail-readonly-title" class="text-lg font-semibold text-gray-900 mt-1"></h3>
+                <p id="detail-readonly-desc" class="mt-2 text-sm text-gray-600"></p>
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                    <span class="text-sm text-gray-500">当前预览值：</span>
+                    <strong id="detail-readonly-value" class="text-lg text-gray-900 ml-2"></strong>
                 </div>
             </div>
 
             <div id="step-detail-placeholder" class="bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 p-12 text-center text-gray-500 text-sm">
-                请在左侧选择一步查看或编辑
+                请先选择发放周期、公司、人员并点击「预览各步结果」，再在左侧选择任一步骤查看预览值
             </div>
         </div>
     </div>
 
-    <!-- 底部：保存全部公式 -->
-    <div class="mt-6 flex justify-end">
-        <button id="save-all-formulas-btn" class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700">保存全部步骤公式</button>
-    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
 (function() {
+  const grossStepListEl = document.getElementById('gross-step-list');
+  const socialHousingStepListEl = document.getElementById('social-housing-step-list');
   const stepListEl = document.getElementById('step-list');
-  const stepDetailEl = document.getElementById('step-detail');
+  const detailReadonlyEl = document.getElementById('detail-readonly');
   const stepDetailPlaceholder = document.getElementById('step-detail-placeholder');
-  const detailStepNum = document.getElementById('detail-step-num');
-  const detailFieldName = document.getElementById('detail-field-name');
-  const detailSourceTag = document.getElementById('detail-source-tag');
-  const detailFormulaBlock = document.getElementById('detail-formula-block');
-  const detailPrevMonthBlock = document.getElementById('detail-prev-month-block');
-  const detailTaxBracketBlock = document.getElementById('detail-tax-bracket-block');
-  const detailFormula = document.getElementById('detail-formula');
-  const variablePicker = document.getElementById('variable-picker');
-  const insertVariableBtn = document.getElementById('insert-variable-btn');
-  const detailPreviewValue = document.getElementById('detail-preview-value');
-  const detailPreviewValueNum = document.getElementById('detail-preview-value-num');
-  const saveStepFormulaBtn = document.getElementById('save-step-formula-btn');
+  const detailReadonlySection = document.getElementById('detail-readonly-section');
+  const detailReadonlyTitle = document.getElementById('detail-readonly-title');
+  const detailReadonlyDesc = document.getElementById('detail-readonly-desc');
+  const detailReadonlyValue = document.getElementById('detail-readonly-value');
 
   let steps = [];
   let stepValues = {};
+  let baseResult = {};
   let selectedStepNum = null;
+  let selectedGrossKey = null;
+  let selectedSocialKey = null;
   let formulas = {};
+
+  const GROSS_STEPS = [
+    { key: 'employment_salary', label: '聘用薪资', desc: '当月聘用记录中的薪资，用于岗位划分与考勤公式' },
+    { key: 'base_salary_part', label: '基础薪资部分', desc: '第1步：按岗位类别划分的基础薪资部分' },
+    { key: 'performance_salary_part', label: '绩效薪资部分', desc: '第1步：按岗位类别划分的绩效薪资部分' },
+    { key: 'discounted_base_salary', label: '折算后基础薪资', desc: '第2步：按员工类别折算后的基础薪资' },
+    { key: 'discounted_performance_salary', label: '折算后绩效薪资', desc: '第2步：按员工类别折算后的绩效薪资' },
+    { key: 'performance_coefficient', label: '绩效系数', desc: '第3步：考核等级对应的绩效系数' },
+    { key: 'actual_performance_salary', label: '实际绩效薪资', desc: '第3步：折算后绩效薪资 × 绩效系数' },
+    { key: 'personal_leave_deduction', label: '事假扣减', desc: '第4步：聘用薪资/21.75×事假天数' },
+    { key: 'sick_leave_deduction', label: '病假扣减', desc: '第4步：聘用薪资/21.75×0.3×病假天数' },
+    { key: 'attendance_deduction', label: '考勤扣减合计', desc: '第4步：事假扣减 + 病假扣减' },
+    { key: 'reward_punishment_amount', label: '奖惩金额', desc: '第5步：考勤中的奖惩金额' },
+    { key: 'base_amount', label: '应发金额', desc: '第6步：折算后基础 + 实际绩效 − 考勤扣减 + 奖惩' },
+  ];
+  const SOCIAL_HOUSING_STEPS = [
+    { key: 'social_insurance_deduction', label: '社保三险个人合计', desc: '第1步：社保基数×(养老+失业+医疗个人比例)' },
+    { key: 'housing_fund_deduction', label: '公积金个人扣除', desc: '第2步：公积金基数×公积金个人缴费比例' },
+    { key: 'serious_illness_amount', label: '大病个人缴费金额', desc: '第3步：从社保公积金配置中取出的大病个人缴费金额' },
+    { key: 'social_housing_total_deduction', label: '社保公积金扣除合计', desc: '第4步：三险个人 + 公积金个人 + 大病个人' },
+  ];
 
   const sourceLabels = { formula: '本月公式', prev_month: '上月带入', tax_bracket: '税率表' };
   const sourceClass = { formula: 'source-formula', prev_month: 'source-prev_month', tax_bracket: 'source-tax_bracket' };
+
+  // 个税每步简短说明（与应发/社保格式一致：第N步：xxx）
+  const TAX_STEP_DESC = {
+    1: '社保个人扣除+公积金个人扣除（专项累计扣除）',
+    2: '专项附加扣除合计',
+    3: '税前扣除项目合计（step_1+step_2）',
+    4: '上月累计专项扣除合计（上月带入）',
+    5: '上月薪资的累计专项合计(不含附加)',
+    6: '累计扣除项目合计（step_3+step_4）',
+    7: '上月累计收入（上月带入）',
+    8: '累计收入（上月累计+本月应发）',
+    9: '减除费用（5000）',
+    10: '税前工资（应发-专项累计扣除）',
+    11: '累计计税部分（累计收入-累计扣除-减除费用）',
+    12: '累计个税（按税率表）',
+    13: '上月累计个税（上月带入）',
+    14: '本月个税（累计个税-上月累计个税）'
+  };
+
+  function showRightPlaceholder() {
+    detailReadonlyEl.classList.add('hidden');
+    stepDetailPlaceholder.classList.remove('hidden');
+  }
+  function showRightReadonly(sectionLabel, title, desc, valueStr) {
+    stepDetailPlaceholder.classList.add('hidden');
+    detailReadonlyEl.classList.remove('hidden');
+    detailReadonlySection.textContent = sectionLabel;
+    detailReadonlyTitle.textContent = title;
+    detailReadonlyDesc.textContent = desc;
+    detailReadonlyValue.textContent = valueStr;
+  }
+
+  function renderGrossStepList() {
+    grossStepListEl.innerHTML = GROSS_STEPS.map(function(s, i) {
+      const val = baseResult[s.key];
+      const valStr = val !== undefined && val !== null ? Number(val).toFixed(2) : '—';
+      const selected = selectedGrossKey === s.key ? ' selected readonly' : ' readonly';
+      return '<li class="step-row px-4 py-2.5 flex items-center justify-between gap-2' + selected + '" data-gross-key="' + s.key + '">' +
+        '<span class="text-sm font-medium text-gray-900 truncate">' + (i + 1) + '. ' + s.label + '</span>' +
+        '<span class="text-sm text-gray-500 tabular-nums flex-shrink-0">' + valStr + '</span>' +
+      '</li>';
+    }).join('');
+  }
+  function renderSocialHousingStepList() {
+    socialHousingStepListEl.innerHTML = SOCIAL_HOUSING_STEPS.map(function(s, i) {
+      const val = baseResult[s.key];
+      const valStr = val !== undefined && val !== null ? Number(val).toFixed(2) : '—';
+      const selected = selectedSocialKey === s.key ? ' selected readonly' : ' readonly';
+      return '<li class="step-row px-4 py-2.5 flex items-center justify-between gap-2' + selected + '" data-social-key="' + s.key + '">' +
+        '<span class="text-sm font-medium text-gray-900 truncate">' + (i + 1) + '. ' + s.label + '</span>' +
+        '<span class="text-sm text-gray-500 tabular-nums flex-shrink-0">' + valStr + '</span>' +
+      '</li>';
+    }).join('');
+  }
 
   function setDefaultPeriod() {
     const now = new Date();
@@ -172,55 +228,59 @@
     stepListEl.innerHTML = steps.map(s => {
       const val = stepValues['step_' + s.step];
       const valStr = val !== undefined ? Number(val).toFixed(2) : '—';
-      const tag = sourceLabels[s.source] || s.source;
-      const tagClass = sourceClass[s.source] || '';
-      return '<li class="step-row px-4 py-3 flex items-center justify-between gap-2 ' + (selectedStepNum === s.step ? ' selected' : '') + '" data-step="' + s.step + '">' +
-        '<div class="min-w-0">' +
-          '<span class="text-sm font-medium text-gray-900">' + s.step + '. ' + s.field_name + '</span>' +
-          '<span class="source-tag ' + tagClass + ' ml-2">' + tag + '</span>' +
-        '</div>' +
+      const selected = selectedStepNum === s.step ? ' selected' : '';
+      return '<li class="step-row px-4 py-2.5 flex items-center justify-between gap-2' + selected + '" data-step="' + s.step + '">' +
+        '<span class="text-sm font-medium text-gray-900 truncate">' + s.step + '. ' + s.field_name + '</span>' +
         '<span class="text-sm text-gray-500 tabular-nums flex-shrink-0">' + valStr + '</span>' +
       '</li>';
     }).join('');
+  }
+
+  function showGrossDetail(key) {
+    const s = GROSS_STEPS.find(function(x) { return x.key === key; });
+    if (!s) return;
+    selectedGrossKey = key;
+    selectedSocialKey = null;
+    selectedStepNum = null;
+    renderGrossStepList();
+    renderSocialHousingStepList();
+    renderStepList();
+    const val = baseResult[key];
+    const valStr = val !== undefined && val !== null ? Number(val).toFixed(2) + ' 元' : '—';
+    showRightReadonly('应发薪资计算', s.label, s.desc, valStr);
+  }
+  function showSocialDetail(key) {
+    const s = SOCIAL_HOUSING_STEPS.find(function(x) { return x.key === key; });
+    if (!s) return;
+    selectedSocialKey = key;
+    selectedGrossKey = null;
+    selectedStepNum = null;
+    renderGrossStepList();
+    renderSocialHousingStepList();
+    renderStepList();
+    const val = baseResult[key];
+    const valStr = val !== undefined && val !== null ? Number(val).toFixed(2) + ' 元' : '—';
+    showRightReadonly('社保公积金扣除计算', s.label, s.desc, valStr);
   }
 
   function showDetail(stepNum) {
     const s = steps.find(x => x.step === stepNum);
     if (!s) return;
     selectedStepNum = stepNum;
+    selectedGrossKey = null;
+    selectedSocialKey = null;
+    renderGrossStepList();
+    renderSocialHousingStepList();
     renderStepList();
 
-    stepDetailPlaceholder.classList.add('hidden');
-    stepDetailEl.classList.remove('hidden');
-    detailStepNum.textContent = '步骤 ' + stepNum;
-    detailFieldName.textContent = s.field_name;
-    detailSourceTag.textContent = sourceLabels[s.source] || s.source;
-    detailSourceTag.className = 'inline-block mt-2 source-tag ' + (sourceClass[s.source] || '');
+    const v = stepValues['step_' + stepNum];
+    let valueStr = v !== undefined ? Number(v).toFixed(2) + ' 元' : '—';
+    if (s.source === 'prev_month') valueStr = (v !== undefined ? Number(v).toFixed(2) : '0') + '（上月带入暂为 0）';
 
-    detailFormulaBlock.classList.add('hidden');
-    detailPrevMonthBlock.classList.add('hidden');
-    detailTaxBracketBlock.classList.add('hidden');
-    detailPreviewValue.classList.add('hidden');
-    saveStepFormulaBtn.classList.add('hidden');
+    var stepDesc = TAX_STEP_DESC[s.step] || s.field_name;
+    var desc = '第' + s.step + '步：' + stepDesc;
 
-    if (s.source === 'formula') {
-      detailFormulaBlock.classList.remove('hidden');
-      detailFormula.value = s.formula || '';
-      detailPreviewValue.classList.remove('hidden');
-      const v = stepValues['step_' + stepNum];
-      detailPreviewValueNum.textContent = v !== undefined ? Number(v).toFixed(2) : '—';
-      saveStepFormulaBtn.classList.remove('hidden');
-    } else if (s.source === 'prev_month') {
-      detailPrevMonthBlock.classList.remove('hidden');
-      const v = stepValues['step_' + stepNum];
-      detailPreviewValue.classList.remove('hidden');
-      detailPreviewValueNum.textContent = v !== undefined ? Number(v).toFixed(2) : '0（上月带入暂为 0）';
-    } else if (s.source === 'tax_bracket') {
-      detailTaxBracketBlock.classList.remove('hidden');
-      const v = stepValues['step_' + stepNum];
-      detailPreviewValue.classList.remove('hidden');
-      detailPreviewValueNum.textContent = v !== undefined ? Number(v).toFixed(2) : '—';
-    }
+    showRightReadonly('个税计算', s.field_name, desc, valueStr);
   }
 
   function loadSteps() {
@@ -292,11 +352,39 @@
           alert(res.error || '预览失败');
           return;
         }
+        baseResult = res.data.base_result || {};
         stepValues = res.data.step_values || {};
+        renderGrossStepList();
+        renderSocialHousingStepList();
         renderStepList();
+        // 预览成功后自动展开三个区域
+        ['gross', 'social', 'tax'].forEach(function(sectionId) {
+          var title = document.getElementById('section-' + sectionId + '-title');
+          var body = document.getElementById('section-' + sectionId + '-body');
+          if (title && body && title.classList.contains('collapsed')) {
+            title.classList.remove('collapsed');
+            body.classList.remove('collapsed');
+            title.setAttribute('aria-expanded', 'true');
+          }
+        });
         if (selectedStepNum !== null) showDetail(selectedStepNum);
+        else if (selectedGrossKey !== null) showGrossDetail(selectedGrossKey);
+        else if (selectedSocialKey !== null) showSocialDetail(selectedSocialKey);
       })
       .catch(() => alert('请求失败'));
+  });
+
+  grossStepListEl.addEventListener('click', function(e) {
+    const row = e.target.closest('.step-row[data-gross-key]');
+    if (!row) return;
+    const key = row.getAttribute('data-gross-key');
+    showGrossDetail(key);
+  });
+  socialHousingStepListEl.addEventListener('click', function(e) {
+    const row = e.target.closest('.step-row[data-social-key]');
+    if (!row) return;
+    const key = row.getAttribute('data-social-key');
+    showSocialDetail(key);
   });
 
   stepListEl.addEventListener('click', function(e) {
@@ -306,62 +394,25 @@
     showDetail(stepNum);
   });
 
-  // 变量列表：步骤用变量 + base_result 常用键
-  const stepVariableOptions = [
-    'base_salary', 'base_amount', 'performance_bonus', 'social_security_deduction', 'housing_fund_deduction',
-    'tax_deduction_total', 'taxable_income', 'tax_deduction', 'total_amount', 'assessment_grade',
-    'social_security_base', 'housing_fund_base'
-  ];
-  for (let i = 1; i <= 14; i++) stepVariableOptions.push('step_' + i);
+  function toggleSection(sectionId) {
+    var title = document.getElementById('section-' + sectionId + '-title');
+    var body = document.getElementById('section-' + sectionId + '-body');
+    if (!title || !body) return;
+    var isCollapsed = title.classList.contains('collapsed');
+    if (isCollapsed) {
+      title.classList.remove('collapsed');
+      body.classList.remove('collapsed');
+      title.setAttribute('aria-expanded', 'true');
+    } else {
+      title.classList.add('collapsed');
+      body.classList.add('collapsed');
+      title.setAttribute('aria-expanded', 'false');
+    }
+  }
 
-  variablePicker.innerHTML = '<option value="">选择变量...</option>' +
-    stepVariableOptions.map(v => '<option value="' + v + '">' + v + '</option>').join('');
-
-  insertVariableBtn.addEventListener('click', function() {
-    const v = variablePicker.value;
-    if (!v) return;
-    const ta = detailFormula;
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-    const text = ta.value;
-    ta.value = text.slice(0, start) + v + text.slice(end);
-    ta.focus();
-    ta.setSelectionRange(start + v.length, start + v.length);
-  });
-
-  saveStepFormulaBtn.addEventListener('click', function() {
-    if (selectedStepNum === null) return;
-    formulas[String(selectedStepNum)] = detailFormula.value.trim();
-    fetch('/api/payroll/tax-steps', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ formulas: formulas })
-    })
-      .then(r => r.json())
-      .then(res => {
-        if (res.success) {
-          steps.find(s => s.step === selectedStepNum).formula = formulas[String(selectedStepNum)];
-          alert('已保存');
-        } else alert(res.error || '保存失败');
-      })
-      .catch(() => alert('保存失败'));
-  });
-
-  document.getElementById('save-all-formulas-btn').addEventListener('click', function() {
-    fetch('/api/payroll/tax-steps', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ formulas: formulas })
-    })
-      .then(r => r.json())
-      .then(res => {
-        if (res.success) {
-          loadSteps();
-          alert('全部步骤公式已保存');
-        } else alert(res.error || '保存失败');
-      })
-      .catch(() => alert('保存失败'));
-  });
+  document.getElementById('section-gross-title').addEventListener('click', function() { toggleSection('gross'); });
+  document.getElementById('section-social-title').addEventListener('click', function() { toggleSection('social'); });
+  document.getElementById('section-tax-title').addEventListener('click', function() { toggleSection('tax'); });
 
   setDefaultPeriod();
   loadSteps();

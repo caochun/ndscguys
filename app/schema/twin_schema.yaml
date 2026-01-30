@@ -534,8 +534,8 @@ twins:
       sick_leave_days:
         type: decimal
         required: false
-        label: "事假天数"
-        description: "当月事假天数"
+        label: "病假天数"
+        description: "当月病假天数"
         validation:
           min: 0
         default: 0
@@ -546,8 +546,8 @@ twins:
       personal_leave_days:
         type: decimal
         required: false
-        label: "病假天数"
-        description: "当月病假天数"
+        label: "事假天数"
+        description: "当月事假天数"
         validation:
           min: 0
         default: 0
@@ -808,6 +808,152 @@ twins:
         required: false
         label: "备注说明"
         description: "配置的备注说明，如政策依据、变更原因等"
+        ui:
+          component: textarea
+
+  position_salary_ratio:
+    type: entity
+    label: "岗位薪资结构配置"
+    description: "按岗位类别划分聘用薪资为基础薪资与绩效薪资的比例，用于应发计算第1步"
+    table: "position_salary_ratios"
+    state_table: "position_salary_ratio_history"
+    mode: versioned
+    unique_key: [position_salary_ratio_id, version]
+    
+    fields:
+      position_category:
+        type: enum
+        required: true
+        label: "岗位类别"
+        description: "与聘用活动中的岗位类别一致"
+        options: ["普通员工", "部门负责人", "BOSS"]
+        ui:
+          component: select
+      
+      base_ratio:
+        type: decimal
+        required: true
+        label: "基础薪资占比"
+        description: "聘用薪资中划为基础薪资的比例，如 0.7 表示 70%"
+        validation:
+          min: 0
+          max: 1
+        ui:
+          component: number_input
+          step: 0.01
+      
+      performance_ratio:
+        type: decimal
+        required: true
+        label: "绩效薪资占比"
+        description: "聘用薪资中划为绩效薪资的比例，如 0.3 表示 30%；与基础占比之和应为 1"
+        validation:
+          min: 0
+          max: 1
+        ui:
+          component: number_input
+          step: 0.01
+      
+      effective_date:
+        type: date
+        required: false
+        label: "生效日期"
+        description: "本比例配置生效的日期"
+        ui:
+          component: date_picker
+      
+      description:
+        type: string
+        required: false
+        label: "备注"
+        ui:
+          component: textarea
+
+  employee_type_discount:
+    type: entity
+    label: "员工类别折算配置"
+    description: "按员工类别（试用/正式等）对基础薪资与绩效薪资的折算系数，用于应发计算第2步"
+    table: "employee_type_discounts"
+    state_table: "employee_type_discount_history"
+    mode: versioned
+    unique_key: [employee_type_discount_id, version]
+    
+    fields:
+      employee_type:
+        type: enum
+        required: true
+        label: "员工类别"
+        description: "与聘用活动中的员工类别一致"
+        options: ["实习", "试用", "外聘", "正式"]
+        ui:
+          component: select
+      
+      discount_ratio:
+        type: decimal
+        required: true
+        label: "折算系数"
+        description: "基础/绩效薪资乘以该系数，如试用 0.8 表示八折、正式 1.0 表示不打折"
+        validation:
+          min: 0
+          max: 1
+        ui:
+          component: number_input
+          step: 0.01
+      
+      effective_date:
+        type: date
+        required: false
+        label: "生效日期"
+        ui:
+          component: date_picker
+      
+      description:
+        type: string
+        required: false
+        label: "备注"
+        ui:
+          component: textarea
+
+  assessment_grade_coefficient:
+    type: entity
+    label: "考核等级绩效系数配置"
+    description: "考核等级对应的绩效系数，实际绩效薪资 = 折算后绩效薪资 × 该系数，用于应发计算第3步"
+    table: "assessment_grade_coefficients"
+    state_table: "assessment_grade_coefficient_history"
+    mode: versioned
+    unique_key: [assessment_grade_coefficient_id, version]
+    
+    fields:
+      grade:
+        type: enum
+        required: true
+        label: "考核等级"
+        options: ["A", "B", "C", "D", "E"]
+        ui:
+          component: select
+      
+      coefficient:
+        type: decimal
+        required: true
+        label: "绩效系数"
+        description: "如 A=1.2、B=1.0、C=0.8 等"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          step: 0.01
+      
+      effective_date:
+        type: date
+        required: false
+        label: "生效日期"
+        ui:
+          component: date_picker
+      
+      description:
+        type: string
+        required: false
+        label: "备注"
         ui:
           component: textarea
 
@@ -1287,9 +1433,9 @@ twins:
       # ===== 计算依据快照 =====
       base_salary:
         type: decimal
-        required: true
-        label: "基本薪资"
-        description: "当月的基本薪资（从聘用记录获取）"
+        required: false
+        label: "基本薪资（旧）"
+        description: "兼容旧逻辑，新逻辑使用聘用薪资及应发各步中间结果"
         validation:
           min: 0
         ui:
@@ -1308,10 +1454,127 @@ twins:
         type: enum
         required: false
         label: "考核等级"
-        description: "最近一次考核等级（影响绩效奖金）"
+        description: "最近一次考核等级（影响绩效系数）"
         options: ["A", "B", "C", "D", "E"]
         ui:
           component: select
+      
+      # ===== 应发计算中间结果 =====
+      employment_salary:
+        type: decimal
+        required: false
+        label: "聘用薪资"
+        description: "当月聘用记录中的薪资，用于岗位划分与考勤扣减公式"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      base_salary_part:
+        type: decimal
+        required: false
+        label: "基础薪资部分"
+        description: "第1步：按岗位类别划分的基础薪资部分"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      performance_salary_part:
+        type: decimal
+        required: false
+        label: "绩效薪资部分"
+        description: "第1步：按岗位类别划分的绩效薪资部分"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      discounted_base_salary:
+        type: decimal
+        required: false
+        label: "折算后基础薪资"
+        description: "第2步：按员工类别折算后的基础薪资"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      discounted_performance_salary:
+        type: decimal
+        required: false
+        label: "折算后绩效薪资"
+        description: "第2步：按员工类别折算后的绩效薪资"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      performance_coefficient:
+        type: decimal
+        required: false
+        label: "绩效系数"
+        description: "第3步：考核等级对应的绩效系数"
+        ui:
+          component: number_input
+      
+      actual_performance_salary:
+        type: decimal
+        required: false
+        label: "实际绩效薪资"
+        description: "第3步：折算后绩效薪资 × 绩效系数"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      personal_leave_deduction:
+        type: decimal
+        required: false
+        label: "事假扣减"
+        description: "第4步：聘用薪资/21.75×事假天数"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      sick_leave_deduction:
+        type: decimal
+        required: false
+        label: "病假扣减"
+        description: "第4步：聘用薪资/21.75×0.3×病假天数"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      attendance_deduction:
+        type: decimal
+        required: false
+        label: "考勤扣减合计"
+        description: "第4步：事假扣减 + 病假扣减"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      reward_punishment_amount:
+        type: decimal
+        required: false
+        label: "奖惩金额"
+        description: "第5步：考勤中的奖惩金额，正为奖、负为惩"
+        ui:
+          component: number_input
+          suffix: "元"
       
       social_security_base:
         type: decimal
@@ -1346,32 +1609,12 @@ twins:
           component: number_input
           suffix: "元/月"
       
-      # ===== 计算结果 =====
-      base_amount:
-        type: decimal
-        required: true
-        label: "应发金额"
-        description: "基本薪资 + 绩效奖金（如有）"
-        validation:
-          min: 0
-        ui:
-          component: number_input
-          suffix: "元"
-      
-      performance_bonus:
+      # ===== 社保公积金扣除中间结果 =====
+      social_insurance_deduction:
         type: decimal
         required: false
-        label: "绩效奖金"
-        description: "根据考核等级计算的绩效奖金（可为负）"
-        ui:
-          component: number_input
-          suffix: "元"
-      
-      social_security_deduction:
-        type: decimal
-        required: false
-        label: "社保扣除"
-        description: "当月社保缴费扣除金额"
+        label: "社保三险个人合计"
+        description: "第1步：社保基数×(养老个人比例+失业个人比例+医疗个人比例)"
         validation:
           min: 0
         ui:
@@ -1381,8 +1624,62 @@ twins:
       housing_fund_deduction:
         type: decimal
         required: false
-        label: "公积金扣除"
-        description: "当月公积金缴费扣除金额"
+        label: "公积金个人扣除"
+        description: "第2步：公积金基数×公积金个人缴费比例"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      serious_illness_amount:
+        type: decimal
+        required: false
+        label: "大病个人缴费金额"
+        description: "第3步：从社保公积金配置中取出的大病个人缴费金额"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      social_housing_total_deduction:
+        type: decimal
+        required: false
+        label: "社保公积金扣除合计"
+        description: "第4步：社保三险个人 + 公积金个人 + 大病个人"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      # ===== 计算结果 =====
+      base_amount:
+        type: decimal
+        required: true
+        label: "应发金额"
+        description: "第6步：折算后基础 + 实际绩效 − 考勤扣减 + 奖惩金额"
+        validation:
+          min: 0
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      performance_bonus:
+        type: decimal
+        required: false
+        label: "绩效奖金（旧）"
+        description: "兼容旧逻辑，新逻辑使用 actual_performance_salary"
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      social_security_deduction:
+        type: decimal
+        required: false
+        label: "社保扣除（旧）"
+        description: "兼容旧逻辑，新逻辑使用 social_insurance_deduction + serious_illness_amount；或等于社保公积金扣除合计中的社保部分"
         validation:
           min: 0
         ui:
@@ -1393,7 +1690,7 @@ twins:
         type: decimal
         required: false
         label: "应纳税所得额"
-        description: "应发金额 - 社保扣除 - 公积金扣除 - 专项附加扣除 - 起征点（5000）"
+        description: "应发金额 − 社保公积金扣除合计 − 专项附加扣除 − 起征点（5000）"
         ui:
           component: number_input
           suffix: "元"
@@ -1413,7 +1710,7 @@ twins:
         type: decimal
         required: true
         label: "实发金额"
-        description: "应发金额 - 社保扣除 - 公积金扣除 - 个税扣除"
+        description: "应发金额 − 社保公积金扣除合计 − 个税扣除"
         validation:
           min: 0
         ui:
