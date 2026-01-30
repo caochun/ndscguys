@@ -17,7 +17,7 @@ class BaseDAO:
     
     def __init__(self, db_path: Optional[str] = None):
         if db_path is None:
-            from config import Config
+            from app.root_config import Config
             db_path = Config.DATABASE_PATH
         
         self.db_path = db_path

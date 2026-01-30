@@ -9,7 +9,7 @@ from typing import Optional, Tuple
 
 from app.daos.twins.twin_dao import TwinDAO
 from app.daos.twins.state_dao import TwinStateDAO
-from config import Config
+from app.root_config import Config
 
 
 def generate_test_data(db_path: Optional[str] = None):

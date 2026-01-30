@@ -37,6 +37,19 @@ def build_schema_dict(twin_name: str, default_label: Optional[str] = None) -> Di
     }
 
 
+def _contract_and_project_order_schemas() -> tuple:
+    """返回带 related_entities 的 contract_order_schema、project_order_schema，供 orders 与 project_center 复用"""
+    contract_order_schema = build_schema_dict("client_contract_order", "客户合同-订单关联")
+    contract_order_twin = _schema_loader.get_twin_schema("client_contract_order")
+    if contract_order_twin:
+        contract_order_schema["related_entities"] = contract_order_twin.get("related_entities", [])
+    project_order_schema = build_schema_dict("internal_project_order", "内部项目-订单关联")
+    project_order_twin = _schema_loader.get_twin_schema("internal_project_order")
+    if project_order_twin:
+        project_order_schema["related_entities"] = project_order_twin.get("related_entities", [])
+    return contract_order_schema, project_order_schema
+
+
 @web_bp.route("/")
 def index():
     """首页 - 重定向到人员列表"""
@@ -115,18 +128,7 @@ def client_contracts():
 def orders():
     """订单管理页"""
     order_schema = build_schema_dict("order", "订单")
-    contract_order_schema = build_schema_dict("client_contract_order", "客户合同-订单关联")
-    project_order_schema = build_schema_dict("internal_project_order", "内部项目-订单关联")
-    
-    # 添加 related_entities
-    contract_order_twin = _schema_loader.get_twin_schema("client_contract_order")
-    if contract_order_twin:
-        contract_order_schema["related_entities"] = contract_order_twin.get("related_entities", [])
-    
-    project_order_twin = _schema_loader.get_twin_schema("internal_project_order")
-    if project_order_twin:
-        project_order_schema["related_entities"] = project_order_twin.get("related_entities", [])
-    
+    contract_order_schema, project_order_schema = _contract_and_project_order_schemas()
     person_order_schema = build_schema_dict("person_order_participation", "人员-订单参与")
     return render_template("orders.html", 
                           order_schema=order_schema,
@@ -167,18 +169,7 @@ def project_center():
     contract_schema = build_schema_dict("client_contract", "客户合同")
     project_schema = build_schema_dict("internal_project", "内部项目")
     person_order_schema = build_schema_dict("person_order_participation", "人员-订单参与")
-    
-    # 添加 related_entities
-    contract_order_twin = _schema_loader.get_twin_schema("client_contract_order")
-    contract_order_schema = build_schema_dict("client_contract_order", "客户合同-订单关联")
-    if contract_order_twin:
-        contract_order_schema["related_entities"] = contract_order_twin.get("related_entities", [])
-    
-    project_order_twin = _schema_loader.get_twin_schema("internal_project_order")
-    project_order_schema = build_schema_dict("internal_project_order", "内部项目-订单关联")
-    if project_order_twin:
-        project_order_schema["related_entities"] = project_order_twin.get("related_entities", [])
-    
+    contract_order_schema, project_order_schema = _contract_and_project_order_schemas()
     return render_template("project_center.html", 
                           order_schema=order_schema,
                           contract_schema=contract_schema,

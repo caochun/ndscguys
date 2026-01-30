@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 
+import logging
 import yaml
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
@@ -13,6 +14,23 @@ from typing import Any, Dict, List, Tuple, Optional
 _CONFIG_DIR = Path(__file__).parent
 _BRACKETS_PATH = _CONFIG_DIR / "income_tax_brackets.yaml"
 _cached_brackets: Optional[List[Tuple[float, float, float]]] = None
+_log = logging.getLogger(__name__)
+
+
+def _load_brackets_raw() -> dict:
+    """加载 YAML 原始数据，失败时记录日志并抛出清晰异常"""
+    try:
+        with open(_BRACKETS_PATH, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+    except FileNotFoundError:
+        _log.error("税率表文件不存在: %s", _BRACKETS_PATH)
+        raise FileNotFoundError(f"税率表文件不存在: {_BRACKETS_PATH}") from None
+    except yaml.YAMLError as e:
+        _log.error("税率表 YAML 解析失败: %s", e)
+        raise ValueError(f"税率表 YAML 格式错误: {e}") from e
+    if not data:
+        raise ValueError("税率表文件为空或无效")
+    return data
 
 
 def get_brackets() -> List[Tuple[float, float, float]]:
@@ -23,8 +41,7 @@ def get_brackets() -> List[Tuple[float, float, float]]:
     global _cached_brackets
     if _cached_brackets is not None:
         return _cached_brackets
-    with open(_BRACKETS_PATH, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+    data = _load_brackets_raw()
     rows = data.get("brackets", [])
     result = []
     for row in rows:
@@ -42,9 +59,11 @@ def get_brackets() -> List[Tuple[float, float, float]]:
 
 def get_brackets_for_display() -> List[Dict[str, Any]]:
     """加载税率表原始列表，用于配置页展示（含 level、income_upper、rate、quick_deduction）"""
-    with open(_BRACKETS_PATH, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-    return data.get("brackets", [])
+    try:
+        data = _load_brackets_raw()
+        return data.get("brackets", [])
+    except (FileNotFoundError, ValueError, yaml.YAMLError):
+        return []
 
 
 def calculate_tax(taxable_income: float) -> float:

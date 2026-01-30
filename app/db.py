@@ -9,7 +9,7 @@ from typing import Optional
 from contextlib import contextmanager
 
 from app.schema.loader import SchemaLoader
-from app.schema.models import TwinSchema, FieldDefinition
+from app.schema.models import TwinSchema
 
 
 class DatabaseInitializer:
@@ -24,8 +24,6 @@ class DatabaseInitializer:
     
     def get_connection(self):
         """获取数据库连接（上下文管理器）"""
-        from contextlib import contextmanager
-        
         @contextmanager
         def _connection():
             conn = sqlite3.connect(self.db_path)
@@ -163,7 +161,7 @@ class DatabaseInitializer:
 def init_db(db_path: Optional[str] = None):
     """初始化数据库（便捷函数）"""
     if db_path is None:
-        from config import Config
+        from app.root_config import Config
         db_path = str(Config.DATABASE_PATH)
     
     initializer = DatabaseInitializer(db_path)

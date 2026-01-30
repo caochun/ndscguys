@@ -3,36 +3,11 @@ Twin API 路由 - 统一基于 Twin 的 REST API 接口
 """
 from __future__ import annotations
 
-from flask import Blueprint, jsonify, request
-from typing import Optional, Dict, Any
+from flask import Blueprint, request
 
-from app.services.twin_service import TwinService
-from app.schema.loader import SchemaLoader
-from config import Config
+from app.api_utils import standard_response, get_twin_service
 
 twin_api_bp = Blueprint("twin_api", __name__)
-
-
-def get_twin_service() -> TwinService:
-    """获取 TwinService 实例"""
-    return TwinService(db_path=str(Config.DATABASE_PATH))
-
-
-def get_schema_loader() -> SchemaLoader:
-    """获取 SchemaLoader 实例"""
-    return SchemaLoader()
-
-
-def standard_response(success: bool, data=None, error: str = None, status_code: int = 200):
-    """标准响应格式"""
-    response = {"success": success}
-    if data is not None:
-        response["data"] = data
-    if error:
-        response["error"] = error
-    if isinstance(data, list):
-        response["count"] = len(data)
-    return jsonify(response), status_code
 
 
 # ==================== 统一的 Twin API 接口 ====================

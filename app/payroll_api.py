@@ -11,41 +11,11 @@ from pathlib import Path
 from typing import Dict, Any
 
 from flask import Blueprint, request
-from config import Config
 
-from app.services.payroll_service import PayrollService
-from app.services.twin_service import TwinService
-from app.schema.loader import SchemaLoader
+from app.api_utils import standard_response, get_payroll_service, get_twin_service, get_schema_loader
+from app.root_config import Config
 
 payroll_api_bp = Blueprint("payroll_api", __name__)
-
-
-def get_payroll_service() -> PayrollService:
-    """获取 PayrollService 实例"""
-    return PayrollService(db_path=str(Config.DATABASE_PATH))
-
-
-def get_twin_service() -> TwinService:
-    """获取 TwinService 实例"""
-    return TwinService(db_path=str(Config.DATABASE_PATH))
-
-
-def get_schema_loader() -> SchemaLoader:
-    """获取 SchemaLoader 实例"""
-    return SchemaLoader()
-
-
-def standard_response(success: bool, data=None, error: str = None, status_code: int = 200):
-    """标准响应格式"""
-    from flask import jsonify
-    response = {"success": success}
-    if data is not None:
-        response["data"] = data
-    if error:
-        response["error"] = error
-    if isinstance(data, list):
-        response["count"] = len(data)
-    return jsonify(response), status_code
 
 
 # ==================== 工资计算与发放 API ====================
@@ -360,20 +330,13 @@ def _safe_eval_expression(expression: str, variables: Dict[str, Any]) -> float:
     支持：
     - 变量：a-zA-Z0-9_ 和 点号（如 person_company_employment.salary）
     - 运算符：+ - * / 和括号
-    - 函数：max, min, abs, round
+    - 函数：max, min, abs, round, grade_coef（从 app/config 读取）
     """
-    grade_coef_map = {
-        "A": 1.2,
-        "B": 1.0,
-        "C": 0.8,
-        "D": 0.6,
-        "E": 0.4,
-    }
+    from app.config.payroll_config import get_assessment_grade_coefficient
 
     def grade_coef(value: Any) -> float:
-        """绩效等级系数映射函数（A-E -> 系数）"""
-        key = str(value).strip().upper()
-        return float(grade_coef_map.get(key, 1.0))
+        """绩效等级系数映射函数（A-E -> 系数），与 app/config/assessment_grade_coefficient.yaml 一致"""
+        return get_assessment_grade_coefficient(str(value).strip() if value else None)
 
     allowed_funcs = {
         "max": max,
@@ -407,12 +370,13 @@ def _safe_eval_expression(expression: str, variables: Dict[str, Any]) -> float:
                     raise ValueError("不支持的运算符")
                 operand = self.visit(node.operand)
                 return allowed_operators[type(node.op)](operand)
-            if isinstance(node, ast.Num):  # 兼容 Python <3.8
-                return node.n
+            # 数字常量：ast.Constant (Python 3.8+)，ast.Num (3.7 及以下已废弃)
             if isinstance(node, ast.Constant):
                 if isinstance(node.value, (int, float)):
                     return node.value
                 raise ValueError("仅支持数字常量")
+            if hasattr(ast, "Num") and isinstance(node, ast.Num):
+                return node.n
             if isinstance(node, ast.Name):
                 # 简单变量名
                 return float(variables.get(node.id, 0.0) or 0.0)

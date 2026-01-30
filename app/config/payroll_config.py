@@ -3,18 +3,33 @@
 """
 from __future__ import annotations
 
+import logging
 import yaml
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
 _CONFIG_DIR = Path(__file__).parent
+_log = logging.getLogger(__name__)
 
 # 简单缓存，避免重复读文件
 _position_ratio: Optional[Dict[str, Dict[str, Any]]] = None
 _employee_discount: Optional[Dict[str, float]] = None
 _grade_coefficient: Optional[Dict[str, float]] = None
 _social_config_list: Optional[List[Dict[str, Any]]] = None
+
+
+def _load_yaml(path: Path) -> dict:
+    """加载 YAML 文件，失败时记录日志并返回空 dict"""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        _log.warning("配置文件不存在: %s", path)
+        return {}
+    except yaml.YAMLError as e:
+        _log.warning("配置 YAML 解析失败 %s: %s", path, e)
+        return {}
 
 
 def get_position_salary_ratio(position_category: Optional[str]) -> Optional[Dict[str, Any]]:
@@ -24,8 +39,7 @@ def get_position_salary_ratio(position_category: Optional[str]) -> Optional[Dict
     global _position_ratio
     if _position_ratio is None:
         path = _CONFIG_DIR / "position_salary_ratio.yaml"
-        with open(path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
+        data = _load_yaml(path)
         _position_ratio = {
             item["position_category"]: {
                 "base_ratio": float(item.get("base_ratio", 0.7)),
@@ -43,8 +57,7 @@ def get_employee_type_discount(employee_type: Optional[str]) -> float:
     global _employee_discount
     if _employee_discount is None:
         path = _CONFIG_DIR / "employee_type_discount.yaml"
-        with open(path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
+        data = _load_yaml(path)
         _employee_discount = {
             item["employee_type"]: float(item.get("discount_ratio", 1.0))
             for item in data.get("items", [])
@@ -59,8 +72,7 @@ def get_assessment_grade_coefficient(grade: Optional[str]) -> float:
     global _grade_coefficient
     if _grade_coefficient is None:
         path = _CONFIG_DIR / "assessment_grade_coefficient.yaml"
-        with open(path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
+        data = _load_yaml(path)
         _grade_coefficient = {
             str(item["grade"]): float(item.get("coefficient", 1.0))
             for item in data.get("items", [])
@@ -73,8 +85,7 @@ def get_social_security_config(period: str) -> Optional[Dict[str, Any]]:
     global _social_config_list
     if _social_config_list is None:
         path = _CONFIG_DIR / "social_security_config.yaml"
-        with open(path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
+        data = _load_yaml(path)
         _social_config_list = data.get("items", [])
     if not _social_config_list:
         return None
@@ -99,31 +110,23 @@ def get_social_security_config(period: str) -> Optional[Dict[str, Any]]:
 
 def get_all_position_salary_ratio() -> List[Dict[str, Any]]:
     """返回岗位薪资结构配置完整列表，用于配置页展示"""
-    path = _CONFIG_DIR / "position_salary_ratio.yaml"
-    with open(path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+    data = _load_yaml(_CONFIG_DIR / "position_salary_ratio.yaml")
     return data.get("items", [])
 
 
 def get_all_employee_type_discount() -> List[Dict[str, Any]]:
     """返回员工类别折算配置完整列表，用于配置页展示"""
-    path = _CONFIG_DIR / "employee_type_discount.yaml"
-    with open(path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+    data = _load_yaml(_CONFIG_DIR / "employee_type_discount.yaml")
     return data.get("items", [])
 
 
 def get_all_assessment_grade_coefficient() -> List[Dict[str, Any]]:
     """返回考核等级绩效系数配置完整列表，用于配置页展示"""
-    path = _CONFIG_DIR / "assessment_grade_coefficient.yaml"
-    with open(path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+    data = _load_yaml(_CONFIG_DIR / "assessment_grade_coefficient.yaml")
     return data.get("items", [])
 
 
 def get_all_social_security_config() -> List[Dict[str, Any]]:
     """返回社保公积金配置完整列表，用于配置页展示"""
-    path = _CONFIG_DIR / "social_security_config.yaml"
-    with open(path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+    data = _load_yaml(_CONFIG_DIR / "social_security_config.yaml")
     return data.get("items", [])
