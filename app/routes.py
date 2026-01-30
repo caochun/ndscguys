@@ -97,13 +97,6 @@ def contributions():
                           tax_schema=tax_schema)
 
 
-@web_bp.route("/payroll")
-def payroll():
-    """工资管理页"""
-    schema_dict = build_schema_dict("person_company_payroll", "工资管理")
-    return render_template("payroll.html", schema=schema_dict)
-
-
 @web_bp.route("/payroll/calculation")
 def payroll_calculation_page():
     """工资计算明细过程页 - 应发、社保公积金、个税三步块与步骤预览"""

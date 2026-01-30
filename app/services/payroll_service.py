@@ -3,8 +3,10 @@ Payroll Service - 工资计算与发放服务
 """
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 
 from app.services.twin_service import TwinService
@@ -12,6 +14,19 @@ from app.services.twin_service import TwinService
 
 # 月计薪天数（考勤扣减公式用）
 MONTHLY_WORK_DAYS = 21.75
+
+
+def _prev_period(period: str) -> str:
+    """上一期 YYYY-MM，如 2024-01 -> 2023-12"""
+    try:
+        y, m = map(int, period.split("-"))
+        m -= 1
+        if m < 1:
+            m += 12
+            y -= 1
+        return f"{y:04d}-{m:02d}"
+    except (ValueError, AttributeError):
+        return ""
 
 
 @dataclass
@@ -23,6 +38,7 @@ class PayrollContext:
     housing_base: Optional[Dict[str, Any]]
     tax_deductions: List[Dict[str, Any]]
     attendance_record: Optional[Dict[str, Any]] = None
+    prev_payroll: Optional[Dict[str, Any]] = None  # 上一期 person_company_payroll 状态（用于个税累计）
 
 
 class PayrollService:
@@ -34,239 +50,48 @@ class PayrollService:
 
     def __init__(self, db_path: Optional[str] = None):
         self.twin_service = TwinService(db_path=db_path)
-        # 直接复用 TwinService 持有的 DAO 实例
-        self.twin_dao = self.twin_service.twin_dao
         self.state_dao = self.twin_service.state_dao
-        self.schema_loader = self.twin_service.schema_loader
-
-    # ======== 对外接口 ========
-
-    def calculate_payroll(
-        self,
-        person_id: int,
-        company_id: int,
-        period: str,
-    ) -> Dict[str, Any]:
-        """
-        计算指定人员在指定周期的工资（仅计算，不写库）。
-        应发 6 步：岗位划分 → 员工类别折算 → 绩效系数 → 考勤扣减 → 奖惩 → 应发；
-        社保公积金 4 步：三险个人 + 公积金个人 + 大病个人 → 合计。
-        """
-        ctx = self._build_context(person_id, company_id, period)
-        employment = ctx.employment or {}
-        assessment = ctx.assessment or {}
-        attendance = ctx.attendance_record or {}
-
-        salary_type = employment.get("salary_type") or "月薪"
-        assessment_grade = assessment.get("grade")
-
-        # 聘用薪资（月薪等价），用于岗位划分与考勤公式
-        employment_salary = self._employment_salary_monthly(employment)
-
-        # ----- 应发计算 6 步 -----
-        # 第 1 步：按岗位类别划分基础/绩效
-        position_category = employment.get("position_category")
-        ratio = self._get_position_salary_ratio(position_category)
-        base_ratio = float(ratio.get("base_ratio", 0.7)) if ratio else 0.7
-        perf_ratio = float(ratio.get("performance_ratio", 0.3)) if ratio else 0.3
-        base_salary_part = employment_salary * base_ratio
-        performance_salary_part = employment_salary * perf_ratio
-
-        # 第 2 步：按员工类别折算
-        employee_type = employment.get("employee_type")
-        discount = self._get_employee_type_discount(employee_type)
-        discounted_base_salary = base_salary_part * discount
-        discounted_performance_salary = performance_salary_part * discount
-
-        # 第 3 步：考核等级绩效系数
-        performance_coefficient = self._get_assessment_grade_coefficient(
-            assessment_grade
-        )
-        actual_performance_salary = discounted_performance_salary * performance_coefficient
-
-        # 第 4 步：考勤扣减（事假 100%、病假 30%）
-        personal_leave_days = float(attendance.get("personal_leave_days") or 0)
-        sick_leave_days = float(attendance.get("sick_leave_days") or 0)
-        personal_leave_deduction = (
-            employment_salary / MONTHLY_WORK_DAYS * personal_leave_days
-        )
-        sick_leave_deduction = (
-            employment_salary / MONTHLY_WORK_DAYS * 0.3 * sick_leave_days
-        )
-        attendance_deduction = personal_leave_deduction + sick_leave_deduction
-
-        # 第 5 步：奖惩金额
-        reward_punishment_amount = float(
-            attendance.get("reward_punishment_amount") or 0
-        )
-
-        # 第 6 步：应发
-        base_amount = (
-            discounted_base_salary
-            + actual_performance_salary
-            - attendance_deduction
-            + reward_punishment_amount
-        )
-        base_amount = max(0.0, base_amount)
-
-        # ----- 社保公积金扣除 4 步 -----
-        social_security_base = float(
-            (ctx.social_base or {}).get("base_amount") or 0.0
-        )
-        housing_fund_base = float(
-            (ctx.housing_base or {}).get("base_amount") or 0.0
-        )
-        config = self._get_social_security_config(period)
-        if config:
-            pension = float(config.get("pension_employee_rate") or 0)
-            unemployment = float(config.get("unemployment_employee_rate") or 0)
-            medical = float(config.get("medical_employee_rate") or 0)
-            housing_rate = float(config.get("housing_fund_employee_rate") or 0)
-            serious_illness_amount = float(
-                config.get("serious_illness_employee_amount") or 0
-            )
-            social_insurance_deduction = social_security_base * (
-                pension + unemployment + medical
-            )
-            housing_fund_deduction = housing_fund_base * housing_rate
-            social_housing_total_deduction = (
-                social_insurance_deduction
-                + housing_fund_deduction
-                + serious_illness_amount
-            )
-        else:
-            social_insurance_deduction = social_security_base * 0.105
-            housing_fund_deduction = housing_fund_base * 0.12
-            serious_illness_amount = 0.0
-            social_housing_total_deduction = (
-                social_insurance_deduction + housing_fund_deduction
-            )
-
-        # 专项附加扣除
-        _monthly_deduction_keys = (
-            "children_education_amount",
-            "continuing_education_amount",
-            "housing_loan_interest_amount",
-            "housing_rent_amount",
-            "elderly_support_amount",
-            "infant_childcare_amount",
-        )
-        tax_deduction_total = 0.0
-        for d in ctx.tax_deductions:
-            tax_deduction_total += sum(
-                float(d.get(k) or 0.0) for k in _monthly_deduction_keys
-            )
-            tax_deduction_total += float(d.get("medical_expense_amount") or 0.0) / 12.0
-
-        # 应纳税所得额与个税
-        tax_threshold = 5000.0
-        taxable_income = max(
-            0.0,
-            base_amount
-            - social_housing_total_deduction
-            - tax_deduction_total
-            - tax_threshold,
-        )
-        tax_deduction = self._calculate_tax(taxable_income)
-
-        # 实发
-        total_amount = max(
-            0.0,
-            base_amount - social_housing_total_deduction - tax_deduction,
-        )
-
-        def r2(x: float) -> float:
-            return round(float(x), 2)
-
-        return {
-            "person_id": person_id,
-            "company_id": company_id,
-            "period": period,
-            "salary_type": salary_type,
-            "assessment_grade": assessment_grade,
-            "social_security_base": r2(social_security_base),
-            "housing_fund_base": r2(housing_fund_base),
-            "tax_deduction_total": r2(tax_deduction_total),
-            # 应发中间结果
-            "employment_salary": r2(employment_salary),
-            "base_salary_part": r2(base_salary_part),
-            "performance_salary_part": r2(performance_salary_part),
-            "discounted_base_salary": r2(discounted_base_salary),
-            "discounted_performance_salary": r2(discounted_performance_salary),
-            "performance_coefficient": r2(performance_coefficient),
-            "actual_performance_salary": r2(actual_performance_salary),
-            "personal_leave_deduction": r2(personal_leave_deduction),
-            "sick_leave_deduction": r2(sick_leave_deduction),
-            "attendance_deduction": r2(attendance_deduction),
-            "reward_punishment_amount": r2(reward_punishment_amount),
-            "base_amount": r2(base_amount),
-            # 社保公积金中间结果
-            "social_insurance_deduction": r2(social_insurance_deduction),
-            "housing_fund_deduction": r2(housing_fund_deduction),
-            "serious_illness_amount": r2(serious_illness_amount),
-            "social_housing_total_deduction": r2(social_housing_total_deduction),
-            # 兼容旧字段
-            "base_salary": r2(discounted_base_salary),
-            "performance_bonus": r2(actual_performance_salary),
-            "social_security_deduction": r2(social_insurance_deduction + serious_illness_amount),
-            #
-            "taxable_income": r2(taxable_income),
-            "tax_deduction": r2(tax_deduction),
-            "total_amount": r2(total_amount),
-            "status": "待发放",
-        }
-
-    def generate_payroll(
-        self,
-        person_id: int,
-        company_id: int,
-        period: str,
-    ) -> Dict[str, Any]:
-        """
-        计算并生成工资单 Twin（person_company_payroll）
-        
-        返回创建后的 Twin 详情（包含 current/history）。
-        """
-        # 先计算
-        data = self.calculate_payroll(person_id, company_id, period)
-
-        # 创建 Activity Twin 注册记录
-        payroll_id = self.twin_dao.create_activity_twin(
-            "person_company_payroll",
-            {
-                "person_id": person_id,
-                "company_id": company_id,
-            },
-        )
-
-        # 从状态数据中移除外键（根据 TwinService 的约定）
-        state_data = data.copy()
-        state_data.pop("person_id", None)
-        state_data.pop("company_id", None)
-
-        # 追加状态（time_series，需要 time_key=period）
-        self.state_dao.append(
-            "person_company_payroll",
-            payroll_id,
-            state_data,
-            time_key=period,
-        )
-
-        # 返回完整 Twin 信息
-        return self.twin_service.get_twin("person_company_payroll", payroll_id)
 
     # ======== 内部辅助方法 ========
+
+    def _get_twin_state_for_person_company(
+        self, twin_name: str, person_id: int, company_id: int, time_key: str
+    ) -> Optional[Dict[str, Any]]:
+        """按 person_id+company_id 取 time_series twin 的某条状态，返回 state.data。"""
+        twins = self.twin_service.list_twins(
+            twin_name,
+            filters={"person_id": str(person_id), "company_id": str(company_id)},
+        )
+        if not twins:
+            return None
+        twin_id = twins[0].get("id")
+        if twin_id is None:
+            return None
+        state = self.state_dao.get_state_by_time_key(twin_name, twin_id, time_key)
+        return state.data if state and state.data else None
+
+    def _get_prev_payroll_state(
+        self, person_id: int, company_id: int, period: str
+    ) -> Optional[Dict[str, Any]]:
+        """获取此人上一期的 person_company_payroll 状态（用于个税 tax_4/tax_7/tax_13）。"""
+        prev = _prev_period(period)
+        if not prev:
+            return None
+        return self._get_twin_state_for_person_company(
+            "person_company_payroll", person_id, company_id, prev
+        )
 
     def _build_context(
         self, person_id: int, company_id: int, period: str
     ) -> PayrollContext:
-        """聚合工资计算所需的上下文信息"""
+        """聚合工资计算所需的上下文信息（含上一期 payroll，供个税累计用）"""
         employment = self._get_latest_employment(person_id, company_id)
         assessment = self._get_latest_assessment(person_id)
         social_base = self._get_latest_social_base(person_id, company_id)
         housing_base = self._get_latest_housing_base(person_id, company_id)
         tax_deductions = self._get_active_tax_deductions(person_id, period)
         attendance_record = self._get_attendance_record(person_id, company_id, period)
+        prev_payroll = self._get_prev_payroll_state(person_id, company_id, period)
 
         return PayrollContext(
             employment=employment,
@@ -275,7 +100,258 @@ class PayrollService:
             housing_base=housing_base,
             tax_deductions=tax_deductions,
             attendance_record=attendance_record,
+            prev_payroll=prev_payroll,
         )
+
+    @staticmethod
+    def _get_context_data(ctx: PayrollContext, from_key: str) -> Dict[str, Any]:
+        """从 PayrollContext 按 key 取数据块，无则返回空 dict。"""
+        data = getattr(ctx, from_key, None) if hasattr(ctx, from_key) else None
+        return data if isinstance(data, dict) else ({} if data is None else {})
+
+    def _resolve_variable_from_spec(
+        self,
+        variable_key: str,
+        spec: Dict[str, Any],
+        ctx: PayrollContext,
+        period: str,
+    ) -> Optional[float]:
+        """按 variable_sources 中的一条配置解析单个变量值；无法解析或 prev_payroll 不存在时返回 None（由调用方决定是否写入）。"""
+        source = spec.get("source")
+        if source == "constant":
+            return float(spec.get("value", 0))
+        if source == "field":
+            data = self._get_context_data(ctx, spec.get("from") or "")
+            default = float(spec.get("default", 0))
+            return float(data.get(spec.get("field"), default))
+        if source == "transform":
+            data = self._get_context_data(ctx, spec.get("from") or "")
+            transform = spec.get("transform")
+            if transform == "salary_to_monthly":
+                return round(float(self._employment_salary_monthly(data)), 2)
+            return 0.0
+        if source == "lookup":
+            data = self._get_context_data(ctx, spec.get("from") or "")
+            field_val = data.get(spec.get("field"))
+            lookup_name = spec.get("lookup")
+            default = float(spec.get("default", 0))
+            if lookup_name == "position_salary_ratio":
+                ratio = self._get_position_salary_ratio(field_val)
+                if not ratio:
+                    return default
+                out_field = spec.get("output")
+                return float(ratio.get(out_field, default))
+            if lookup_name == "employee_type_discount":
+                return float(self._get_employee_type_discount(field_val))
+            if lookup_name == "assessment_grade_coefficient":
+                return float(self._get_assessment_grade_coefficient(field_val))
+            return default
+        if source == "config":
+            config_name = spec.get("config")
+            keyed_by = spec.get("keyed_by")
+            if config_name == "social_security_config" and keyed_by == "period":
+                cfg = self._get_social_security_config(period)
+                default = float(spec.get("default", 0))
+                if not cfg:
+                    return default
+                return float(cfg.get(spec.get("field"), default))
+            return float(spec.get("default", 0))
+        if source == "aggregate":
+            from_key = spec.get("from") or ""
+            items = getattr(ctx, from_key, None) if hasattr(ctx, from_key) else None
+            items = items if isinstance(items, list) else []
+            monthly_keys = spec.get("monthly_keys") or []
+            medical_key = spec.get("medical_key")
+            medical_divisor = float(spec.get("medical_divisor") or 12)
+            total = 0.0
+            for d in items:
+                total += sum(float(d.get(k) or 0.0) for k in monthly_keys)
+                if medical_key:
+                    total += float(d.get(medical_key) or 0.0) / medical_divisor
+            return round(total, 2)
+        if source == "prev_payroll":
+            prev = ctx.prev_payroll
+            if not prev:
+                return None
+            field = spec.get("field")
+            return round(float(prev.get(field) or 0), 2)
+        return None
+
+    def get_calculation_context_variables(
+        self, person_id: int, company_id: int, period: str
+    ) -> Dict[str, Any]:
+        """
+        为工资计算步骤公式求值提供「原始变量」字典。
+        完全按 config 中 variable_sources 解析。
+        """
+        ctx = self._build_context(person_id, company_id, period)
+        config = self.load_calculation_config()
+        variable_sources = config.get("variable_sources") or {}
+        out: Dict[str, Any] = {}
+        for variable_key, spec in variable_sources.items():
+            if not isinstance(spec, dict):
+                continue
+            val = self._resolve_variable_from_spec(variable_key, spec, ctx, period)
+            if val is not None:
+                out[variable_key] = round(val, 2) if isinstance(val, (int, float)) else val
+        return out
+
+    # ======== 基于 config JSON 的工资计算步骤（公式仅来自 config） ========
+
+    _CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "payroll_calculation_config.json"
+
+    def load_calculation_config(self) -> Dict[str, Any]:
+        """加载工资计算步骤配置（应发/社保公积金/个税三块步骤定义与公式）。"""
+        path = self._CONFIG_PATH
+        if not path.exists():
+            return {"sections": {"gross": {"label": "应发薪资计算", "steps": []}, "social": {"label": "社保公积金扣除计算", "steps": []}, "tax": {"label": "个税计算", "step_order": [], "steps": []}}}
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def _build_steps_from_config(self, definitions: list) -> list:
+        """根据 config 步骤定义生成 steps 列表（含 step, field_name, source, formula=default_formula, desc）。"""
+        result = []
+        for s in definitions:
+            step_num = s.get("step", len(result) + 1)
+            formula = (s.get("default_formula") or "").strip()
+            item = {"step": step_num, "field_name": s["field_name"], "source": s["source"], "formula": formula}
+            if "desc" in s:
+                item["desc"] = s["desc"]
+            if "output_key" in s:
+                item["output_key"] = s["output_key"]
+            if "variable_key" in s:
+                item["variable_key"] = s["variable_key"]
+            result.append(item)
+        return result
+
+    def _enrich_step_descs(
+        self,
+        steps: list,
+        steps_config: list,
+        variable_labels: Dict[str, str],
+        variables: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """
+        在每一步的 desc 后追加两行：公式字面解读（变量→中文）、公式代入值（变量→数值）。
+        原地修改 steps 中的 desc。
+        """
+        from app.payroll_formula import formula_to_readable, formula_with_values
+        def_by_step = {s["step"]: s for s in steps_config}
+        for item in steps:
+            step_num = item.get("step")
+            defn = def_by_step.get(step_num)
+            formula = (defn.get("default_formula") or item.get("formula") or "").strip()
+            base_desc = item.get("desc") or ""
+            if not formula:
+                continue
+            readable = formula_to_readable(formula, variable_labels)
+            if readable:
+                base_desc = base_desc + "\n" + readable
+            if variables is not None:
+                with_vals = formula_with_values(formula, variables)
+                if with_vals:
+                    base_desc = base_desc + "\n" + with_vals
+            item["desc"] = base_desc
+
+    def get_calculation_steps_for_display(self) -> Dict[str, list]:
+        """获取三块步骤定义（公式仅来自 config），供前端展示。{ gross: [...], social: [...], tax: [...] }"""
+        config = self.load_calculation_config()
+        sections = config.get("sections") or {}
+        variable_labels = config.get("variable_labels") or {}
+        out = {}
+        for section_id in ("gross", "social", "tax"):
+            sec = sections.get(section_id) or {}
+            steps_def = sec.get("steps") or []
+            steps = self._build_steps_from_config(steps_def)
+            self._enrich_step_descs(steps, steps_def, variable_labels, variables=None)
+            out[section_id] = steps
+        return out
+
+    def _evaluate_section_from_config(
+        self,
+        variables: Dict[str, Any],
+        steps_config: list,
+        step_order: Optional[List[int]] = None,
+        section_id: Optional[str] = None,
+    ) -> tuple:
+        """
+        统一按 config 求值一个 section（gross/social/tax）。
+        按 step_order 顺序处理每步，根据 source：variable / prev_month / tax_bracket / formula。
+        返回 (values, variables)，values 的 key 为 str(step_num)。
+        """
+        from app.payroll_formula import eval_step_expression
+        from app.config.tax_brackets import calculate_tax as cumulative_tax
+
+        order = step_order or [s["step"] for s in steps_config]
+        step_def_by_num = {s["step"]: s for s in steps_config}
+        values: Dict[str, float] = {}
+
+        for k in order:
+            s = step_def_by_num.get(k)
+            if not s:
+                continue
+            step_num = s["step"]
+            source = s.get("source", "formula")
+            output_key = s.get("output_key")
+            formula = (s.get("default_formula") or "").strip()
+
+            if source == "variable":
+                key = s.get("variable_key", "")
+                val = round(float(variables.get(key) or 0.0), 2)
+            elif source == "prev_month":
+                val = round(float(variables.get(output_key, 0.0)), 2)
+            elif source == "tax_bracket" and section_id == "tax":
+                val = round(float(cumulative_tax(variables.get("tax_11", 0.0))), 2)
+            elif formula:
+                try:
+                    val = round(float(eval_step_expression(formula, variables)), 2)
+                except Exception:
+                    val = 0.0
+            else:
+                val = 0.0
+
+            values[str(step_num)] = val
+            if output_key:
+                variables[output_key] = val
+
+        if section_id == "social":
+            variables["social_security_deduction"] = variables.get("social_1", 0.0) + variables.get("social_3", 0.0)
+            variables["housing_fund_deduction"] = variables.get("social_2", 0.0)
+        return values, variables
+
+    def evaluate_calculation_steps(
+        self, person_id: int, company_id: int, period: str
+    ) -> Dict[str, Any]:
+        """
+        完全基于 config JSON 计算三块步骤，返回 steps + values。公式仅来自 config。
+        供工资计算页预览使用。
+        """
+        config = self.load_calculation_config()
+        sections = config.get("sections") or {}
+        variable_labels = config.get("variable_labels") or {}
+        variables = self.get_calculation_context_variables(person_id, company_id, period)
+        variables = {k: float(v) if isinstance(v, (int, float)) else v for k, v in variables.items()}
+
+        result: Dict[str, Any] = {}
+        for section_id in ("gross", "social", "tax"):
+            sec = sections.get(section_id) or {}
+            steps_def = sec.get("steps") or []
+            step_order = sec.get("step_order") or [s["step"] for s in steps_def]
+            values, variables = self._evaluate_section_from_config(
+                variables, steps_def, step_order, section_id=section_id
+            )
+            steps = self._build_steps_from_config(steps_def)
+            self._enrich_step_descs(steps, steps_def, variable_labels, variables)
+            if section_id == "tax":
+                display_values = {
+                    s["output_key"]: values.get(str(s["step"]), 0.0)
+                    for s in steps_def
+                    if s.get("output_key")
+                }
+            else:
+                display_values = values
+            result[section_id] = {"steps": steps, "values": display_values}
+        return result
 
     def _get_latest_employment(
         self, person_id: int, company_id: int
@@ -404,21 +480,9 @@ class PayrollService:
         self, person_id: int, company_id: int, period: str
     ) -> Optional[Dict[str, Any]]:
         """获取指定人员、公司、周期的考勤记录（time_series，time_key=period）"""
-        twins = self.twin_service.list_twins(
-            "person_company_attendance_record",
-            filters={"person_id": str(person_id), "company_id": str(company_id)},
+        return self._get_twin_state_for_person_company(
+            "person_company_attendance_record", person_id, company_id, period
         )
-        if not twins:
-            return None
-        twin_id = twins[0].get("id")
-        if twin_id is None:
-            return None
-        state = self.state_dao.get_state_by_time_key(
-            "person_company_attendance_record", twin_id, period
-        )
-        if not state:
-            return None
-        return state.data
 
     def _get_position_salary_ratio(
         self, position_category: Optional[str]
@@ -455,36 +519,3 @@ class PayrollService:
         if salary_type == "日薪":
             return salary * MONTHLY_WORK_DAYS
         return salary
-
-    # ======== 计算公式 ========
-
-    def _calculate_performance_bonus(
-        self, base_salary: float, grade: Optional[str]
-    ) -> float:
-        """根据考核等级计算绩效奖金（Demo 版，可替换为配置驱动）"""
-        if base_salary <= 0 or not grade:
-            return 0.0
-        # 兼容旧数据（优秀/良好/合格/不合格）和新数据（A/B/C/D/E）
-        bonus_rates = {
-            # 新等级（推荐）：A-E
-            "A": 0.3,
-            "B": 0.2,
-            "C": 0.1,
-            "D": 0.0,
-            "E": -0.1,
-            # 旧等级（向后兼容）
-            "优秀": 0.3,
-            "良好": 0.2,
-            "合格": 0.1,
-            "不合格": -0.1,
-        }
-        rate = bonus_rates.get(str(grade), 0.0)
-        return base_salary * rate
-
-    def _calculate_tax(self, taxable_income: float) -> float:
-        """
-        根据应纳税所得额计算个税，使用 app/config/income_tax_brackets.yaml 中的税率表。
-        """
-        from app.config.tax_brackets import calculate_tax
-        return calculate_tax(taxable_income)
-
