@@ -423,73 +423,26 @@ class PayrollService:
     def _get_position_salary_ratio(
         self, position_category: Optional[str]
     ) -> Optional[Dict[str, Any]]:
-        """按岗位类别查基础/绩效划分比例"""
-        if not position_category:
-            return None
-        states = self.state_dao.query_latest_states(
-            "position_salary_ratio",
-            filters={"position_category": position_category},
-        )
-        if not states:
-            return None
-        return states[0].data
+        """按岗位类别查基础/绩效划分比例（从 app/config/position_salary_ratio.yaml）"""
+        from app.config.payroll_config import get_position_salary_ratio
+        return get_position_salary_ratio(position_category)
 
     def _get_employee_type_discount(self, employee_type: Optional[str]) -> float:
-        """按员工类别查折算系数，默认 1.0"""
-        if not employee_type:
-            return 1.0
-        states = self.state_dao.query_latest_states(
-            "employee_type_discount",
-            filters={"employee_type": employee_type},
-        )
-        if not states:
-            return 1.0
-        return float(states[0].data.get("discount_ratio") or 1.0)
+        """按员工类别查折算系数（从 app/config/employee_type_discount.yaml），默认 1.0"""
+        from app.config.payroll_config import get_employee_type_discount
+        return get_employee_type_discount(employee_type)
 
     def _get_assessment_grade_coefficient(self, grade: Optional[str]) -> float:
-        """按考核等级查绩效系数，默认 1.0"""
-        if not grade:
-            return 1.0
-        states = self.state_dao.query_latest_states(
-            "assessment_grade_coefficient",
-            filters={"grade": grade},
-        )
-        if not states:
-            return 1.0
-        return float(states[0].data.get("coefficient") or 1.0)
+        """按考核等级查绩效系数（从 app/config/assessment_grade_coefficient.yaml），默认 1.0"""
+        from app.config.payroll_config import get_assessment_grade_coefficient
+        return get_assessment_grade_coefficient(grade)
 
     def _get_social_security_config(
         self, period: str
     ) -> Optional[Dict[str, Any]]:
-        """获取发放周期适用的社保公积金配置（取生效日期不晚于周期末的最新一条）"""
-        twins = self.twin_service.list_twins("social_security_config")
-        if not twins:
-            return None
-        period_end = period + "-01"
-        try:
-            period_date = datetime.strptime(period_end, "%Y-%m-%d").date()
-            if period_date.month == 12:
-                next_month = datetime(period_date.year + 1, 1, 1).date()
-            else:
-                next_month = datetime(
-                    period_date.year, period_date.month + 1, 1
-                ).date()
-            period_end_str = next_month.strftime("%Y-%m-%d")
-        except ValueError:
-            period_end_str = period_end
-        # 只保留 effective_date <= period 末的配置，取 effective_date 最新
-        valid = [
-            t
-            for t in twins
-            if (t.get("effective_date") or "") <= period_end_str
-        ]
-        if not valid:
-            return None
-        return sorted(
-            valid,
-            key=lambda x: x.get("effective_date") or "",
-            reverse=True,
-        )[0]
+        """获取发放周期适用的社保公积金配置（从 app/config/social_security_config.yaml）"""
+        from app.config.payroll_config import get_social_security_config
+        return get_social_security_config(period)
 
     def _employment_salary_monthly(self, employment: Dict[str, Any]) -> float:
         """将聘用薪资转为月薪（元/月），用于应发与考勤扣减公式"""
@@ -530,24 +483,8 @@ class PayrollService:
 
     def _calculate_tax(self, taxable_income: float) -> float:
         """
-        计算个人所得税（简化版累进税率，只用于 Demo）
-        
-        实际项目中应该从税率表/配置加载规则。
+        根据应纳税所得额计算个税，使用 app/config/income_tax_brackets.yaml 中的税率表。
         """
-        if taxable_income <= 0:
-            return 0.0
-        # 按现行工资薪金所得税率表的简化实现
-        if taxable_income <= 3000:
-            return taxable_income * 0.03
-        if taxable_income <= 12000:
-            return taxable_income * 0.10 - 210
-        if taxable_income <= 25000:
-            return taxable_income * 0.20 - 1410
-        if taxable_income <= 35000:
-            return taxable_income * 0.25 - 2660
-        if taxable_income <= 55000:
-            return taxable_income * 0.30 - 4410
-        if taxable_income <= 80000:
-            return taxable_income * 0.35 - 7160
-        return taxable_income * 0.45 - 15160
+        from app.config.tax_brackets import calculate_tax
+        return calculate_tax(taxable_income)
 

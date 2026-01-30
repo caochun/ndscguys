@@ -36,57 +36,7 @@ def generate_test_data(db_path: Optional[str] = None):
         companies.append(company_id)
         print(f"  创建公司: {company_name} (ID: {company_id})")
     
-    # 岗位薪资结构配置（岗位类别 → 基础/绩效划分比例）
-    print("\n生成岗位薪资结构配置...")
-    for position_category, base_ratio, performance_ratio in [
-        ("普通员工", 0.70, 0.30),
-        ("部门负责人", 0.60, 0.40),
-        ("BOSS", 0.50, 0.50),
-    ]:
-        config_id = twin_dao.create_entity_twin("position_salary_ratio")
-        state_dao.append("position_salary_ratio", config_id, {
-            "position_category": position_category,
-            "base_ratio": base_ratio,
-            "performance_ratio": performance_ratio,
-            "effective_date": (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%d"),
-            "description": f"{position_category} 基础 {int(base_ratio*100)}% 绩效 {int(performance_ratio*100)}%",
-        })
-        print(f"  岗位类别: {position_category} 基础 {base_ratio} 绩效 {performance_ratio}")
-    
-    # 员工类别折算配置（试用 0.8、正式 1.0 等）
-    print("\n生成员工类别折算配置...")
-    for employee_type, discount_ratio in [
-        ("实习", 0.6),
-        ("试用", 0.8),
-        ("外聘", 1.0),
-        ("正式", 1.0),
-    ]:
-        config_id = twin_dao.create_entity_twin("employee_type_discount")
-        state_dao.append("employee_type_discount", config_id, {
-            "employee_type": employee_type,
-            "discount_ratio": discount_ratio,
-            "effective_date": (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%d"),
-            "description": f"{employee_type} 折算系数 {discount_ratio}",
-        })
-        print(f"  员工类别: {employee_type} 折算 {discount_ratio}")
-    
-    # 考核等级绩效系数配置（A 1.2、B 1.0、C 0.8 等）
-    print("\n生成考核等级绩效系数配置...")
-    for grade, coefficient in [
-        ("A", 1.2),
-        ("B", 1.0),
-        ("C", 0.8),
-        ("D", 0.6),
-        ("E", 0.4),
-    ]:
-        config_id = twin_dao.create_entity_twin("assessment_grade_coefficient")
-        state_dao.append("assessment_grade_coefficient", config_id, {
-            "grade": grade,
-            "coefficient": coefficient,
-            "effective_date": (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%d"),
-            "description": f"等级 {grade} 绩效系数 {coefficient}",
-        })
-        print(f"  考核等级: {grade} 系数 {coefficient}")
+    # 岗位薪资结构、员工类别折算、考核等级系数、社保公积金配置已移至 app/config/*.yaml，不再 seed
     
     # 生成人员数据
     print("\n生成人员数据...")

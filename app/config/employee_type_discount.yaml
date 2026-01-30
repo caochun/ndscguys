@@ -1,0 +1,13 @@
+# 员工类别折算配置（应发计算第2步）
+# 按员工类别对基础/绩效薪资的折算系数
+version: "1.0"
+
+items:
+  - employee_type: "实习"
+    discount_ratio: 0.6
+  - employee_type: "试用"
+    discount_ratio: 0.8
+  - employee_type: "外聘"
+    discount_ratio: 1.0
+  - employee_type: "正式"
+    discount_ratio: 1.0

@@ -135,11 +135,29 @@ def orders():
                           person_order_schema=person_order_schema)
 
 
-@web_bp.route("/social-security-config")
-def social_security_config():
-    """社保公积金配置管理页"""
-    schema_dict = build_schema_dict("social_security_config", "社保公积金配置")
-    return render_template("social_security_config.html", schema=schema_dict)
+@web_bp.route("/config")
+def config_page():
+    """配置页（只读，展示 app/config 下所有配置项）"""
+    from datetime import datetime
+    from app.config.tax_brackets import get_brackets_for_display
+    from app.config.payroll_config import (
+        get_all_position_salary_ratio,
+        get_all_employee_type_discount,
+        get_all_assessment_grade_coefficient,
+        get_all_social_security_config,
+        get_social_security_config,
+    )
+    period = datetime.now().strftime("%Y-%m")
+    return render_template(
+        "config.html",
+        tax_brackets=get_brackets_for_display(),
+        position_salary_ratio=get_all_position_salary_ratio(),
+        employee_type_discount=get_all_employee_type_discount(),
+        assessment_grade_coefficient=get_all_assessment_grade_coefficient(),
+        social_security_list=get_all_social_security_config(),
+        social_security_current=get_social_security_config(period),
+        period=period,
+    )
 
 
 @web_bp.route("/project-center")

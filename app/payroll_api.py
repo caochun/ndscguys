@@ -463,26 +463,8 @@ TAX_STEP_DEFINITIONS = [
 # 计算顺序：5 依赖 6，故先算 6 再算 5
 TAX_STEP_ORDER = [1, 2, 3, 4, 6, 5, 7, 8, 9, 10, 11, 12, 13, 14]
 
-# 累计预扣法税率表（应纳税所得额上限, 税率, 速算扣除数）
-TAX_BRACKETS = [
-    (36000, 0.03, 0),
-    (144000, 0.10, 2520),
-    (300000, 0.20, 16920),
-    (420000, 0.25, 31920),
-    (660000, 0.30, 52920),
-    (960000, 0.35, 85920),
-    (float("inf"), 0.45, 181920),
-]
-
-
-def _cumulative_tax(taxable: float) -> float:
-    """根据累计应纳税所得额计算累计个税（税率表）"""
-    if taxable <= 0:
-        return 0.0
-    for upper, rate, quick in TAX_BRACKETS:
-        if taxable <= upper:
-            return round(taxable * rate - quick, 2)
-    return 0.0
+# 个税税率表与计算：从 app/config/income_tax_brackets.yaml 加载
+from app.config.tax_brackets import calculate_tax as _cumulative_tax
 
 
 def _eval_step_expression(expression: str, variables: Dict[str, Any]) -> float:

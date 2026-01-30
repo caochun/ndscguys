@@ -1,0 +1,15 @@
+# 考核等级绩效系数配置（应发计算第3步）
+# 考核等级对应的绩效系数
+version: "1.0"
+
+items:
+  - grade: "A"
+    coefficient: 1.2
+  - grade: "B"
+    coefficient: 1.0
+  - grade: "C"
+    coefficient: 0.8
+  - grade: "D"
+    coefficient: 0.6
+  - grade: "E"
+    coefficient: 0.4

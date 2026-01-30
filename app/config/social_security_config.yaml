@@ -1,0 +1,26 @@
+# 社保公积金配置（按生效日期选用，不保存历史版本）
+# 发放周期适用：取 effective_date 不晚于周期末的最新一条
+version: "1.0"
+
+items:
+  - effective_date: "2020-01-01"
+    region: ""
+    # 养老保险
+    pension_employer_rate: 0.16
+    pension_employee_rate: 0.08
+    # 工伤保险（个人不缴）
+    work_injury_employer_rate: 0.004
+    # 失业保险
+    unemployment_employer_rate: 0.005
+    unemployment_employee_rate: 0.005
+    # 医疗保险
+    medical_employer_rate: 0.10
+    medical_employee_rate: 0.02
+    # 生育保险（个人不缴）
+    maternity_employer_rate: 0.008
+    # 大病
+    serious_illness_employee_amount: 0
+    # 住房公积金
+    housing_fund_employer_rate: 0.12
+    housing_fund_employee_rate: 0.12
+    description: "默认配置"

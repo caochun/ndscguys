@@ -1,0 +1,14 @@
+# 岗位薪资结构配置（应发计算第1步）
+# 按岗位类别划分聘用薪资为基础薪资与绩效薪资的比例
+version: "1.0"
+
+items:
+  - position_category: "普通员工"
+    base_ratio: 0.70
+    performance_ratio: 0.30
+  - position_category: "部门负责人"
+    base_ratio: 0.60
+    performance_ratio: 0.40
+  - position_category: "BOSS"
+    base_ratio: 0.50
+    performance_ratio: 0.50

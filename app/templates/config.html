@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}配置 - HRMS{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="mb-6">
+        <h2 class="text-2xl font-bold text-gray-900">配置</h2>
+        <p class="mt-1 text-sm text-gray-500">所有配置来自 app/config/*.yaml，修改后重启生效。不保存历史版本。</p>
+    </div>
+
+    <div class="space-y-8">
+        <!-- 1. 个税税率表 -->
+        <section class="bg-white shadow rounded-lg border border-gray-200 overflow-hidden">
+            <h3 class="px-4 py-3 bg-gray-50 border-b border-gray-200 text-sm font-semibold text-gray-800">个税税率表（income_tax_brackets.yaml）</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">级数</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">应纳税所得额上限</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">税率</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">速算扣除数</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for row in tax_brackets %}
+                        <tr>
+                            <td class="px-4 py-2 text-sm text-gray-900">{{ row.get('level') }}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">{% if row.get('income_upper') is none %}超过上一档{% else %}{{ row.get('income_upper') }}{% endif %}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">{{ row.get('rate') }}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">{{ row.get('quick_deduction') }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 2. 岗位薪资结构 -->
+        <section class="bg-white shadow rounded-lg border border-gray-200 overflow-hidden">
+            <h3 class="px-4 py-3 bg-gray-50 border-b border-gray-200 text-sm font-semibold text-gray-800">岗位薪资结构（position_salary_ratio.yaml）</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">岗位类别</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">基础薪资占比</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">绩效薪资占比</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for row in position_salary_ratio %}
+                        <tr>
+                            <td class="px-4 py-2 text-sm text-gray-900">{{ row.get('position_category') }}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">{{ row.get('base_ratio') }}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">{{ row.get('performance_ratio') }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 3. 员工类别折算 -->
+        <section class="bg-white shadow rounded-lg border border-gray-200 overflow-hidden">
+            <h3 class="px-4 py-3 bg-gray-50 border-b border-gray-200 text-sm font-semibold text-gray-800">员工类别折算（employee_type_discount.yaml）</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">员工类别</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">折算系数</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for row in employee_type_discount %}
+                        <tr>
+                            <td class="px-4 py-2 text-sm text-gray-900">{{ row.get('employee_type') }}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">{{ row.get('discount_ratio') }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 4. 考核等级绩效系数 -->
+        <section class="bg-white shadow rounded-lg border border-gray-200 overflow-hidden">
+            <h3 class="px-4 py-3 bg-gray-50 border-b border-gray-200 text-sm font-semibold text-gray-800">考核等级绩效系数（assessment_grade_coefficient.yaml）</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">考核等级</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">绩效系数</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for row in assessment_grade_coefficient %}
+                        <tr>
+                            <td class="px-4 py-2 text-sm text-gray-900">{{ row.get('grade') }}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">{{ row.get('coefficient') }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 5. 社保公积金配置 -->
+        <section class="bg-white shadow rounded-lg border border-gray-200 overflow-hidden">
+            <h3 class="px-4 py-3 bg-gray-50 border-b border-gray-200 text-sm font-semibold text-gray-800">社保公积金配置（social_security_config.yaml）</h3>
+            <p class="px-4 py-2 text-sm text-gray-600">当前周期 <strong>{{ period }}</strong> 适用：生效日期不晚于周期末的最新一条。</p>
+            {% if social_security_current %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">字段</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">值</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for key, value in social_security_current.items() %}
+                        <tr>
+                            <td class="px-4 py-2 text-sm text-gray-700">{{ key }}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">{{ value }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="px-4 py-2 text-sm text-amber-700">当前周期暂无适用配置。</p>
+            {% endif %}
+            <details class="px-4 py-3 border-t border-gray-200">
+                <summary class="text-sm font-medium text-gray-600 cursor-pointer">全部条目（共 {{ social_security_list|length }} 条）</summary>
+                <div class="mt-2 space-y-4">
+                    {% for item in social_security_list %}
+                    <div class="text-sm text-gray-600">
+                        <span class="font-medium">effective_date: {{ item.get('effective_date') }}</span>
+                        {% if item.get('region') %} | region: {{ item.get('region') }}{% endif %}
+                        {% if item.get('description') %} | {{ item.get('description') }}{% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+        </section>
+    </div>
+</div>
+{% endblock %}
