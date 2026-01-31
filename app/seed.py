@@ -376,7 +376,7 @@ def generate_test_data(db_path: Optional[str] = None):
     print("\n生成专项附加扣除数据...")
     tax_deduction_count = 0
     # 为 70% 的人员生成专项附加扣除记录
-    # 现在每个人只有一个 person_tax_deduction 记录，包含所有 7 种扣除类型的金额
+    # 现在每个人只有一个 person_tax_deduction 记录，包含所有 6 种扣除类型的金额
     persons_with_deductions = random.sample(persons, int(len(persons) * 0.7))
     
     for person_id in persons_with_deductions:
@@ -390,7 +390,6 @@ def generate_test_data(db_path: Optional[str] = None):
         # 随机生成各种扣除类型的金额（可能为0，表示没有该项扣除）
         children_education_amount = random.choice([0, 1000, 2000]) if random.random() < 0.6 else 0
         continuing_education_amount = random.choice([0, 400]) if random.random() < 0.3 else 0
-        medical_expense_amount = random.choice([0, random.randint(1000, 8000)]) if random.random() < 0.2 else 0
         housing_loan_interest_amount = random.choice([0, 1000]) if random.random() < 0.4 else 0
         housing_rent_amount = random.choice([0, 800, 1100, 1500]) if random.random() < 0.5 else 0
         elderly_support_amount = random.choice([0, 1000, 2000]) if random.random() < 0.5 else 0
@@ -413,8 +412,6 @@ def generate_test_data(db_path: Optional[str] = None):
             remarks_parts.append(f"子女教育：{random.choice(['张三', '李四', '王五', '赵六'])}，{random.choice(['XX小学', 'XX中学', 'XX大学'])}")
         if continuing_education_amount > 0:
             remarks_parts.append(random.choice(["继续教育：XX大学学历教育", "继续教育：XX证书职业资格"]))
-        if medical_expense_amount > 0:
-            remarks_parts.append(f"大病医疗：医疗费用{random.randint(5000, 50000)}元")
         if housing_loan_interest_amount > 0:
             remarks_parts.append(f"住房贷款利息：贷款合同号{random.randint(100000, 999999)}")
         if housing_rent_amount > 0:
@@ -436,7 +433,6 @@ def generate_test_data(db_path: Optional[str] = None):
                     "person_id": person_id,
                     "children_education_amount": float(children_education_amount),
                     "continuing_education_amount": float(continuing_education_amount),
-                    "medical_expense_amount": float(medical_expense_amount),
                     "housing_loan_interest_amount": float(housing_loan_interest_amount),
                     "housing_rent_amount": float(housing_rent_amount),
                     "elderly_support_amount": float(elderly_support_amount),
@@ -450,7 +446,6 @@ def generate_test_data(db_path: Optional[str] = None):
                 # 后续变更：调整金额或状态
                 new_children_education = max(0, children_education_amount + random.choice([-1000, 0, 1000]))
                 new_continuing_education = max(0, continuing_education_amount + random.choice([-400, 0, 400]))
-                new_medical_expense = max(0, medical_expense_amount + random.randint(-1000, 2000))
                 new_housing_loan = max(0, housing_loan_interest_amount + random.choice([-1000, 0, 1000]))
                 new_housing_rent = max(0, housing_rent_amount + random.choice([-300, 0, 300]))
                 new_elderly_support = max(0, elderly_support_amount + random.choice([-1000, 0, 1000]))
@@ -468,7 +463,6 @@ def generate_test_data(db_path: Optional[str] = None):
                     "person_id": person_id,
                     "children_education_amount": float(new_children_education),
                     "continuing_education_amount": float(new_continuing_education),
-                    "medical_expense_amount": float(new_medical_expense),
                     "housing_loan_interest_amount": float(new_housing_loan),
                     "housing_rent_amount": float(new_housing_rent),
                     "elderly_support_amount": float(new_elderly_support),

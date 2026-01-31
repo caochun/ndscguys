@@ -134,7 +134,7 @@ def orders():
 def config_page():
     """配置页（只读，展示 app/config 下所有配置项）"""
     from datetime import datetime
-    from app.config.tax_brackets import get_brackets_for_display
+    from app.config.payroll_config import get_brackets_for_display
     from app.config.payroll_config import (
         get_all_position_salary_ratio,
         get_all_employee_type_discount,

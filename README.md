@@ -280,8 +280,8 @@ Service 不写任何业务 if/else，全靠 Schema。
   - 关联：`person`、`company`
   - 模式：`time_series`，按 `period=YYYY-MM` 记录
   - 字段分两类：
-    - **计算依据快照**：`base_salary`、`salary_type`、`assessment_grade`、`social_security_base`、`housing_fund_base`、`tax_deduction_total`
-    - **计算结果**：`base_amount`、`performance_bonus`、`social_security_deduction`、`housing_fund_deduction`、`taxable_income`、`tax_deduction`、`total_amount`
+    - **计算依据快照**：聘用/考勤/社保基数等输入变量
+    - **计算结果**：与 `payroll_calculation_config.json` 的 output_key 一致，如 `base_amount`、`gross_*`、`social_1`～`social_5`（社保公积金）、`tax_1`～`tax_14`（个税）等
     - **状态信息**：`payment_date`、`status`、`remarks`
 
 以上所有 Twin 定义都只存在于 `twin_schema.yaml` 中，其余层（DAO/Service/API/UI）全部是通用代码。

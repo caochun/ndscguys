@@ -36,7 +36,7 @@ class PayrollContext:
     assessment: Optional[Dict[str, Any]]
     social_base: Optional[Dict[str, Any]]
     housing_base: Optional[Dict[str, Any]]
-    tax_deductions: List[Dict[str, Any]]
+    tax_deduction: Optional[Dict[str, Any]]  # 当前人员在 period 内生效的那一条专项附加扣除记录（每人每期一条）
     attendance_record: Optional[Dict[str, Any]] = None
     prev_payroll: Optional[Dict[str, Any]] = None  # 上一期 person_company_payroll 状态（用于个税累计）
 
@@ -89,7 +89,7 @@ class PayrollService:
         assessment = self._get_latest_assessment(person_id)
         social_base = self._get_latest_social_base(person_id, company_id)
         housing_base = self._get_latest_housing_base(person_id, company_id)
-        tax_deductions = self._get_active_tax_deductions(person_id, period)
+        tax_deduction = self._get_active_tax_deduction(person_id, period)
         attendance_record = self._get_attendance_record(person_id, company_id, period)
         prev_payroll = self._get_prev_payroll_state(person_id, company_id, period)
 
@@ -98,7 +98,7 @@ class PayrollService:
             assessment=assessment,
             social_base=social_base,
             housing_base=housing_base,
-            tax_deductions=tax_deductions,
+            tax_deduction=tax_deduction,
             attendance_record=attendance_record,
             prev_payroll=prev_payroll,
         )
@@ -116,18 +116,21 @@ class PayrollService:
         ctx: PayrollContext,
         period: str,
     ) -> Optional[float]:
-        """按 variable_sources 中的一条配置解析单个变量值；无法解析或 prev_payroll 不存在时返回 None（由调用方决定是否写入）。"""
+        """按 variable_sources 中的一条配置解析单个变量值；无法解析时返回 None。"""
         source = spec.get("source")
         if source == "constant":
             return float(spec.get("value", 0))
         if source == "field":
             data = self._get_context_data(ctx, spec.get("from") or "")
             default = float(spec.get("default", 0))
-            return float(data.get(spec.get("field"), default))
+            raw = float(data.get(spec.get("field"), default))
+            divisor = spec.get("divisor")
+            if divisor is not None:
+                return default if not divisor else round(raw / float(divisor), 2)
+            return raw
         if source == "transform":
             data = self._get_context_data(ctx, spec.get("from") or "")
-            transform = spec.get("transform")
-            if transform == "salary_to_monthly":
+            if spec.get("transform") == "salary_to_monthly":
                 return round(float(self._employment_salary_monthly(data)), 2)
             return 0.0
         if source == "lookup":
@@ -137,44 +140,18 @@ class PayrollService:
             default = float(spec.get("default", 0))
             if lookup_name == "position_salary_ratio":
                 ratio = self._get_position_salary_ratio(field_val)
-                if not ratio:
-                    return default
-                out_field = spec.get("output")
-                return float(ratio.get(out_field, default))
+                return float(ratio.get(spec.get("output"), default)) if ratio else default
             if lookup_name == "employee_type_discount":
                 return float(self._get_employee_type_discount(field_val))
             if lookup_name == "assessment_grade_coefficient":
                 return float(self._get_assessment_grade_coefficient(field_val))
             return default
         if source == "config":
-            config_name = spec.get("config")
-            keyed_by = spec.get("keyed_by")
-            if config_name == "social_security_config" and keyed_by == "period":
+            default = float(spec.get("default", 0))
+            if spec.get("config") == "social_security_config":
                 cfg = self._get_social_security_config(period)
-                default = float(spec.get("default", 0))
-                if not cfg:
-                    return default
-                return float(cfg.get(spec.get("field"), default))
-            return float(spec.get("default", 0))
-        if source == "aggregate":
-            from_key = spec.get("from") or ""
-            items = getattr(ctx, from_key, None) if hasattr(ctx, from_key) else None
-            items = items if isinstance(items, list) else []
-            monthly_keys = spec.get("monthly_keys") or []
-            medical_key = spec.get("medical_key")
-            medical_divisor = float(spec.get("medical_divisor") or 12)
-            total = 0.0
-            for d in items:
-                total += sum(float(d.get(k) or 0.0) for k in monthly_keys)
-                if medical_key:
-                    total += float(d.get(medical_key) or 0.0) / medical_divisor
-            return round(total, 2)
-        if source == "prev_payroll":
-            prev = ctx.prev_payroll
-            if not prev:
-                return None
-            field = spec.get("field")
-            return round(float(prev.get(field) or 0), 2)
+                return float(cfg.get(spec.get("field"), default)) if cfg else default
+            return default
         return None
 
     def get_calculation_context_variables(
@@ -272,15 +249,13 @@ class PayrollService:
         variables: Dict[str, Any],
         steps_config: list,
         step_order: Optional[List[int]] = None,
-        section_id: Optional[str] = None,
     ) -> tuple:
         """
-        统一按 config 求值一个 section（gross/social/tax）。
-        按 step_order 顺序处理每步，根据 source：variable / prev_month / tax_bracket / formula。
+        按 config 求值一个 section（gross/social/tax 共用同一逻辑）。
+        按 step_order 顺序处理每步，source 仅：variable / formula（公式可调用 cumulative_tax 等）。
         返回 (values, variables)，values 的 key 为 str(step_num)。
         """
         from app.payroll_formula import eval_step_expression
-        from app.config.tax_brackets import calculate_tax as cumulative_tax
 
         order = step_order or [s["step"] for s in steps_config]
         step_def_by_num = {s["step"]: s for s in steps_config}
@@ -296,27 +271,20 @@ class PayrollService:
             formula = (s.get("default_formula") or "").strip()
 
             if source == "variable":
-                key = s.get("variable_key", "")
-                val = round(float(variables.get(key) or 0.0), 2)
-            elif source == "prev_month":
-                val = round(float(variables.get(output_key, 0.0)), 2)
-            elif source == "tax_bracket" and section_id == "tax":
-                val = round(float(cumulative_tax(variables.get("tax_11", 0.0))), 2)
+                val = float(variables.get(s.get("variable_key", "")) or 0.0)
             elif formula:
                 try:
-                    val = round(float(eval_step_expression(formula, variables)), 2)
+                    val = float(eval_step_expression(formula, variables))
                 except Exception:
                     val = 0.0
             else:
                 val = 0.0
 
+            val = round(val, 2)
             values[str(step_num)] = val
             if output_key:
                 variables[output_key] = val
 
-        if section_id == "social":
-            variables["social_security_deduction"] = variables.get("social_1", 0.0) + variables.get("social_3", 0.0)
-            variables["housing_fund_deduction"] = variables.get("social_2", 0.0)
         return values, variables
 
     def evaluate_calculation_steps(
@@ -338,18 +306,16 @@ class PayrollService:
             steps_def = sec.get("steps") or []
             step_order = sec.get("step_order") or [s["step"] for s in steps_def]
             values, variables = self._evaluate_section_from_config(
-                variables, steps_def, step_order, section_id=section_id
+                variables, steps_def, step_order
             )
             steps = self._build_steps_from_config(steps_def)
             self._enrich_step_descs(steps, steps_def, variable_labels, variables)
-            if section_id == "tax":
-                display_values = {
-                    s["output_key"]: values.get(str(s["step"]), 0.0)
-                    for s in steps_def
-                    if s.get("output_key")
-                }
-            else:
-                display_values = values
+            # values 统一按 output_key 输出，便于按变量名（如 tax_14、base_amount）取用
+            display_values = {
+                s["output_key"]: values.get(str(s["step"]), 0.0)
+                for s in steps_def
+                if s.get("output_key")
+            }
             result[section_id] = {"steps": steps, "values": display_values}
         return result
 
@@ -428,24 +394,21 @@ class PayrollService:
             reverse=True,
         )[0]
 
-    def _get_active_tax_deductions(
+    def _get_active_tax_deduction(
         self, person_id: int, period: str
-    ) -> List[Dict[str, Any]]:
+    ) -> Optional[Dict[str, Any]]:
         """
-        获取在指定发放周期内“生效中”的专项附加扣除
-        
-        简化处理：只看 effective_date <= 本月最后一天，且
-        - expiry_date 为空，或
-        - expiry_date >= 本月第一天
+        获取当前人员在指定 period 内生效的那一条专项附加扣除记录（每人每期一条）。
+        该条记录包含 7 个金额字段，专项附加扣除合计 = 这 7 个字段的加总。
+        条件：effective_date <= 本月最后一天，且 expiry_date 为空或 >= 本月第一天。
         """
         twins = self.twin_service.list_twins(
             "person_tax_deduction",
             filters={"person_id": str(person_id), "status": "生效中"},
         )
         if not twins:
-            return []
+            return None
 
-        # 计算本月起止日期
         period_start = datetime.strptime(period + "-01", "%Y-%m-%d").date()
         if period_start.month == 12:
             next_month = datetime(period_start.year + 1, 1, 1).date()
@@ -461,20 +424,17 @@ class PayrollService:
             except ValueError:
                 return None
 
-        active: List[Dict[str, Any]] = []
         for d in twins:
             eff = parse_date(d.get("effective_date"))
             exp = parse_date(d.get("expiry_date"))
             if not eff:
                 continue
-            # 生效日期不晚于本月末
             if eff > period_end:
                 continue
-            # 失效日期为空或不早于本月初
             if exp and exp < period_start:
                 continue
-            active.append(d)
-        return active
+            return d
+        return None
 
     def _get_attendance_record(
         self, person_id: int, company_id: int, period: str

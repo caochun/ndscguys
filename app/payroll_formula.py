@@ -12,9 +12,9 @@ from typing import Dict, Any
 def safe_eval_expression(expression: str, variables: Dict[str, Any]) -> float:
     """
     安全地评估一个算术表达式。
-    支持变量、+ - * / 括号、函数 max/min/abs/round/grade_coef。
+    支持变量、+ - * / 括号、函数 max/min/abs/round/grade_coef/cumulative_tax。
     """
-    from app.config.payroll_config import get_assessment_grade_coefficient
+    from app.config.payroll_config import get_assessment_grade_coefficient, calculate_tax as cumulative_tax
 
     def grade_coef(value: Any) -> float:
         return get_assessment_grade_coefficient(str(value).strip() if value else None)
@@ -25,6 +25,7 @@ def safe_eval_expression(expression: str, variables: Dict[str, Any]) -> float:
         "abs": abs,
         "round": round,
         "grade_coef": grade_coef,
+        "cumulative_tax": lambda x: float(cumulative_tax(float(x) if x is not None else 0.0)),
     }
     allowed_operators = {
         ast.Add: operator.add,

@@ -2180,7 +2180,6 @@ function initTaxDeduction() {
             { fieldName: 'person_name', label: '人员-姓名', type: 'text' },
             { fieldName: 'children_education_amount', label: '子女教育金额(>=)', type: 'number' },
             { fieldName: 'continuing_education_amount', label: '继续教育金额(>=)', type: 'number' },
-            { fieldName: 'medical_expense_amount', label: '大病医疗金额(>=)', type: 'number' },
             { fieldName: 'housing_loan_interest_amount', label: '住房贷款利息金额(>=)', type: 'number' },
             { fieldName: 'housing_rent_amount', label: '住房租金金额(>=)', type: 'number' },
             { fieldName: 'elderly_support_amount', label: '赡养老人金额(>=)', type: 'number' },
@@ -2212,7 +2211,7 @@ function initTaxDeduction() {
 
     function getFilterValues() {
         const filters = {};
-        ['person_name', 'children_education_amount', 'continuing_education_amount', 'medical_expense_amount', 
+        ['person_name', 'children_education_amount', 'continuing_education_amount', 
          'housing_loan_interest_amount', 'housing_rent_amount', 'elderly_support_amount', 'status', 'effective_date'].forEach(fieldName => {
             const input = document.getElementById(`tax-filter-${fieldName}`);
             if (input && input.value && input.value.trim()) {
@@ -2270,7 +2269,6 @@ function initTaxDeduction() {
             { key: 'person_name', label: '人员姓名' },
             { key: 'children_education_amount', label: '子女教育' },
             { key: 'continuing_education_amount', label: '继续教育' },
-            { key: 'medical_expense_amount', label: '大病医疗' },
             { key: 'housing_loan_interest_amount', label: '住房贷款利息' },
             { key: 'housing_rent_amount', label: '住房租金' },
             { key: 'elderly_support_amount', label: '赡养老人' },
@@ -2296,9 +2294,7 @@ function initTaxDeduction() {
                 if (col.key.endsWith('_amount') && value !== undefined && value !== null) {
                     const amount = parseFloat(value);
                     if (amount > 0) {
-                        // 大病医疗是年度金额，其他是月度金额
-                        const suffix = col.key === 'medical_expense_amount' ? '元/年' : '元/月';
-                        td.textContent = `¥${amount.toLocaleString()}${suffix}`;
+                        td.textContent = `¥${amount.toLocaleString()}元/月`;
                     } else {
                         td.textContent = '-';
                     }
@@ -2349,9 +2345,7 @@ function initTaxDeduction() {
                     if (fieldName.endsWith('_amount') && value !== undefined && value !== null) {
                         const amount = parseFloat(value);
                         if (amount > 0) {
-                            // 大病医疗是年度金额，其他是月度金额
-                            const suffix = fieldName === 'medical_expense_amount' ? '元/年' : '元/月';
-                            displayValue = `¥${amount.toLocaleString()}${suffix}`;
+                            displayValue = `¥${amount.toLocaleString()}元/月`;
                         } else {
                             displayValue = '-';
                         }
@@ -2386,9 +2380,7 @@ function initTaxDeduction() {
                         if (fieldName.endsWith('_amount') && value !== undefined && value !== null) {
                             const amount = parseFloat(value);
                             if (amount > 0) {
-                                // 大病医疗是年度金额，其他是月度金额
-                                const suffix = fieldName === 'medical_expense_amount' ? '元/年' : '元/月';
-                                value = `¥${amount.toLocaleString()}${suffix}`;
+                                value = `¥${amount.toLocaleString()}元/月`;
                             } else {
                                 value = '-';
                             }

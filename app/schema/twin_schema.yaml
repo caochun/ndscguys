@@ -963,18 +963,6 @@ twins:
           component: number_input
           suffix: "元/月"
       
-      medical_expense_amount:
-        type: decimal
-        required: false
-        label: "大病医疗扣除金额"
-        description: "年度大病医疗专项附加扣除金额（单位：元），按实际支出扣除，最高不超过80000元"
-        validation:
-          min: 0
-          max: 80000
-        ui:
-          component: number_input
-          suffix: "元/年"
-      
       housing_loan_interest_amount:
         type: decimal
         required: false
@@ -1232,28 +1220,6 @@ twins:
           component: number_input
           suffix: "元"
       
-      social_security_deduction:
-        type: decimal
-        required: false
-        label: "社保个人扣除"
-        description: "专项累计扣除中的社保部分（可与 social_1 一致）"
-        validation:
-          min: 0
-        ui:
-          component: number_input
-          suffix: "元"
-      
-      housing_fund_deduction:
-        type: decimal
-        required: false
-        label: "公积金个人扣除"
-        description: "专项累计扣除中的公积金部分（可与 social_2 一致）"
-        validation:
-          min: 0
-        ui:
-          component: number_input
-          suffix: "元"
-      
       tax_deduction_total:
         type: decimal
         required: false
@@ -1365,7 +1331,7 @@ twins:
           component: number_input
           suffix: "元"
       
-      # ===== 社保公积金计算中间结果与合计（output_key: social_*） =====
+      # ===== 社保公积金计算中间结果与合计（output_key: social_*，与 payroll_calculation_config 一致） =====
       social_1:
         type: decimal
         required: false
@@ -1378,8 +1344,8 @@ twins:
       social_2:
         type: decimal
         required: false
-        label: "公积金个人扣除"
-        description: "第2步：公积金基数×公积金个人缴费比例"
+        label: "大病个人缴费金额"
+        description: "第2步：从社保公积金配置中取出的大病个人缴费金额"
         ui:
           component: number_input
           suffix: "元"
@@ -1387,8 +1353,8 @@ twins:
       social_3:
         type: decimal
         required: false
-        label: "大病个人缴费金额"
-        description: "第3步：从社保公积金配置中取出的大病个人缴费金额"
+        label: "社保个人扣除"
+        description: "第3步：三险个人 + 大病个人"
         ui:
           component: number_input
           suffix: "元"
@@ -1396,8 +1362,17 @@ twins:
       social_4:
         type: decimal
         required: false
+        label: "公积金个人扣除"
+        description: "第4步：公积金基数×公积金个人缴费比例"
+        ui:
+          component: number_input
+          suffix: "元"
+      
+      social_5:
+        type: decimal
+        required: false
         label: "社保公积金扣除合计"
-        description: "第4步：三险个人 + 公积金个人 + 大病个人"
+        description: "第5步：社保个人扣除 + 公积金个人扣除"
         ui:
           component: number_input
           suffix: "元"
