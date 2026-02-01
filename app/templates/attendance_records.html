@@ -66,7 +66,7 @@
     </div>
 
     <!-- 考勤记录表格 -->
-    <div id="attendance-records-container" class="hidden overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+    <div id="attendance-records-container" class="hidden overflow-x-auto shadow border border-gray-200 md:rounded-lg">
         <table class="min-w-full divide-y divide-gray-300">
             <thead class="bg-gray-50">
                 <tr id="table-header">
@@ -80,7 +80,7 @@
     </div>
 
     <!-- 考勤记录详情模态框 -->
-    <div id="attendance-record-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div id="attendance-record-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" style="background-color: rgba(0,0,0,0.5);">
         <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
             <div class="mt-3">
                 <div class="flex justify-between items-center mb-4">
@@ -100,7 +100,7 @@
     </div>
 
     <!-- 考勤记录表单模态框（新增/编辑） -->
-    <div id="attendance-record-form-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div id="attendance-record-form-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" style="background-color: rgba(0,0,0,0.5);">
         <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
             <div class="mt-3">
                 <div class="flex justify-between items-center mb-4">
@@ -244,7 +244,7 @@ async function loadAttendanceRecords(filters = {}) {
         error.classList.add('hidden');
         container.classList.add('hidden');
         
-        let url = '/api/twins/person_company_attendance_record?enrich=person,company';
+        let url = '/api/twins/person_company_attendance?enrich=person,company';
         const queryParams = new URLSearchParams();
         for (const key in filters) {
             queryParams.append(key, filters[key]);
@@ -349,7 +349,7 @@ function renderTable(records) {
 // 显示考勤记录详情
 async function showAttendanceRecordDetail(recordId) {
     try {
-        const response = await fetch(`/api/twins/person_company_attendance_record/${recordId}?enrich=person,company`);
+        const response = await fetch(`/api/twins/person_company_attendance/${recordId}?enrich=person,company`);
         const result = await response.json();
         
         if (!result.success) {
@@ -448,7 +448,7 @@ function openAddForm() {
 // 编辑考勤记录
 async function editAttendanceRecord(recordId) {
     try {
-        const response = await fetch(`/api/twins/person_company_attendance_record/${recordId}?enrich=person,company`);
+        const response = await fetch(`/api/twins/person_company_attendance/${recordId}?enrich=person,company`);
         const result = await response.json();
         
         if (!result.success) {
@@ -592,8 +592,8 @@ async function submitForm(event) {
     
     try {
         const url = currentEditAttendanceRecordId 
-            ? `/api/twins/person_company_attendance_record/${currentEditAttendanceRecordId}`
-            : '/api/twins/person_company_attendance_record';
+            ? `/api/twins/person_company_attendance/${currentEditAttendanceRecordId}`
+            : '/api/twins/person_company_attendance';
         const method = currentEditAttendanceRecordId ? 'PUT' : 'POST';
         
         const response = await fetch(url, {

@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}人力资源管理系统{% endblock %}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 使用 jsDelivr 镜像，避免 cdn.tailwindcss.com 出现 ERR_CONNECTION_CLOSED -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-gray-50">
@@ -31,8 +32,8 @@
                                <a id="nav-contributions" href="/contributions" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                                    缴费与扣除
                                </a>
-                               <a href="/payroll/calculation" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                                   工资计算
+                               <a href="/payroll" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                   工资管理
                                </a>
                                <a href="/project-center" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                                    项目管理

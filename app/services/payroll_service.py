@@ -7,7 +7,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 
 from app.services.twin_service import TwinService
 
@@ -310,14 +310,258 @@ class PayrollService:
             )
             steps = self._build_steps_from_config(steps_def)
             self._enrich_step_descs(steps, steps_def, variable_labels, variables)
-            # values 统一按 output_key 输出，便于按变量名（如 tax_14、base_amount）取用
-            display_values = {
-                s["output_key"]: values.get(str(s["step"]), 0.0)
-                for s in steps_def
-                if s.get("output_key")
-            }
+            # 前端按步骤号（"1","2",...）取数；同时保留 output_key 便于按变量名取用
+            display_values: Dict[str, Any] = {}
+            for s in steps_def:
+                step_num = s["step"]
+                val = values.get(str(step_num), 0.0)
+                display_values[str(step_num)] = val
+                if s.get("output_key"):
+                    display_values[s["output_key"]] = val
             result[section_id] = {"steps": steps, "values": display_values}
+        # 实发薪资 = 应发 - 社保公积金扣除合计 - 本月个税；写入 person_company_payroll 时使用 total_amount 字段
+        base = float(result.get("gross", {}).get("values", {}).get("base_amount", 0) or 0)
+        social_total = float(result.get("social", {}).get("values", {}).get("social_5", 0) or 0)
+        tax_month = float(result.get("tax", {}).get("values", {}).get("tax_14", 0) or 0)
+        result["total_amount"] = round(max(0.0, base - social_total - tax_month), 2)
         return result
+
+    # ======== 工资单生成（写入 person_company_payroll Twin） ========
+
+    def _build_payroll_state_data(
+        self, person_id: int, company_id: int, period: str
+    ) -> Dict[str, Any]:
+        """
+        构建写入 person_company_payroll 状态表的完整 data 字典。
+        包含计算过程涉及的所有输入变量与三块结果，便于查历史依据。
+        """
+        variables = self.get_calculation_context_variables(person_id, company_id, period)
+        variables = {k: float(v) if isinstance(v, (int, float)) else v for k, v in variables.items()}
+        result = self.evaluate_calculation_steps(person_id, company_id, period)
+        # 专项附加扣除合计（6 项之和）
+        tax_deduction_total = sum(
+            float(variables.get(k, 0) or 0)
+            for k in (
+                "tax_deduction_children",
+                "tax_deduction_continuing",
+                "tax_deduction_housing_loan",
+                "tax_deduction_housing_rent",
+                "tax_deduction_elderly",
+                "tax_deduction_infant",
+            )
+        )
+        data: Dict[str, Any] = {
+            "period": period,
+            "employment_salary": variables.get("employment_salary"),
+            "base_ratio": variables.get("base_ratio"),
+            "perf_ratio": variables.get("perf_ratio"),
+            "employee_discount": variables.get("employee_discount"),
+            "assessment_coefficient": variables.get("assessment_coefficient"),
+            "MONTHLY_WORK_DAYS": variables.get("MONTHLY_WORK_DAYS"),
+            "personal_leave_days": variables.get("personal_leave_days"),
+            "sick_leave_days": variables.get("sick_leave_days"),
+            "reward_punishment_amount": variables.get("reward_punishment_amount"),
+            "social_security_base": variables.get("social_security_base"),
+            "housing_fund_base": variables.get("housing_fund_base"),
+            "pension_rate": variables.get("pension_rate"),
+            "unemployment_rate": variables.get("unemployment_rate"),
+            "medical_rate": variables.get("medical_rate"),
+            "housing_rate": variables.get("housing_rate"),
+            "serious_illness_amount": variables.get("serious_illness_amount"),
+            "tax_deduction_total": round(tax_deduction_total, 2),
+            "status": "待发放",
+            "payment_date": None,
+            "remarks": None,
+        }
+        for key, val in (result.get("gross", {}).get("values", {}) or {}).items():
+            if key not in ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"):
+                data[key] = round(float(val), 2) if isinstance(val, (int, float)) else val
+        for key, val in (result.get("social", {}).get("values", {}) or {}).items():
+            if key not in ("1", "2", "3", "4", "5"):
+                data[key] = round(float(val), 2) if isinstance(val, (int, float)) else val
+        for key, val in (result.get("tax", {}).get("values", {}) or {}).items():
+            if key not in ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"):
+                data[key] = round(float(val), 2) if isinstance(val, (int, float)) else val
+        data["base_amount"] = round(float(result.get("gross", {}).get("values", {}).get("base_amount", 0) or 0), 2)
+        data["social_5"] = round(float(result.get("social", {}).get("values", {}).get("social_5", 0) or 0), 2)
+        data["tax_14"] = round(float(result.get("tax", {}).get("values", {}).get("tax_14", 0) or 0), 2)
+        data["total_amount"] = result.get("total_amount", 0)
+        return data
+
+    def resolve_targets(
+        self,
+        scope: str,
+        company_id: int,
+        person_id: Optional[int] = None,
+        department: Optional[str] = None,
+    ) -> List[Tuple[int, int]]:
+        """
+        按范围解析待生成工资单的 (person_id, company_id) 列表。
+        scope: "person" | "department" | "company"
+        部门来源：person_company_employment 当前状态的 department 字段。
+        """
+        company_id = int(company_id)
+        if scope == "person":
+            if person_id is None:
+                return []
+            return [(int(person_id), company_id)]
+        employments = self.twin_service.list_twins(
+            "person_company_employment",
+            filters={"company_id": str(company_id)},
+        )
+        if not employments:
+            return []
+        if scope == "company":
+            return [(int(e["person_id"]), company_id) for e in employments if e.get("person_id") is not None]
+        if scope == "department":
+            if not department:
+                return []
+            return [
+                (int(e["person_id"]), company_id)
+                for e in employments
+                if e.get("person_id") is not None and (e.get("department") or "").strip() == (department or "").strip()
+            ]
+        return []
+
+    def _get_or_create_payroll_activity(self, person_id: int, company_id: int) -> int:
+        """获取或创建 person_company_payroll 的 activity，返回 activity_id。"""
+        twins = self.twin_service.list_twins(
+            "person_company_payroll",
+            filters={"person_id": str(person_id), "company_id": str(company_id)},
+        )
+        if twins:
+            return int(twins[0]["id"])
+        return self.twin_service.twin_dao.create_activity_twin(
+            "person_company_payroll",
+            {"person_id": person_id, "company_id": company_id},
+        )
+
+    def generate_payroll_for_one(
+        self, person_id: int, company_id: int, period: str
+    ) -> Optional[str]:
+        """
+        为单人生成工资单并写入 person_company_payroll。
+        成功返回 None，失败返回错误信息字符串。
+        """
+        try:
+            data = self._build_payroll_state_data(person_id, company_id, period)
+            activity_id = self._get_or_create_payroll_activity(person_id, company_id)
+            self.state_dao.append(
+                "person_company_payroll",
+                activity_id,
+                data,
+                time_key=period,
+            )
+            return None
+        except Exception as e:
+            return str(e)
+
+    def generate_payroll(
+        self,
+        scope: str,
+        company_id: int,
+        period: str,
+        person_id: Optional[int] = None,
+        department: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        按范围批量生成工资单。返回 { "generated": int, "errors": [ {"person_id": int, "reason": str}, ... ] }。
+        """
+        targets = self.resolve_targets(scope, company_id, person_id=person_id, department=department)
+        generated = 0
+        errors: List[Dict[str, Any]] = []
+        for pid, cid in targets:
+            err = self.generate_payroll_for_one(pid, cid, period)
+            if err:
+                errors.append({"person_id": pid, "reason": err})
+            else:
+                generated += 1
+        return {"generated": generated, "errors": errors}
+
+    def get_generate_preview_count(
+        self,
+        scope: str,
+        company_id: int,
+        person_id: Optional[int] = None,
+        department: Optional[str] = None,
+    ) -> int:
+        """预览将生成工资单的人数（不实际写入）。"""
+        return len(self.resolve_targets(scope, company_id, person_id=person_id, department=department))
+
+    def list_payroll_records(
+        self, period: str, company_id: int
+    ) -> List[Dict[str, Any]]:
+        """
+        列出指定周期、公司下已创建的工资单（person_company_payroll 状态 time_key=period）。
+        返回列表项含 activity id、person_id、company_id、period、base_amount、social_5、tax_14、total_amount、status 及 person_name（enrich）。
+        """
+        activities = self.twin_service.list_twins(
+            "person_company_payroll",
+            filters={"company_id": str(company_id)},
+        )
+        records: List[Dict[str, Any]] = []
+        for act in activities:
+            aid = act.get("id")
+            pid = act.get("person_id")
+            cid = act.get("company_id")
+            if aid is None or pid is None:
+                continue
+            state = self.state_dao.get_state_by_time_key(
+                "person_company_payroll", int(aid), period
+            )
+            if not state or not state.data:
+                continue
+            row = {
+                "id": aid,
+                "person_id": pid,
+                "company_id": cid,
+                "period": period,
+                **{k: v for k, v in state.data.items() if k not in ("period",)},
+            }
+            row["period"] = period
+            # 人员姓名：取 person 最新状态 name
+            person_state = self.state_dao.get_latest("person", int(pid))
+            if person_state and person_state.data:
+                row["person_name"] = (person_state.data or {}).get("name") or f"人员{pid}"
+            else:
+                row["person_name"] = f"人员{pid}"
+            records.append(row)
+        return records
+
+    def get_payroll_record_detail(
+        self, activity_id: int, period: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        获取单条工资单详情（指定 activity_id 与 period 对应的状态）。
+        返回含 id、person_id、company_id、period、person_name、labels（variable_labels）
+        以及该条状态的全部 data 字段。
+        """
+        state = self.state_dao.get_state_by_time_key(
+            "person_company_payroll", int(activity_id), period
+        )
+        if not state or not state.data:
+            return None
+        twin = self.twin_service.get_twin("person_company_payroll", int(activity_id))
+        person_id = (twin or {}).get("person_id")
+        company_id = (twin or {}).get("company_id")
+        row: Dict[str, Any] = {
+            "id": activity_id,
+            "person_id": person_id,
+            "company_id": company_id,
+            "period": period,
+            **{k: v for k, v in state.data.items()},
+        }
+        if person_id is not None:
+            person_state = self.state_dao.get_latest("person", int(person_id))
+            if person_state and person_state.data:
+                row["person_name"] = (person_state.data or {}).get("name") or f"人员{person_id}"
+            else:
+                row["person_name"] = f"人员{person_id}"
+        else:
+            row["person_name"] = ""
+        config = self.load_calculation_config()
+        row["labels"] = config.get("variable_labels") or {}
+        return row
 
     def _get_latest_employment(
         self, person_id: int, company_id: int
@@ -441,7 +685,7 @@ class PayrollService:
     ) -> Optional[Dict[str, Any]]:
         """获取指定人员、公司、周期的考勤记录（time_series，time_key=period）"""
         return self._get_twin_state_for_person_company(
-            "person_company_attendance_record", person_id, company_id, period
+            "person_company_attendance", person_id, company_id, period
         )
 
     def _get_position_salary_ratio(

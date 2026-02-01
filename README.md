@@ -78,7 +78,6 @@ Twin 把“实体”和“活动”统一抽象，统一用一套 DAO/Service/AP
 
 - `person_company_employment`（人员-公司聘用）
 - `person_project_participation`（人员-项目参与）
-- `person_company_attendance`（人员考勤）
 - `person_company_payroll`（人员工资发放）
 
 **存储结构：**
@@ -114,14 +113,6 @@ person:
 
 - 键：`(twin_id, time_key)`（例如 date、batch_period、period）
 - 场景：打卡、工资单等“按时间点/周期”的记录
-
-示例（考勤）：
-
-```yaml
-person_company_attendance:
-  mode: time_series
-  unique_key: [activity_id, date]
-```
 
 示例（工资单）：
 
@@ -252,11 +243,6 @@ Service 不写任何业务 if/else，全靠 Schema。
   - 关联：`person`、`project`
   - 字段：参与状态（入项 / 出项）、变动日期、劳务定价（劳务型项目适用）
   - 模式：`versioned`
-
-- **考勤： `person_company_attendance`**
-  - 关联：`person`、`company`
-  - 字段：日期、上下班时间、工时等
-  - 模式：`time_series`，按天记录
 
 - **人员考核： `person_assessment`**
   - 关联：`person`

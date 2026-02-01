@@ -17,7 +17,7 @@ function ensureFieldOrder(schemaObj) {
         'project': ['internal_project_name', 'project_name', 'project_type', 'budget', 'start_date', 'end_date', 'status', 'description'],
         'person_company_employment': ['person_id', 'company_id', 'employee_type', 'position', 'department', 'hire_date', 'leave_date', 'salary_type', 'base_salary', 'performance_ratio'],
         'person_project_participation': ['person_id', 'project_id', 'role', 'start_date', 'end_date', 'status', 'change_date'],
-        'person_company_attendance': ['person_id', 'company_id', 'date', 'expected_hours', 'actual_hours', 'absent_hours']
+        'person_company_attendance': ['person_id', 'company_id', 'period', 'sick_leave_days', 'personal_leave_days', 'other', 'reward_punishment_amount']
     };
     
     const twinName = schemaObj.name;

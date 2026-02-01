@@ -424,74 +424,9 @@ twins:
 
   person_company_attendance:
     type: activity
-    label: "人员-公司打卡活动"
-    table: "person_company_attendance_activities"
-    
-    related_entities:
-      - entity: person
-        role: attendee
-        key: person_id
-        required: true
-      - entity: company
-        role: company
-        key: company_id
-        required: true
-    
-    state_table: "person_company_attendance_history"
-    mode: time_series
-    unique_key: [activity_id, date]
-    
-    fields:
-      person_id:
-        type: reference
-        reference_entity: person
-        required: true
-        storage: foreign_key
-      
-      company_id:
-        type: reference
-        reference_entity: company
-        required: true
-        storage: foreign_key
-      
-      date:
-        type: date
-        required: true
-        label: "日期"
-        storage: unique_key
-        ui:
-          component: date_picker
-      
-      check_in_time:
-        type: time
-        required: false
-        label: "上班时间"
-        ui:
-          component: time_picker
-      
-      check_out_time:
-        type: time
-        required: false
-        label: "下班时间"
-        ui:
-          component: time_picker
-      
-      work_hours:
-        type: decimal
-        required: false
-        label: "工作时长"
-        validation:
-          min: 0
-          max: 24
-        ui:
-          component: number_input
-          suffix: "小时"
-
-  person_company_attendance_record:
-    type: activity
-    label: "人员-公司考勤记录"
+    label: "人员-公司考勤"
     description: "记录人员每月的考勤汇总数据，包括事假、病假、其他情况和奖惩金额"
-    table: "person_company_attendance_record_activities"
+    table: "person_company_attendance_activities"
     
     related_entities:
       - entity: person
@@ -503,7 +438,7 @@ twins:
         key: company_id
         required: true
     
-    state_table: "person_company_attendance_record_history"
+    state_table: "person_company_attendance_history"
     mode: time_series
     unique_key: [activity_id, period]
     
@@ -1416,7 +1351,8 @@ twins:
       tax_5:
         type: decimal
         required: false
-        label: "上月薪资的累计专项合计(不含附加)"
+        label: "累计扣除项目合计"
+        description: "税前扣除项目合计+上月累计专项扣除合计"
         ui:
           component: number_input
           suffix: "元"
@@ -1424,8 +1360,7 @@ twins:
       tax_6:
         type: decimal
         required: false
-        label: "累计扣除项目合计"
-        description: "税前扣除项目合计+上月累计专项扣除合计"
+        label: "上月薪资的累计专项合计(不含附加)"
         ui:
           component: number_input
           suffix: "元"

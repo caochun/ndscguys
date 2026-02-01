@@ -1,0 +1,783 @@
+{% extends "base.html" %}
+
+{% block title %}工资管理 - HRMS{% endblock %}
+
+{% block extra_head %}
+<style>
+  .step-row { cursor: pointer; position: relative; }
+  .step-row:hover { background-color: #f3f4f6; }
+  .source-tag { font-size: 0.7rem; padding: 0.1rem 0.35rem; border-radius: 4px; }
+  .source-formula { background: #dbeafe; color: #1e40af; }
+  .source-prev_month { background: #e5e7eb; color: #4b5563; }
+  .source-tax_bracket { background: #fef3c7; color: #92400e; }
+  .section-title { font-size: 0.75rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.5rem 1rem; background: #f9fafb; border-bottom: 1px solid #e5e7eb; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; }
+  .section-title:hover { background: #f3f4f6; }
+  .section-title .chevron { transition: transform 0.2s; }
+  .section-title.collapsed .chevron { transform: rotate(-90deg); }
+  .section-body.collapsed { display: none; }
+  .step-desc-text { white-space: pre-line; }
+  .section-card { display: flex; flex-direction: column; min-height: 0; }
+  .section-card .section-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .section-card .section-body ul { flex: 1; min-height: 0; overflow-y: auto; }
+  .section-footer { padding: 0.75rem 1rem; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: right; }
+  .section-footer-value { font-size: 1.25rem; font-weight: 700; color: #1f2937; }
+  .section-footer-value.empty { color: #9ca3af; font-weight: 500; }
+  #step-tooltip { position: fixed; z-index: 100; max-width: 340px; padding: 0.75rem 1rem; background: rgba(55, 65, 81, 0.92); color: #f3f4f6; border-radius: 8px; font-size: 0.8125rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.15); pointer-events: none; white-space: pre-line; display: none; }
+  #step-tooltip.visible { display: block; }
+  #step-tooltip .tooltip-title { font-weight: 600; margin-bottom: 0.35rem; }
+  #step-tooltip .tooltip-desc { color: #e5e7eb; line-height: 1.45; margin-bottom: 0.5rem; }
+  #step-tooltip .tooltip-value { font-weight: 600; color: #fde68a; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="mb-6">
+        <h2 class="text-2xl font-bold text-gray-900">工资管理</h2>
+        <p class="mt-1 text-sm text-gray-500">应发薪资、社保公积金扣除、个税三项计算步骤一览；选择发放周期与员工后可预览各步结果</p>
+    </div>
+
+    <!-- Tab：工资计算 | 已创建工资单 -->
+    <div class="border-b border-gray-200 mb-6">
+        <nav class="flex space-x-8" aria-label="Tabs">
+            <button type="button" id="tab-btn-calc" class="payroll-tab py-4 px-1 border-b-2 font-medium text-sm border-indigo-500 text-indigo-600">工资计算</button>
+            <button type="button" id="tab-btn-records" class="payroll-tab py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">已创建工资单</button>
+        </nav>
+    </div>
+
+    <!-- Tab 1：工资计算 -->
+    <div id="tab-content-calc" class="payroll-tab-content">
+    <!-- 筛选与预览 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+            <div>
+                <label for="tax-period" class="block text-sm font-medium text-gray-700 mb-1">发放周期</label>
+                <input type="month" id="tax-period" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm">
+            </div>
+            <div>
+                <label for="tax-company" class="block text-sm font-medium text-gray-700 mb-1">公司</label>
+                <select id="tax-company" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                    <option value="">请选择公司</option>
+                </select>
+            </div>
+            <div>
+                <label for="tax-department" class="block text-sm font-medium text-gray-700 mb-1">部门</label>
+                <select id="tax-department" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                    <option value="">请先选择公司</option>
+                </select>
+            </div>
+            <div>
+                <label for="tax-person" class="block text-sm font-medium text-gray-700 mb-1">人员</label>
+                <select id="tax-person" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                    <option value="">请先选择公司</option>
+                </select>
+            </div>
+            <div>
+                <button id="tax-preview-btn" class="w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">预览各步结果</button>
+            </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-gray-200 flex flex-wrap gap-3 items-center">
+            <span class="text-sm font-medium text-gray-700">生成工资单：</span>
+            <button id="btn-generate-person" type="button" class="px-4 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 rounded-md hover:bg-indigo-100">为当前人员生成</button>
+            <button id="btn-generate-department" type="button" class="px-4 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 rounded-md hover:bg-indigo-100">为当前部门批量生成</button>
+            <button id="btn-generate-company" type="button" class="px-4 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 rounded-md hover:bg-indigo-100">为公司全员批量生成</button>
+        </div>
+    </div>
+
+    <!-- 三块水平排列，每块为 card，底部显示本块最终结果；步骤详情用 tooltip 展示 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- 应发薪资计算 -->
+        <div id="section-gross-card" class="section-card bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col" style="min-height: 320px;">
+            <div id="section-gross-title" class="section-title" data-section="gross" aria-expanded="true">
+                <span>应发薪资计算</span>
+                <span class="chevron text-gray-400">▼</span>
+            </div>
+            <div id="section-gross-body" class="section-body">
+                <ul id="gross-step-list" class="divide-y divide-gray-200 max-h-52 overflow-y-auto">
+                    <!-- 动态填充 -->
+                </ul>
+            </div>
+            <div class="section-footer">
+                <span class="text-xs text-gray-500 block mb-0.5">应发金额</span>
+                <span id="gross-footer-value" class="section-footer-value empty">—</span>
+            </div>
+        </div>
+        <!-- 社保公积金扣除计算 -->
+        <div id="section-social-card" class="section-card bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col" style="min-height: 320px;">
+            <div id="section-social-title" class="section-title" data-section="social" aria-expanded="true">
+                <span>社保公积金扣除计算</span>
+                <span class="chevron text-gray-400">▼</span>
+            </div>
+            <div id="section-social-body" class="section-body">
+                <ul id="social-housing-step-list" class="divide-y divide-gray-200 max-h-52 overflow-y-auto">
+                    <!-- 动态填充 -->
+                </ul>
+            </div>
+            <div class="section-footer">
+                <span class="text-xs text-gray-500 block mb-0.5">扣除合计</span>
+                <span id="social-footer-value" class="section-footer-value empty">—</span>
+            </div>
+        </div>
+        <!-- 个税计算 -->
+        <div id="section-tax-card" class="section-card bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col" style="min-height: 320px;">
+            <div id="section-tax-title" class="section-title" data-section="tax" aria-expanded="true">
+                <span>个税计算</span>
+                <span class="chevron text-gray-400">▼</span>
+            </div>
+            <div id="section-tax-body" class="section-body">
+                <ul id="step-list" class="divide-y divide-gray-200 max-h-52 overflow-y-auto">
+                    <!-- 动态填充 -->
+                </ul>
+            </div>
+            <div class="section-footer">
+                <span class="text-xs text-gray-500 block mb-0.5">本月个税</span>
+                <span id="tax-footer-value" class="section-footer-value empty">—</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 实发薪资（应发 - 社保公积金扣除 - 个税） -->
+    <div class="mt-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div class="flex items-center justify-between">
+            <span class="text-base font-medium text-gray-700">实发薪资</span>
+            <span id="net-amount-value" class="section-footer-value text-xl font-bold text-gray-900 empty">—</span>
+        </div>
+        <p class="mt-1 text-xs text-gray-500">应发金额 − 社保公积金扣除合计 − 本月个税</p>
+    </div>
+
+    <!-- 步骤详情 tooltip（悬停时显示） -->
+    <div id="step-tooltip">
+        <div class="tooltip-title" id="step-tooltip-title"></div>
+        <div class="tooltip-desc step-desc-text" id="step-tooltip-desc"></div>
+        <div class="tooltip-value" id="step-tooltip-value"></div>
+    </div>
+    </div>
+    <!-- / Tab 1 -->
+
+    <!-- Tab 2：已创建工资单 -->
+    <div id="tab-content-records" class="payroll-tab-content hidden">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+            <div class="flex flex-wrap gap-4 items-end">
+                <div>
+                    <label for="records-period" class="block text-sm font-medium text-gray-700 mb-1">发放周期</label>
+                    <input type="month" id="records-period" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                </div>
+                <div>
+                    <label for="records-company" class="block text-sm font-medium text-gray-700 mb-1">公司</label>
+                    <select id="records-company" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm min-w-[180px]">
+                        <option value="">请选择公司</option>
+                    </select>
+                </div>
+                <div>
+                    <button id="records-query-btn" type="button" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">查询</button>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div id="records-loading" class="hidden py-12 text-center text-gray-500 text-sm">加载中…</div>
+            <div id="records-error" class="hidden p-4 bg-red-50 border-b border-red-200 text-red-700 text-sm"></div>
+            <div id="records-empty" class="hidden py-12 text-center text-gray-500 text-sm">请选择周期、公司后点击「查询」，或当前条件下暂无已创建工资单</div>
+            <div id="records-table-wrap" class="hidden overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">周期</th>
+                            <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">人员</th>
+                            <th scope="col" class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">应发</th>
+                            <th scope="col" class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">社保公积金扣除</th>
+                            <th scope="col" class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">个税</th>
+                            <th scope="col" class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">实发</th>
+                            <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                        </tr>
+                    </thead>
+                    <tbody id="records-tbody" class="bg-white divide-y divide-gray-200">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <!-- / Tab 2 -->
+
+    <!-- 工资单详情模态框（与 Tab 同级，避免被 Tab 容器影响；遮罩半透明保留背景） -->
+    <div id="payroll-record-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" style="background-color: rgba(0,0,0,0.5);">
+        <div class="relative top-12 mx-auto p-5 border border-gray-200 w-11/12 max-w-2xl shadow-lg rounded-lg bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">工资单详情</h3>
+                <button type="button" id="payroll-record-modal-close" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div id="payroll-record-modal-loading" class="hidden py-8 text-center text-gray-500 text-sm">加载中…</div>
+            <div id="payroll-record-modal-content" class="text-sm"></div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const grossStepListEl = document.getElementById('gross-step-list');
+  const socialHousingStepListEl = document.getElementById('social-housing-step-list');
+  const stepListEl = document.getElementById('step-list');
+  const stepTooltip = document.getElementById('step-tooltip');
+  const stepTooltipTitle = document.getElementById('step-tooltip-title');
+  const stepTooltipDesc = document.getElementById('step-tooltip-desc');
+  const stepTooltipValue = document.getElementById('step-tooltip-value');
+  const grossFooterValue = document.getElementById('gross-footer-value');
+  const socialFooterValue = document.getElementById('social-footer-value');
+  const taxFooterValue = document.getElementById('tax-footer-value');
+  const netAmountValueEl = document.getElementById('net-amount-value');
+
+  let grossSteps = [];
+  let socialSteps = [];
+  let steps = [];
+  let grossValues = {};
+  let socialValues = {};
+  let stepValues = {};
+  let tooltipHideTimer = null;
+  let companyEmployments = [];
+
+  function escapeHtml(s) {
+    if (s == null) return '';
+    var div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  function showStepTooltip(rowEl, title, desc, valueStr) {
+    if (tooltipHideTimer) { clearTimeout(tooltipHideTimer); tooltipHideTimer = null; }
+    stepTooltipTitle.textContent = title;
+    stepTooltipDesc.textContent = desc;
+    stepTooltipValue.textContent = valueStr;
+    stepTooltip.classList.add('visible');
+    function position() {
+      var rect = rowEl.getBoundingClientRect();
+      var ttRect = stepTooltip.getBoundingClientRect();
+      var gap = 8;
+      var x = rect.right + gap;
+      var y = rect.top;
+      if (x + ttRect.width > window.innerWidth - 12) x = rect.left - ttRect.width - gap;
+      if (x < 12) x = 12;
+      if (y + ttRect.height > window.innerHeight - 12) y = window.innerHeight - ttRect.height - 12;
+      if (y < 12) y = 12;
+      stepTooltip.style.left = x + 'px';
+      stepTooltip.style.top = y + 'px';
+    }
+    position();
+    requestAnimationFrame(position);
+  }
+
+  function hideStepTooltip() {
+    if (tooltipHideTimer) clearTimeout(tooltipHideTimer);
+    tooltipHideTimer = setTimeout(function() {
+      stepTooltip.classList.remove('visible');
+      tooltipHideTimer = null;
+    }, 80);
+  }
+
+  function updateFooterValues() {
+    var gLast = grossSteps.length ? grossValues[String(grossSteps[grossSteps.length - 1].step)] : undefined;
+    var sLast = socialSteps.length ? socialValues[String(socialSteps[socialSteps.length - 1].step)] : undefined;
+    var tLast = stepValues['tax_14'];
+    if (gLast !== undefined && gLast !== null) {
+      grossFooterValue.textContent = Number(gLast).toFixed(2) + ' 元';
+      grossFooterValue.classList.remove('empty');
+    } else {
+      grossFooterValue.textContent = '—';
+      grossFooterValue.classList.add('empty');
+    }
+    if (sLast !== undefined && sLast !== null) {
+      socialFooterValue.textContent = Number(sLast).toFixed(2) + ' 元';
+      socialFooterValue.classList.remove('empty');
+    } else {
+      socialFooterValue.textContent = '—';
+      socialFooterValue.classList.add('empty');
+    }
+    if (tLast !== undefined && tLast !== null) {
+      taxFooterValue.textContent = Number(tLast).toFixed(2) + ' 元';
+      taxFooterValue.classList.remove('empty');
+    } else {
+      taxFooterValue.textContent = '—';
+      taxFooterValue.classList.add('empty');
+    }
+    // 实发薪资 = 应发 - 社保公积金扣除 - 本月个税
+    if (gLast !== undefined && gLast !== null && sLast !== undefined && sLast !== null && tLast !== undefined && tLast !== null) {
+      var net = Math.max(0, Number(gLast) - Number(sLast) - Number(tLast));
+      netAmountValueEl.textContent = net.toFixed(2) + ' 元';
+      netAmountValueEl.classList.remove('empty');
+    } else {
+      netAmountValueEl.textContent = '—';
+      netAmountValueEl.classList.add('empty');
+    }
+  }
+
+  function renderGrossStepList() {
+    grossStepListEl.innerHTML = grossSteps.map(function(s, i) {
+      const stepKey = String(s.step);
+      const val = grossValues[stepKey];
+      const valStr = val !== undefined && val !== null ? Number(val).toFixed(2) : '—';
+      return '<li class="step-row px-4 py-2.5 flex items-center justify-between gap-2" data-step="' + s.step + '" data-index="' + i + '">' +
+        '<span class="text-sm font-medium text-gray-900 truncate">' + escapeHtml((i + 1) + '. ' + (s.field_name || '')) + '</span>' +
+        '<span class="text-sm text-gray-500 tabular-nums flex-shrink-0">' + valStr + '</span>' +
+      '</li>';
+    }).join('');
+  }
+  function renderSocialHousingStepList() {
+    socialHousingStepListEl.innerHTML = socialSteps.map(function(s, i) {
+      const stepKey = String(s.step);
+      const val = socialValues[stepKey];
+      const valStr = val !== undefined && val !== null ? Number(val).toFixed(2) : '—';
+      return '<li class="step-row px-4 py-2.5 flex items-center justify-between gap-2" data-step="' + s.step + '" data-index="' + i + '">' +
+        '<span class="text-sm font-medium text-gray-900 truncate">' + escapeHtml((i + 1) + '. ' + (s.field_name || '')) + '</span>' +
+        '<span class="text-sm text-gray-500 tabular-nums flex-shrink-0">' + valStr + '</span>' +
+      '</li>';
+    }).join('');
+  }
+
+  function setDefaultPeriod() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const period = document.getElementById('tax-period');
+    if (period && !period.value) period.value = y + '-' + m;
+  }
+
+  function renderStepList() {
+    stepListEl.innerHTML = steps.map((s, i) => {
+      const val = stepValues['tax_' + s.step];
+      const valStr = val !== undefined ? Number(val).toFixed(2) : '—';
+      return '<li class="step-row px-4 py-2.5 flex items-center justify-between gap-2" data-step="' + s.step + '" data-index="' + i + '">' +
+        '<span class="text-sm font-medium text-gray-900 truncate">' + escapeHtml(s.step + '. ' + s.field_name) + '</span>' +
+        '<span class="text-sm text-gray-500 tabular-nums flex-shrink-0">' + valStr + '</span>' +
+      '</li>';
+    }).join('');
+  }
+
+  function loadSteps() {
+    fetch('/api/payroll/calculation-steps')
+      .then(r => r.json())
+      .then(res => {
+        if (!res.success || !res.data) return;
+        grossSteps = res.data.gross || [];
+        socialSteps = res.data.social || [];
+        steps = res.data.tax || [];
+        renderGrossStepList();
+        renderSocialHousingStepList();
+        renderStepList();
+        updateFooterValues();
+      })
+      .catch(() => {});
+  }
+
+  function loadCompanies() {
+    fetch('/api/twins/company')
+      .then(r => r.json())
+      .then(res => {
+        if (!res.success || !res.data) return;
+        const sel = document.getElementById('tax-company');
+        const recordsCompany = document.getElementById('records-company');
+        sel.innerHTML = '<option value="">请选择公司</option>';
+        if (recordsCompany) recordsCompany.innerHTML = '<option value="">请选择公司</option>';
+        res.data.forEach(c => {
+          const id = c.id;
+          const name = (c.name != null) ? c.name : ('ID ' + id);
+          sel.appendChild(new Option(name, id));
+          if (recordsCompany) recordsCompany.appendChild(new Option(name, id));
+        });
+      })
+      .catch(() => {});
+  }
+
+  function setDefaultRecordsPeriod() {
+    var recPeriod = document.getElementById('records-period');
+    if (!recPeriod || recPeriod.value) return;
+    var taxPeriod = document.getElementById('tax-period');
+    if (taxPeriod && taxPeriod.value) { recPeriod.value = taxPeriod.value; return; }
+    var now = new Date();
+    recPeriod.value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  }
+
+  function switchPayrollTab(activeTab) {
+    var tabCalc = document.getElementById('tab-content-calc');
+    var tabRecords = document.getElementById('tab-content-records');
+    var btnCalc = document.getElementById('tab-btn-calc');
+    var btnRecords = document.getElementById('tab-btn-records');
+    if (activeTab === 'calc') {
+      if (tabCalc) tabCalc.classList.remove('hidden');
+      if (tabRecords) tabRecords.classList.add('hidden');
+      if (btnCalc) { btnCalc.classList.add('border-indigo-500', 'text-indigo-600'); btnCalc.classList.remove('border-transparent'); }
+      if (btnRecords) { btnRecords.classList.add('border-transparent'); btnRecords.classList.remove('border-indigo-500', 'text-indigo-600'); btnRecords.classList.add('text-gray-500'); }
+    } else {
+      if (tabCalc) tabCalc.classList.add('hidden');
+      if (tabRecords) tabRecords.classList.remove('hidden');
+      if (btnRecords) { btnRecords.classList.add('border-indigo-500', 'text-indigo-600'); btnRecords.classList.remove('border-transparent', 'text-gray-500'); }
+      if (btnCalc) { btnCalc.classList.add('border-transparent', 'text-gray-500'); btnCalc.classList.remove('border-indigo-500', 'text-indigo-600'); }
+      setDefaultRecordsPeriod();
+      var taxPeriod = document.getElementById('tax-period');
+      var taxCompany = document.getElementById('tax-company');
+      var recPeriod = document.getElementById('records-period');
+      var recCompany = document.getElementById('records-company');
+      if (taxPeriod && recPeriod && taxPeriod.value) recPeriod.value = taxPeriod.value;
+      if (taxCompany && recCompany && taxCompany.value) recCompany.value = taxCompany.value;
+    }
+  }
+
+  function loadPayrollRecords() {
+    var period = document.getElementById('records-period').value;
+    var companyId = document.getElementById('records-company').value;
+    if (!period || !companyId) {
+      alert('请选择发放周期、公司');
+      return;
+    }
+    var loading = document.getElementById('records-loading');
+    var errEl = document.getElementById('records-error');
+    var emptyEl = document.getElementById('records-empty');
+    var wrap = document.getElementById('records-table-wrap');
+    var tbody = document.getElementById('records-tbody');
+    loading.classList.remove('hidden');
+    errEl.classList.add('hidden');
+    emptyEl.classList.add('hidden');
+    wrap.classList.add('hidden');
+    fetch('/api/payroll/records?period=' + encodeURIComponent(period) + '&company_id=' + encodeURIComponent(companyId))
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        loading.classList.add('hidden');
+        if (!res.success) {
+          errEl.textContent = res.error || '加载失败';
+          errEl.classList.remove('hidden');
+          return;
+        }
+        var list = res.data || [];
+        if (list.length === 0) {
+          emptyEl.classList.remove('hidden');
+          return;
+        }
+        function esc(s) { if (s == null) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        tbody.innerHTML = list.map(function(row) {
+          var base = row.base_amount != null ? Number(row.base_amount).toFixed(2) : '—';
+          var social = row.social_5 != null ? Number(row.social_5).toFixed(2) : '—';
+          var tax = row.tax_14 != null ? Number(row.tax_14).toFixed(2) : '—';
+          var total = row.total_amount != null ? Number(row.total_amount).toFixed(2) : '—';
+          var status = row.status != null ? row.status : '—';
+          var name = row.person_name != null ? row.person_name : ('人员' + row.person_id);
+          var trAttr = ' data-activity-id="' + (row.id != null ? row.id : '') + '" data-period="' + esc(row.period || '') + '" class="cursor-pointer hover:bg-gray-50"';
+          return '<tr' + trAttr + '><td class="px-4 py-2 text-sm text-gray-900">' + esc(row.period || '') + '</td><td class="px-4 py-2 text-sm text-gray-900">' + esc(name) + '</td><td class="px-4 py-2 text-sm text-right tabular-nums">' + base + '</td><td class="px-4 py-2 text-sm text-right tabular-nums">' + social + '</td><td class="px-4 py-2 text-sm text-right tabular-nums">' + tax + '</td><td class="px-4 py-2 text-sm text-right tabular-nums font-medium">' + total + '</td><td class="px-4 py-2 text-sm text-gray-600">' + esc(status) + '</td></tr>';
+        }).join('');
+        wrap.classList.remove('hidden');
+      })
+      .catch(function() {
+        loading.classList.add('hidden');
+        errEl.textContent = '请求失败';
+        errEl.classList.remove('hidden');
+      });
+  }
+
+  function showPayrollRecordDetail(activityId, period) {
+    var modal = document.getElementById('payroll-record-modal');
+    var contentEl = document.getElementById('payroll-record-modal-content');
+    var loadingEl = document.getElementById('payroll-record-modal-loading');
+    if (!modal || !contentEl || !loadingEl) return;
+    modal.classList.remove('hidden');
+    contentEl.classList.add('hidden');
+    contentEl.innerHTML = '';
+    loadingEl.classList.remove('hidden');
+    fetch('/api/payroll/record/' + activityId + '?period=' + encodeURIComponent(period))
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        loadingEl.classList.add('hidden');
+        if (!res.success) {
+          contentEl.innerHTML = '<p class="text-red-600">' + (res.error || '加载失败') + '</p>';
+          contentEl.classList.remove('hidden');
+          return;
+        }
+        var d = res.data || {};
+        var labels = d.labels || {};
+        function esc(s) { if (s == null) return ''; var div = document.createElement('div'); div.textContent = s; return div.innerHTML; }
+        function label(key) { return labels[key] || key; }
+        function num(v) { if (v == null) return '—'; if (typeof v === 'number') return v.toFixed(2); return v; }
+        var html = '';
+        html += '<div class="border-b border-gray-200 pb-3 mb-3">';
+        html += '<div class="grid grid-cols-2 gap-x-4 gap-y-1"><div class="text-gray-600">周期</div><div>' + esc(d.period) + '</div>';
+        html += '<div class="text-gray-600">人员</div><div>' + esc(d.person_name) + '</div>';
+        html += '<div class="text-gray-600">应发</div><div class="tabular-nums">' + num(d.base_amount) + '</div>';
+        html += '<div class="text-gray-600">社保公积金扣除</div><div class="tabular-nums">' + num(d.social_5) + '</div>';
+        html += '<div class="text-gray-600">个税</div><div class="tabular-nums">' + num(d.tax_14) + '</div>';
+        html += '<div class="text-gray-600">实发</div><div class="tabular-nums font-medium">' + num(d.total_amount) + '</div>';
+        html += '<div class="text-gray-600">状态</div><div>' + esc(d.status) + '</div>';
+        html += '</div></div>';
+        html += '<div class="text-gray-700 font-medium mb-2">计算明细</div>';
+        html += '<div class="max-h-80 overflow-y-auto border border-gray-200 rounded p-3 bg-gray-50">';
+        html += '<table class="min-w-full text-xs"><tbody>';
+        var skip = { id: 1, person_id: 1, company_id: 1, period: 1, person_name: 1, labels: 1, base_amount: 1, social_5: 1, tax_14: 1, total_amount: 1, status: 1 };
+        var keys = Object.keys(d).filter(function(k) { return !skip[k]; }).sort();
+        keys.forEach(function(k) {
+          var v = d[k];
+          if (v != null && v !== '') html += '<tr><td class="text-gray-600 py-1 pr-3">' + esc(label(k)) + '</td><td class="tabular-nums py-1">' + (typeof v === 'number' ? (v % 1 === 0 ? v : v.toFixed(2)) : esc(String(v))) + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        contentEl.innerHTML = html;
+        contentEl.classList.remove('hidden');
+      })
+      .catch(function() {
+        loadingEl.classList.add('hidden');
+        contentEl.innerHTML = '<p class="text-red-600">请求失败</p>';
+        contentEl.classList.remove('hidden');
+      });
+  }
+
+  document.getElementById('records-tbody').addEventListener('click', function(e) {
+    var tr = e.target && e.target.closest ? e.target.closest('tr') : null;
+    if (!tr) return;
+    var activityId = tr.getAttribute('data-activity-id');
+    var period = tr.getAttribute('data-period');
+    if (activityId && period) showPayrollRecordDetail(activityId, period);
+  });
+  document.getElementById('payroll-record-modal-close').addEventListener('click', function() {
+    document.getElementById('payroll-record-modal').classList.add('hidden');
+  });
+
+  document.getElementById('tab-btn-calc').addEventListener('click', function() { switchPayrollTab('calc'); });
+  document.getElementById('tab-btn-records').addEventListener('click', function() { switchPayrollTab('records'); });
+  document.getElementById('records-query-btn').addEventListener('click', loadPayrollRecords);
+
+  function buildPersonOptions(employments, departmentFilter) {
+    const personSelect = document.getElementById('tax-person');
+    personSelect.innerHTML = '<option value="">请选择人员</option>';
+    const seen = new Set();
+    employments.forEach(row => {
+      if (departmentFilter && (row.department || '') !== departmentFilter) return;
+      const pid = row.person_id != null ? row.person_id : row.id;
+      if (seen.has(pid)) return;
+      seen.add(pid);
+      const name = (row.person_name != null ? row.person_name : (row.name != null ? row.name : ('人员 ' + pid)));
+      personSelect.appendChild(new Option(name, pid));
+    });
+  }
+
+  document.getElementById('tax-company').addEventListener('change', function() {
+    const companyId = this.value;
+    const departmentSelect = document.getElementById('tax-department');
+    const personSelect = document.getElementById('tax-person');
+    departmentSelect.innerHTML = '<option value="">请先选择公司</option>';
+    personSelect.innerHTML = '<option value="">请先选择公司</option>';
+    companyEmployments = [];
+    if (!companyId) return;
+    fetch('/api/twins/person_company_employment?company_id=' + companyId + '&enrich=person')
+      .then(r => r.json())
+      .then(res => {
+        if (!res.success || !res.data) return;
+        companyEmployments = res.data;
+        const deptSet = new Set();
+        res.data.forEach(row => {
+          const d = (row.department || '').trim();
+          if (d) deptSet.add(d);
+        });
+        departmentSelect.innerHTML = '<option value="">全部部门</option>';
+        Array.from(deptSet).sort().forEach(d => {
+          departmentSelect.appendChild(new Option(d, d));
+        });
+        buildPersonOptions(companyEmployments, '');
+      })
+      .catch(() => {});
+  });
+
+  document.getElementById('tax-department').addEventListener('change', function() {
+    const departmentFilter = this.value || '';
+    buildPersonOptions(companyEmployments, departmentFilter);
+  });
+
+  document.getElementById('tax-preview-btn').addEventListener('click', function() {
+    const period = document.getElementById('tax-period').value;
+    const companyId = document.getElementById('tax-company').value;
+    const personId = document.getElementById('tax-person').value;
+    if (!period || !companyId || !personId) {
+      alert('请选择发放周期、公司、人员后再预览');
+      return;
+    }
+    fetch('/api/payroll/calculation-steps/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ person_id: parseInt(personId, 10), company_id: parseInt(companyId, 10), period: period })
+    })
+      .then(r => r.json())
+      .then(res => {
+        if (!res.success) {
+          alert(res.error || '预览失败');
+          return;
+        }
+        var d = res.data;
+        if (d.gross) {
+          grossSteps = d.gross.steps || grossSteps;
+          grossValues = d.gross.values || {};
+        }
+        if (d.social) {
+          socialSteps = d.social.steps || socialSteps;
+          socialValues = d.social.values || {};
+        }
+        if (d.tax) {
+          steps = d.tax.steps || steps;
+          stepValues = d.tax.values || {};
+        }
+        renderGrossStepList();
+        renderSocialHousingStepList();
+        renderStepList();
+        updateFooterValues();
+        if (d.total_amount !== undefined && d.total_amount !== null && netAmountValueEl) {
+          netAmountValueEl.textContent = Number(d.total_amount).toFixed(2) + ' 元';
+          netAmountValueEl.classList.remove('empty');
+        }
+      })
+      .catch(() => alert('请求失败'));
+  });
+
+  function onGrossRowOver(ev) {
+    var row = ev.target.closest('.step-row[data-step]');
+    if (!row || !row.closest('#gross-step-list')) { hideStepTooltip(); return; }
+    var i = parseInt(row.getAttribute('data-index'), 10);
+    var s = grossSteps[i];
+    if (!s) return;
+    var val = grossValues[String(s.step)];
+    var valStr = val !== undefined && val !== null ? Number(val).toFixed(2) + ' 元' : '—';
+    showStepTooltip(row, s.field_name || '', s.desc || '', valStr);
+  }
+  function onSocialRowOver(ev) {
+    var row = ev.target.closest('.step-row[data-step]');
+    if (!row || !row.closest('#social-housing-step-list')) { hideStepTooltip(); return; }
+    var i = parseInt(row.getAttribute('data-index'), 10);
+    var s = socialSteps[i];
+    if (!s) return;
+    var val = socialValues[String(s.step)];
+    var valStr = val !== undefined && val !== null ? Number(val).toFixed(2) + ' 元' : '—';
+    showStepTooltip(row, s.field_name || '', s.desc || '', valStr);
+  }
+  function onTaxRowOver(ev) {
+    var row = ev.target.closest('.step-row');
+    if (!row || !row.closest('#step-list')) { hideStepTooltip(); return; }
+    var i = parseInt(row.getAttribute('data-index'), 10);
+    var s = steps[i];
+    if (!s) return;
+    var v = stepValues['tax_' + s.step];
+    var valueStr = v !== undefined ? Number(v).toFixed(2) + ' 元' : '—';
+    if (s.source === 'prev_month') valueStr = (v !== undefined ? Number(v).toFixed(2) : '0') + '（上月带入暂为 0）';
+    var desc = (s.desc != null && s.desc !== '') ? ('第' + s.step + '步：' + s.desc) : (s.field_name || '');
+    showStepTooltip(row, s.field_name || '', desc, valueStr);
+  }
+  function onListOut(ev) {
+    var list = ev.currentTarget;
+    if (list.contains(ev.relatedTarget)) return;
+    hideStepTooltip();
+  }
+
+  grossStepListEl.addEventListener('mouseover', onGrossRowOver);
+  grossStepListEl.addEventListener('mouseout', onListOut);
+  socialHousingStepListEl.addEventListener('mouseover', onSocialRowOver);
+  socialHousingStepListEl.addEventListener('mouseout', onListOut);
+  stepListEl.addEventListener('mouseover', onTaxRowOver);
+  stepListEl.addEventListener('mouseout', onListOut);
+
+  function toggleSection(sectionId) {
+    var title = document.getElementById('section-' + sectionId + '-title');
+    var body = document.getElementById('section-' + sectionId + '-body');
+    if (!title || !body) return;
+    var isCollapsed = title.classList.contains('collapsed');
+    if (isCollapsed) {
+      title.classList.remove('collapsed');
+      body.classList.remove('collapsed');
+      title.setAttribute('aria-expanded', 'true');
+    } else {
+      title.classList.add('collapsed');
+      body.classList.add('collapsed');
+      title.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  document.getElementById('section-gross-title').addEventListener('click', function() { toggleSection('gross'); });
+  document.getElementById('section-social-title').addEventListener('click', function() { toggleSection('social'); });
+  document.getElementById('section-tax-title').addEventListener('click', function() { toggleSection('tax'); });
+
+  function doGenerate(payload) {
+    return fetch('/api/payroll/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function(r) { return r.json(); });
+  }
+  function doGeneratePreview(params) {
+    var qs = new URLSearchParams(params).toString();
+    return fetch('/api/payroll/generate/preview?' + qs).then(function(r) { return r.json(); });
+  }
+  function doGeneratePerson() {
+    var period = document.getElementById('tax-period').value;
+    var companyId = document.getElementById('tax-company').value;
+    var personId = document.getElementById('tax-person').value;
+    if (!period || !companyId || !personId) {
+      alert('请先选择发放周期、公司、人员');
+      return;
+    }
+    doGenerate({ period: period, company_id: parseInt(companyId, 10), scope: 'person', person_id: parseInt(personId, 10) })
+      .then(function(res) {
+        if (!res.success) { alert(res.error || '生成失败'); return; }
+        var d = res.data;
+        if (d.errors && d.errors.length) alert('生成失败：' + (d.errors[0].reason || ''));
+        else alert('已成功为当前人员生成 1 条工资单');
+      })
+      .catch(function() { alert('请求失败'); });
+  }
+  function doGenerateDepartment() {
+    var period = document.getElementById('tax-period').value;
+    var companyId = document.getElementById('tax-company').value;
+    var department = document.getElementById('tax-department').value;
+    if (!period || !companyId) { alert('请先选择发放周期、公司'); return; }
+    if (!department) { alert('请先选择部门'); return; }
+    doGeneratePreview({ period: period, company_id: companyId, scope: 'department', department: department })
+      .then(function(res) {
+        if (!res.success) { alert(res.error || '预览失败'); return; }
+        var count = (res.data && res.data.count) || 0;
+        if (count === 0) { alert('当前部门无在册人员'); return; }
+        if (!confirm('将为 ' + count + ' 人生成 ' + period + ' 工资单，是否继续？')) return;
+        return doGenerate({ period: period, company_id: parseInt(companyId, 10), scope: 'department', department: department });
+      })
+      .then(function(res) {
+        if (!res) return;
+        if (!res.success) { alert(res.error || '生成失败'); return; }
+        var d = res.data;
+        var msg = '已成功生成 ' + (d.generated || 0) + ' 条工资单';
+        if (d.errors && d.errors.length) msg += '，' + d.errors.length + ' 条失败';
+        alert(msg);
+      })
+      .catch(function() { alert('请求失败'); });
+  }
+  function doGenerateCompany() {
+    var period = document.getElementById('tax-period').value;
+    var companyId = document.getElementById('tax-company').value;
+    if (!period || !companyId) { alert('请先选择发放周期、公司'); return; }
+    doGeneratePreview({ period: period, company_id: companyId, scope: 'company' })
+      .then(function(res) {
+        if (!res.success) { alert(res.error || '预览失败'); return; }
+        var count = (res.data && res.data.count) || 0;
+        if (count === 0) { alert('当前公司无在册人员'); return; }
+        if (!confirm('将为 ' + count + ' 人生成 ' + period + ' 工资单，是否继续？')) return;
+        return doGenerate({ period: period, company_id: parseInt(companyId, 10), scope: 'company' });
+      })
+      .then(function(res) {
+        if (!res) return;
+        if (!res.success) { alert(res.error || '生成失败'); return; }
+        var d = res.data;
+        var msg = '已成功生成 ' + (d.generated || 0) + ' 条工资单';
+        if (d.errors && d.errors.length) msg += '，' + d.errors.length + ' 条失败';
+        alert(msg);
+      })
+      .catch(function() { alert('请求失败'); });
+  }
+  document.getElementById('btn-generate-person').addEventListener('click', doGeneratePerson);
+  document.getElementById('btn-generate-department').addEventListener('click', doGenerateDepartment);
+  document.getElementById('btn-generate-company').addEventListener('click', doGenerateCompany);
+
+  setDefaultPeriod();
+  loadSteps();
+  loadCompanies();
+})();
+</script>
+{% endblock %}

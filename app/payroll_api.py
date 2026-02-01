@@ -57,3 +57,105 @@ def payroll_calculation_steps_preview():
         return standard_response(True, result)
     except Exception as e:
         return standard_response(False, error=str(e), status_code=500)
+
+
+# ==================== 已创建工资单列表 ====================
+
+@payroll_api_bp.route("/payroll/records", methods=["GET"])
+def payroll_records():
+    """
+    列出指定周期、公司下已创建的工资单。
+    Query: period, company_id
+    """
+    try:
+        period = request.args.get("period")
+        company_id = request.args.get("company_id")
+        if not period or not company_id:
+            return standard_response(False, error="period, company_id 为必填", status_code=400)
+        service = get_payroll_service()
+        records = service.list_payroll_records(period=str(period), company_id=int(company_id))
+        return standard_response(True, records)
+    except Exception as e:
+        return standard_response(False, error=str(e), status_code=500)
+
+
+@payroll_api_bp.route("/payroll/record/<int:activity_id>", methods=["GET"])
+def payroll_record_detail(activity_id):
+    """
+    获取单条工资单详情。Query: period
+    """
+    try:
+        period = request.args.get("period")
+        if not period:
+            return standard_response(False, error="period 为必填", status_code=400)
+        service = get_payroll_service()
+        record = service.get_payroll_record_detail(activity_id=int(activity_id), period=str(period))
+        if record is None:
+            return standard_response(False, error="工资单不存在", status_code=404)
+        return standard_response(True, record)
+    except Exception as e:
+        return standard_response(False, error=str(e), status_code=500)
+
+
+# ==================== 工资单生成（写入 person_company_payroll Twin） ====================
+
+@payroll_api_bp.route("/payroll/generate/preview", methods=["GET"])
+def payroll_generate_preview():
+    """
+    预览将生成工资单的人数（不实际写入）。
+    Query: period, company_id, scope=person|department|company[, person_id][, department]
+    """
+    try:
+        period = request.args.get("period")
+        company_id = request.args.get("company_id")
+        scope = request.args.get("scope", "person")
+        person_id = request.args.get("person_id", type=int)
+        department = request.args.get("department") or None
+        if not period or not company_id:
+            return standard_response(False, error="period, company_id 为必填", status_code=400)
+        if scope == "person" and not person_id:
+            return standard_response(False, error="scope=person 时 person_id 为必填", status_code=400)
+        if scope == "department" and not department:
+            return standard_response(False, error="scope=department 时 department 为必填", status_code=400)
+        service = get_payroll_service()
+        count = service.get_generate_preview_count(
+            scope=scope,
+            company_id=int(company_id),
+            person_id=person_id,
+            department=department,
+        )
+        return standard_response(True, {"count": count})
+    except Exception as e:
+        return standard_response(False, error=str(e), status_code=500)
+
+
+@payroll_api_bp.route("/payroll/generate", methods=["POST"])
+def payroll_generate():
+    """
+    按范围生成工资单并写入 person_company_payroll Twin。
+    Body: { "period": "2025-01", "company_id": 1, "scope": "person"|"department"|"company", "person_id"?: 1, "department"?: "研发部" }
+    """
+    try:
+        payload = request.get_json() or {}
+        period = payload.get("period")
+        company_id = payload.get("company_id")
+        scope = payload.get("scope", "person")
+        person_id = payload.get("person_id")
+        department = payload.get("department")
+        if not period or not company_id:
+            return standard_response(False, error="period, company_id 为必填", status_code=400)
+        if scope == "person" and not person_id:
+            return standard_response(False, error="scope=person 时 person_id 为必填", status_code=400)
+        if scope == "department" and not department:
+            return standard_response(False, error="scope=department 时 department 为必填", status_code=400)
+        service = get_payroll_service()
+        result = service.generate_payroll(
+            scope=scope,
+            company_id=int(company_id),
+            period=str(period),
+            person_id=int(person_id) if person_id is not None else None,
+            department=department,
+        )
+        return standard_response(True, result)
+    except Exception as e:
+        return standard_response(False, error=str(e), status_code=500)

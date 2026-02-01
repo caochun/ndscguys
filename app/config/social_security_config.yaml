@@ -19,7 +19,7 @@ items:
     # 生育保险（个人不缴）
     maternity_employer_rate: 0.008
     # 大病
-    serious_illness_employee_amount: 0
+    serious_illness_employee_amount: 10
     # 住房公积金
     housing_fund_employer_rate: 0.12
     housing_fund_employee_rate: 0.12

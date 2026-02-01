@@ -95,25 +95,18 @@ class TwinStateDAO(BaseDAO):
             
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                # 检查是否已存在（根据 unique_key）
-                unique_key_fields = schema.unique_key or []
-                if "time_key" in unique_key_fields:
-                    # 使用 INSERT OR REPLACE
-                    cursor.execute(
-                        f"""
-                        INSERT OR REPLACE INTO {schema.state_table} (twin_id, time_key, ts, data)
-                        VALUES (?, ?, ?, ?)
-                        """,
-                        (record["twin_id"], record["time_key"], record["ts"], record["data"])
-                    )
-                else:
-                    cursor.execute(
-                        f"""
-                        INSERT INTO {schema.state_table} (twin_id, time_key, ts, data)
-                        VALUES (?, ?, ?, ?)
-                        """,
-                        (record["twin_id"], record["time_key"], record["ts"], record["data"])
-                    )
+                # time_series：同一 (twin_id, time_key) 只保留一条，先删后插实现覆盖更新（不依赖表 UNIQUE 约束，兼容已有库）
+                cursor.execute(
+                    f"DELETE FROM {schema.state_table} WHERE twin_id = ? AND time_key = ?",
+                    (record["twin_id"], record["time_key"]),
+                )
+                cursor.execute(
+                    f"""
+                    INSERT INTO {schema.state_table} (twin_id, time_key, ts, data)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (record["twin_id"], record["time_key"], record["ts"], record["data"]),
+                )
                 conn.commit()
             return 0  # 时间序列模式不返回版本号
     

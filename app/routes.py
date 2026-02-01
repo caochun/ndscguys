@@ -81,7 +81,7 @@ def assessments():
 @web_bp.route("/attendance-records")
 def attendance_records():
     """考勤记录列表页"""
-    schema_dict = build_schema_dict("person_company_attendance_record", "考勤记录")
+    schema_dict = build_schema_dict("person_company_attendance", "考勤记录")
     return render_template("attendance_records.html", schema=schema_dict)
 
 
@@ -97,10 +97,10 @@ def contributions():
                           tax_schema=tax_schema)
 
 
-@web_bp.route("/payroll/calculation")
+@web_bp.route("/payroll")
 def payroll_calculation_page():
-    """工资计算明细过程页 - 应发、社保公积金、个税三步块与步骤预览"""
-    return render_template("payroll_calculation.html")
+    """工资管理页 - 应发、社保公积金、个税三步块与步骤预览"""
+    return render_template("payroll.html")
 
 
 @web_bp.route("/internal-projects")

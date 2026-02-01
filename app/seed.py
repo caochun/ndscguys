@@ -195,53 +195,6 @@ def generate_test_data(db_path: Optional[str] = None):
                 })
                 print(f"    岗位变动: 转岗")
     
-    # 生成打卡记录（时间序列数据）
-    print("\n生成打卡记录数据...")
-    attendance_count = 0
-    attendance_activities = {}  # {(person_id, company_id): activity_id}
-    
-    # 为有聘用记录的人员生成最近7天的打卡记录
-    for employment_id, person_id, company_id in employments[:10]:  # 只生成前10个人的打卡记录
-        # 为每个 person-company 组合创建一个打卡活动
-        if (person_id, company_id) not in attendance_activities:
-            attendance_id = twin_dao.create_activity_twin(
-                "person_company_attendance",
-                {
-                    "person_id": person_id,
-                    "company_id": company_id,
-                }
-            )
-            attendance_activities[(person_id, company_id)] = attendance_id
-        
-        attendance_id = attendance_activities[(person_id, company_id)]
-        
-        # 为最近7天生成打卡记录
-        for day_offset in range(7):
-            date = (datetime.now() - timedelta(days=day_offset)).strftime("%Y-%m-%d")
-            
-            # 生成打卡时间
-            check_in_hour = random.randint(8, 10)
-            check_in_minute = random.randint(0, 30)
-            check_out_hour = random.randint(17, 19)
-            check_out_minute = random.randint(0, 59)
-            
-            work_hours = (check_out_hour * 60 + check_out_minute - check_in_hour * 60 - check_in_minute) / 60
-            
-            status = "正常" if check_in_hour < 9 else "迟到"
-            
-            state_dao.append("person_company_attendance", attendance_id, {
-                "person_id": person_id,
-                "company_id": company_id,
-                "date": date,
-                "check_in_time": f"{check_in_hour:02d}:{check_in_minute:02d}:00",
-                "check_out_time": f"{check_out_hour:02d}:{check_out_minute:02d}:00",
-                "work_hours": round(work_hours, 2),
-                "status": status,
-            }, time_key=date)
-            attendance_count += 1
-    
-    print(f"  生成打卡记录: {attendance_count} 条")
-    
     # 生成社保基数数据
     print("\n生成社保基数数据...")
     social_base_count = 0
@@ -717,7 +670,7 @@ def generate_test_data(db_path: Optional[str] = None):
     for employment_id, person_id, company_id in employments:
         # 为每个 person-company 组合创建一个考勤记录活动
         attendance_record_id = twin_dao.create_activity_twin(
-            "person_company_attendance_record",
+            "person_company_attendance",
             {
                 "person_id": person_id,
                 "company_id": company_id,
@@ -750,7 +703,7 @@ def generate_test_data(db_path: Optional[str] = None):
             if random.random() < 0.2:  # 20% 概率有奖惩
                 reward_punishment = random.choice([-200, -100, 0, 100, 200, 300, 500])
             
-            state_dao.append("person_company_attendance_record", attendance_record_id, {
+            state_dao.append("person_company_attendance", attendance_record_id, {
                 "person_id": person_id,
                 "company_id": company_id,
                 "period": period,
@@ -767,7 +720,6 @@ def generate_test_data(db_path: Optional[str] = None):
     print(f"  公司: {len(companies)} 个")
     print(f"  人员: {len(persons)} 个")
     print(f"  聘用记录: {len(employments)} 个")
-    print(f"  打卡记录: {attendance_count} 条")
     print(f"  社保基数记录: {social_base_count} 条")
     print(f"  公积金基数记录: {housing_fund_base_count} 条")
     print(f"  专项附加扣除记录: {tax_deduction_count} 条")
