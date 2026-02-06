@@ -4,9 +4,14 @@
 
 {% block content %}
 <div class="px-4 py-6 sm:px-0">
-    <div class="mb-6">
-        <h2 class="text-2xl font-bold text-gray-900">聘用管理</h2>
-        <p class="mt-1 text-sm text-gray-500">根据 Schema 动态渲染的聘用管理信息</p>
+    <div class="mb-6 flex justify-between items-center">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">聘用管理</h2>
+            <p class="mt-1 text-sm text-gray-500">根据 Schema 动态渲染的聘用管理信息</p>
+        </div>
+        <button id="add-employment-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm">
+            + 新增聘用
+        </button>
     </div>
 
     <!-- 过滤器区域 -->
@@ -76,16 +81,44 @@
             <div class="mt-3">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium text-gray-900">聘用详情</h3>
-                    <button id="close-modal" class="text-gray-400 hover:text-gray-500">
+                    <div class="flex items-center gap-2">
+                        <button type="button" id="edit-employment-btn" class="text-indigo-600 hover:text-indigo-700 text-sm font-medium hidden">编辑</button>
+                        <button id="close-modal" class="text-gray-400 hover:text-gray-500">
                         <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
                     </button>
+                    </div>
                 </div>
                 
                 <div id="employment-detail-content">
                     <!-- 动态生成 -->
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增/编辑聘用表单模态框 -->
+    <div id="employment-form-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" style="background-color: rgba(0,0,0,0.5);">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 id="employment-form-modal-title" class="text-lg font-medium text-gray-900">新增聘用</h3>
+                    <button id="close-form-modal" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <form id="employment-form" class="space-y-4">
+                    <div id="employment-form-fields">
+                        <!-- 动态生成：人员、公司、职位、部门等 -->
+                    </div>
+                    <div class="flex justify-end gap-3 pt-4 border-t">
+                        <button type="button" id="cancel-employment-form-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">取消</button>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">保存</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -96,6 +129,9 @@
 <script>
 // Schema 定义（从后端传递）
 const schema = {{ schema | tojson }};
+
+// 编辑时当前聘用记录 id，新增时为 null
+let currentEditEmploymentId = null;
 
 // 显示人员的所有聘用记录
 async function showPersonEmployments(personId) {
@@ -340,6 +376,14 @@ async function showEmploymentDetail(employmentId, personId) {
         }
         html += '</div>';
         content.innerHTML = html;
+        const editBtn = document.getElementById('edit-employment-btn');
+        if (editBtn) {
+            editBtn.classList.remove('hidden');
+            editBtn.onclick = () => {
+                modal.classList.add('hidden');
+                openEditEmploymentForm(employmentId, personId);
+            };
+        }
         modal.classList.remove('hidden');
     } catch (error) {
         alert('加载失败: ' + error.message);
@@ -349,6 +393,188 @@ async function showEmploymentDetail(employmentId, personId) {
 // 关闭模态框
 document.getElementById('close-modal').onclick = () => {
     document.getElementById('employment-modal').classList.add('hidden');
+    const editBtn = document.getElementById('edit-employment-btn');
+    if (editBtn) editBtn.classList.add('hidden');
+};
+
+// 渲染聘用表单字段 HTML（新增时 initialData 为 null，编辑时传入当前数据）
+function buildEmploymentFormHtml(persons, companies, initialData) {
+    const fields = schema.fields || {};
+    let html = '';
+    html += '<div><label class="block text-sm font-medium text-gray-700 mb-1">人员 <span class="text-red-500">*</span></label>';
+    html += '<select name="person_id" required class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:ring-indigo-500 focus:border-indigo-500">';
+    html += '<option value="">请选择人员</option>';
+    const selPersonId = initialData && initialData.person_id != null ? String(initialData.person_id) : '';
+    persons.forEach(p => {
+        const name = p.name || p.current?.name || `#${p.id}`;
+        const sel = String(p.id) === selPersonId ? ' selected' : '';
+        html += `<option value="${p.id}"${sel}>${name}</option>`;
+    });
+    html += '</select></div>';
+    html += '<div><label class="block text-sm font-medium text-gray-700 mb-1">公司 <span class="text-red-500">*</span></label>';
+    html += '<select name="company_id" required class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:ring-indigo-500 focus:border-indigo-500">';
+    html += '<option value="">请选择公司</option>';
+    const selCompanyId = initialData && initialData.company_id != null ? String(initialData.company_id) : '';
+    companies.forEach(c => {
+        const name = c.name || c.current?.name || `#${c.id}`;
+        const sel = String(c.id) === selCompanyId ? ' selected' : '';
+        html += `<option value="${c.id}"${sel}>${name}</option>`;
+    });
+    html += '</select></div>';
+    const fieldNames = Object.keys(fields).filter(k => {
+        const fd = fields[k];
+        return fd && k !== 'person_id' && k !== 'company_id' && fd.type !== 'reference';
+    });
+    for (const key of fieldNames) {
+        const fd = fields[key];
+        if (!fd) continue;
+        const label = fd.label || key;
+        const required = fd.required ? ' <span class="text-red-500">*</span>' : '';
+        const baseClass = 'block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:ring-indigo-500 focus:border-indigo-500';
+        const val = initialData && key in initialData ? initialData[key] : '';
+        const esc = (v) => (v == null ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'));
+        if (fd.type === 'enum' && fd.options) {
+            html += `<div><label class="block text-sm font-medium text-gray-700 mb-1">${label}${required}</label>`;
+            html += `<select name="${key}" ${fd.required ? 'required' : ''} class="${baseClass}">`;
+            html += '<option value="">请选择</option>';
+            fd.options.forEach(opt => { html += `<option value="${opt}"${val === opt ? ' selected' : ''}>${opt}</option>`; });
+            html += '</select></div>';
+        } else if (fd.type === 'date') {
+            html += `<div><label class="block text-sm font-medium text-gray-700 mb-1">${label}${required}</label>`;
+            html += `<input type="date" name="${key}" ${fd.required ? 'required' : ''} value="${esc(val)}" class="${baseClass}">`;
+            html += '</div>';
+        } else if (fd.type === 'decimal' || fd.type === 'number') {
+            html += `<div><label class="block text-sm font-medium text-gray-700 mb-1">${label}${required}</label>`;
+            html += `<input type="number" step="any" name="${key}" ${fd.required ? 'required' : ''} value="${esc(val)}" class="${baseClass}" placeholder="${fd.suffix || ''}">`;
+            html += '</div>';
+        } else {
+            html += `<div><label class="block text-sm font-medium text-gray-700 mb-1">${label}${required}</label>`;
+            html += `<input type="text" name="${key}" ${fd.required ? 'required' : ''} value="${esc(val)}" class="${baseClass}">`;
+            html += '</div>';
+        }
+    }
+    return html;
+}
+
+// 新增聘用：打开表单并拉取人员、公司列表
+async function openAddEmploymentForm() {
+    currentEditEmploymentId = null;
+    const titleEl = document.getElementById('employment-form-modal-title');
+    if (titleEl) titleEl.textContent = '新增聘用';
+    const container = document.getElementById('employment-form-fields');
+    const formModal = document.getElementById('employment-form-modal');
+    if (!container || !formModal) return;
+    container.innerHTML = '<p class="text-sm text-gray-500">加载中...</p>';
+    formModal.classList.remove('hidden');
+    try {
+        const [personsRes, companiesRes] = await Promise.all([
+            fetch('/api/twins/person'),
+            fetch('/api/config/companies')
+        ]);
+        const personsData = await personsRes.json();
+        const companiesData = await companiesRes.json();
+        if (!personsData.success || !companiesData.success) {
+            if (container) container.innerHTML = '<p class="text-sm text-red-600">加载人员或公司列表失败</p>';
+            return;
+        }
+        const persons = personsData.data || [];
+        const companies = companiesData.data || [];
+        if (container) container.innerHTML = buildEmploymentFormHtml(persons, companies, null);
+    } catch (e) {
+        if (container) container.innerHTML = '<p class="text-sm text-red-600">加载失败: ' + (e.message || '') + '</p>';
+    }
+}
+
+// 编辑聘用：打开表单并预填当前数据
+async function openEditEmploymentForm(employmentId, personId) {
+    currentEditEmploymentId = employmentId;
+    const titleEl = document.getElementById('employment-form-modal-title');
+    if (titleEl) titleEl.textContent = '编辑聘用';
+    const container = document.getElementById('employment-form-fields');
+    const formModal = document.getElementById('employment-form-modal');
+    if (!container || !formModal) return;
+    container.innerHTML = '<p class="text-sm text-gray-500">加载中...</p>';
+    formModal.classList.remove('hidden');
+    try {
+        const [employmentRes, personsRes, companiesRes] = await Promise.all([
+            fetch(`/api/twins/person_company_employment/${employmentId}`),
+            fetch('/api/twins/person'),
+            fetch('/api/config/companies')
+        ]);
+        const employmentData = await employmentRes.json();
+        const personsData = await personsRes.json();
+        const companiesData = await companiesRes.json();
+        if (!employmentData.success || !personsData.success || !companiesData.success) {
+            if (container) container.innerHTML = '<p class="text-sm text-red-600">加载数据失败</p>';
+            return;
+        }
+        const employment = employmentData.data;
+        const current = employment.current || {};
+        const initialData = {
+            person_id: employment.person_id != null ? employment.person_id : personId,
+            company_id: employment.company_id,
+            position: current.position,
+            department: current.department,
+            employee_number: current.employee_number,
+            employee_type: current.employee_type,
+            position_category: current.position_category,
+            job_level: current.job_level,
+            salary_type: current.salary_type,
+            salary: current.salary,
+            change_type: current.change_type,
+            change_date: current.change_date
+        };
+        const persons = personsData.data || [];
+        const companies = companiesData.data || [];
+        if (container) container.innerHTML = buildEmploymentFormHtml(persons, companies, initialData);
+    } catch (e) {
+        if (container) container.innerHTML = '<p class="text-sm text-red-600">加载失败: ' + (e.message || '') + '</p>';
+    }
+}
+
+function closeEmploymentFormModal() {
+    currentEditEmploymentId = null;
+    const titleEl = document.getElementById('employment-form-modal-title');
+    if (titleEl) titleEl.textContent = '新增聘用';
+    document.getElementById('employment-form-modal').classList.add('hidden');
+}
+
+// 提交新增聘用
+document.getElementById('add-employment-btn').onclick = openAddEmploymentForm;
+document.getElementById('close-form-modal').onclick = closeEmploymentFormModal;
+document.getElementById('cancel-employment-form-btn').onclick = closeEmploymentFormModal;
+
+document.getElementById('employment-form').onsubmit = async function(e) {
+    e.preventDefault();
+    const form = e.target;
+    const fd = new FormData(form);
+    const body = {};
+    for (const [k, v] of fd.entries()) {
+        if (v === '') continue;
+        if (k === 'salary') body[k] = parseFloat(v) || null;
+        else body[k] = v;
+    }
+    try {
+        const url = currentEditEmploymentId
+            ? `/api/twins/person_company_employment/${currentEditEmploymentId}`
+            : '/api/twins/person_company_employment';
+        const method = currentEditEmploymentId ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const result = await res.json();
+        if (!result.success) {
+            alert('保存失败: ' + (result.error || '未知错误'));
+            return;
+        }
+        currentEditEmploymentId = null;
+        closeEmploymentFormModal();
+        loadEmployments();
+    } catch (err) {
+        alert('保存失败: ' + (err.message || ''));
+    }
 };
 
 // 渲染表格

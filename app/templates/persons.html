@@ -143,7 +143,7 @@ function renderPersonCard(person) {
     
     let html = '<div class="p-4">';
     
-    // 头像（如果有）
+    // 头像（如果有）或仅姓名/电话作为标题，保证卡片至少有一行可见信息
     if (person.avatar) {
         html += `<div class="flex items-center mb-3">
             <img src="${person.avatar}" alt="${person.name || ''}" class="h-14 w-14 rounded-full object-cover flex-shrink-0">
@@ -151,6 +151,11 @@ function renderPersonCard(person) {
                 <p class="text-sm font-semibold text-gray-900 truncate">${person.name || ''}</p>
                 <p class="mt-1 text-xs text-gray-500 truncate">${person.phone || ''}</p>
             </div>
+        </div>`;
+    } else if (person.name || person.phone) {
+        html += `<div class="mb-3">
+            ${person.name ? `<p class="text-sm font-semibold text-gray-900 truncate">${person.name}</p>` : ''}
+            ${person.phone ? `<p class="mt-1 text-xs text-gray-500 truncate">${person.phone}</p>` : ''}
         </div>`;
     }
     

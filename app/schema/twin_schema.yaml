@@ -87,6 +87,15 @@ twins:
         label: "注册号"
         ui:
           component: text_input
+      
+      status:
+        type: enum
+        required: false
+        label: "状态"
+        description: "是否有效，由 config/companies.yaml 同步时维护"
+        options: ["有效", "无效"]
+        ui:
+          component: select
 
   internal_project:
     type: entity
