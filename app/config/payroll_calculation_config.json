@@ -41,17 +41,16 @@
     "tax_1": "专项累计扣除",
     "tax_2": "当年专项附加扣除合计",
     "tax_3": "累计扣除项目合计",
-    "tax_4": "上月累计专项扣除合计",
-    "tax_5": "累计扣除项目合计",
-    "tax_6": "上月薪资的累计专项合计(不含附加)",
-    "tax_7": "上月累计收入",
-    "tax_8": "累计收入",
-    "tax_9": "减除费用",
-    "tax_10": "税前工资",
-    "tax_11": "累计计税部分",
-    "tax_12": "累计个税",
-    "tax_13": "上月累计个税",
-    "tax_14": "本月个税"
+    "ytd_tax_1": "当年至上期专项累计扣除合计",
+    "ytd_base_amount": "当年至上期应发金额合计",
+    "tax_4": "累计收入",
+    "months_employed_in_year": "本年度在岗月数",
+    "tax_5": "减除费用",
+    "tax_6": "应税收入",
+    "tax_7": "累计计税部分",
+    "tax_8": "累计个税",
+    "tax_9": "本月个税",
+    "prev_tax_8": "上期累计个税"
   },
   "variable_sources": {
     "employment_salary": { "source": "transform", "from": "employment", "transform": "salary_to_monthly" },
@@ -75,11 +74,13 @@
     "tax_deduction_housing_loan": { "source": "field", "from": "tax_deduction", "field": "housing_loan_interest_amount", "default": 0 },
     "tax_deduction_housing_rent": { "source": "field", "from": "tax_deduction", "field": "housing_rent_amount", "default": 0 },
     "tax_deduction_elderly": { "source": "field", "from": "tax_deduction", "field": "elderly_support_amount", "default": 0 },
-    "tax_deduction_infant": { "source": "field", "from": "tax_deduction", "field": "infant_childcare_amount", "default": 0 },
-    "tax_4": { "source": "field", "from": "prev_payroll", "field": "tax_5", "default": 0 },
-    "tax_7": { "source": "field", "from": "prev_payroll", "field": "tax_8", "default": 0 },
-    "tax_13": { "source": "field", "from": "prev_payroll", "field": "tax_12", "default": 0 }
+    "tax_deduction_infant": { "source": "field", "from": "tax_deduction", "field": "infant_childcare_amount", "default": 0 }
   },
+  "payroll_ytd_variables": [
+    { "variable_key": "ytd_tax_1", "field": "tax_1", "aggregation": "sum" },
+    { "variable_key": "ytd_base_amount", "field": "base_amount", "aggregation": "sum" },
+    { "variable_key": "prev_tax_8", "field": "tax_8", "aggregation": "last" }
+  ],
   "sections": {
     "gross": {
       "label": "应发薪资计算",
@@ -112,22 +113,17 @@
     },
     "tax": {
       "label": "个税计算",
-      "step_order": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+      "step_order": [1, 2, 3, 4, 5, 6, 7, 8, 9],
       "steps": [
         {"step": 1, "field_name": "专项累计扣除", "source": "formula", "output_key": "tax_1", "default_formula": "social_3 + social_4", "desc": "社保个人扣除+公积金个人扣除（专项累计扣除）"},
         {"step": 2, "field_name": "当年专项附加扣除合计", "source": "formula", "output_key": "tax_2", "default_formula": "tax_deduction_children + tax_deduction_continuing + tax_deduction_housing_loan + tax_deduction_housing_rent + tax_deduction_elderly + tax_deduction_infant", "desc": "当年专项附加扣除合计（子女教育+继续教育+住房贷款利息+住房租金+赡养老人+3岁以下婴幼儿照护）"},
-        {"step": 3, "field_name": "累计扣除项目合计", "source": "formula", "output_key": "tax_3", "default_formula": "tax_1 + tax_2 + prev_tax3_in_year", "desc": "累计扣除项目合计（从当年第一期到当期的专项合计扣除之和）"},
-        {"step": 4, "field_name": "上月累计专项扣除合计", "source": "variable", "variable_key": "tax_4", "output_key": "tax_4", "default_formula": "", "desc": "上月累计专项扣除合计（上月带入）"},
-        {"step": 5, "field_name": "累计扣除项目合计", "source": "formula", "output_key": "tax_5", "default_formula": "tax_3 + tax_4", "desc": "累计扣除项目合计（税前扣除项目合计+上月累计专项扣除合计）"},
-        {"step": 6, "field_name": "上月薪资的累计专项合计(不含附加)", "source": "formula", "output_key": "tax_6", "default_formula": "tax_5 - tax_2", "desc": "上月薪资的累计专项合计(不含附加)"},
-        {"step": 7, "field_name": "上月累计收入", "source": "variable", "variable_key": "tax_7", "output_key": "tax_7", "default_formula": "", "desc": "上月累计收入（上月带入）"},
-        {"step": 8, "field_name": "累计收入", "source": "formula", "output_key": "tax_8", "default_formula": "tax_7 + base_amount", "desc": "累计收入（上月累计+本月应发）"},
-        {"step": 9, "field_name": "减除费用", "source": "formula", "output_key": "tax_9", "default_formula": "5000", "desc": "减除费用（5000）"},
-        {"step": 10, "field_name": "税前工资", "source": "formula", "output_key": "tax_10", "default_formula": "base_amount - tax_1", "desc": "税前工资（应发-专项累计扣除）"},
-        {"step": 11, "field_name": "累计计税部分", "source": "formula", "output_key": "tax_11", "default_formula": "max(0, tax_8 - tax_5 - tax_9)", "desc": "累计计税部分（累计收入-累计扣除-减除费用）"},
-        {"step": 12, "field_name": "累计个税", "source": "formula", "output_key": "tax_12", "default_formula": "cumulative_tax(tax_11)", "desc": "累计个税（按税率表）"},
-        {"step": 13, "field_name": "上月累计个税", "source": "variable", "variable_key": "tax_13", "output_key": "tax_13", "default_formula": "", "desc": "上月累计个税（上月带入）"},
-        {"step": 14, "field_name": "本月个税", "source": "formula", "output_key": "tax_14", "default_formula": "max(0, tax_12 - tax_13)", "desc": "本月个税（累计个税-上月累计个税）"}
+        {"step": 3, "field_name": "累计扣除项目合计", "source": "formula", "output_key": "tax_3", "default_formula": "ytd_tax_1 + tax_1 + tax_2", "desc": "累计扣除项目合计 = 当年第一期至上一期专项累计扣除(tax_1)合计 + 当期专项累计扣除(tax_1) + 当年专项附加扣除合计(tax_2)"},
+        {"step": 4, "field_name": "累计收入", "source": "formula", "output_key": "tax_4", "default_formula": "ytd_base_amount + base_amount", "desc": "累计收入 = 当年第一期至上一期应发金额(base_amount)合计 + 本期应发金额(base_amount)"},
+        {"step": 5, "field_name": "减除费用", "source": "formula", "output_key": "tax_5", "default_formula": "months_employed_in_year * 5000", "desc": "减除费用 = 本年度在岗月数（按实际在公司的月数）× 5000；在岗月数由入职/离职记录计算"},
+        {"step": 6, "field_name": "应税收入", "source": "formula", "output_key": "tax_6", "default_formula": "base_amount - tax_1", "desc": "应税收入 = 当期应发金额(base_amount) - 当期专项累计扣除(tax_1)"},
+        {"step": 7, "field_name": "累计计税部分", "source": "formula", "output_key": "tax_7", "default_formula": "max(0, tax_6 - tax_3 - tax_5)", "desc": "累计计税部分 = 当期应税收入(tax_6) - 当期累计扣除项目合计(tax_3) - 当期减除费用(tax_5)，≤0 时取 0"},
+        {"step": 8, "field_name": "累计个税", "source": "formula", "output_key": "tax_8", "default_formula": "cumulative_tax(tax_7)", "desc": "根据第七步累计计税部分(tax_7)和个税税率表(income_tax_brackets)计算：应纳税额 = 应纳税所得额 × 税率 − 速算扣除数"},
+        {"step": 9, "field_name": "本月个税", "source": "formula", "output_key": "tax_9", "default_formula": "max(0, tax_8 - prev_tax_8)", "desc": "本月个税 = 当期累计个税(tax_8) - 上期累计个税(prev_tax_8)，≤0 时取 0"}
       ]
     }
   }

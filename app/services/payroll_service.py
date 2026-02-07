@@ -42,6 +42,26 @@ def _prev_period(period: str) -> str:
         return ""
 
 
+def _period_range(start_period: str, end_period: str) -> List[str]:
+    """自然月周期区间 [start_period, end_period] 的 YYYY-MM 列表（含首尾）。"""
+    try:
+        y1, m1 = map(int, start_period.split("-"))
+        y2, m2 = map(int, end_period.split("-"))
+    except (ValueError, AttributeError, TypeError):
+        return []
+    if (y1, m1) > (y2, m2):
+        return []
+    out: List[str] = []
+    y, m = y1, m1
+    while (y, m) <= (y2, m2):
+        out.append(f"{y:04d}-{m:02d}")
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+    return out
+
+
 @dataclass
 class PayrollContext:
     """工资计算上下文（方便调试和前端展示明细）"""
@@ -110,27 +130,154 @@ class PayrollService:
             "person_company_payroll", person_id, company_id, prev
         )
 
-    def _get_prev_tax3_in_year(self, ctx: PayrollContext, period: str) -> float:
+    def _get_payroll_ytd_aggregates(
+        self,
+        person_id: int,
+        company_id: int,
+        period: str,
+        ctx: PayrollContext,
+        spec_list: List[Dict[str, Any]],
+    ) -> Dict[str, float]:
         """
-        获取上一期在同一自然年内的累计扣除项目合计（tax_3），供本期继续累计使用。
-        若上一期不存在、无 period 字段或跨年，则返回 0.0。
+        通用：从「当年第一期」到「上一期」的 payroll 中，按配置做聚合，供公式使用。
+
+        spec_list 每项: variable_key, field, aggregation。
+        - aggregation "last": 取上一期同一年内的该字段值（跨年返回 0）。
+        - aggregation "sum": 取当年 01 至上一期该字段的合计。
+
+        返回 { variable_key: 数值 }。
         """
-        prev = ctx.prev_payroll
-        if not prev:
-            return 0.0
-        prev_period = prev.get("period")
-        if not prev_period:
-            return 0.0
+        if not spec_list:
+            return {}
+        prev = _prev_period(period)
         try:
             cur_year = int((period or "").split("-")[0])
-            prev_year = int(str(prev_period).split("-")[0])
         except (ValueError, TypeError):
-            # 解析失败时，退化为沿用上一期的 tax_3
-            return float(prev.get("tax_3", 0) or 0)
-        if cur_year != prev_year:
-            # 跨自然年，累计从 0 重新开始
-            return 0.0
-        return float(prev.get("tax_3", 0) or 0)
+            cur_year = 0
+        year_start = f"{cur_year:04d}-01" if cur_year else ""
+        result: Dict[str, float] = {}
+        for spec in spec_list:
+            if not isinstance(spec, dict):
+                continue
+            var_key = spec.get("variable_key")
+            field = spec.get("field")
+            agg = (spec.get("aggregation") or "sum").strip().lower()
+            if not var_key or not field:
+                continue
+            if agg == "last":
+                # 上一期同一年内的单值
+                prev_state = ctx.prev_payroll
+                if not prev_state:
+                    result[var_key] = 0.0
+                    continue
+                prev_period_val = prev_state.get("period")
+                try:
+                    prev_year = int(str(prev_period_val).split("-")[0]) if prev_period_val else 0
+                except (ValueError, TypeError):
+                    prev_year = 0
+                if cur_year != prev_year:
+                    result[var_key] = 0.0
+                else:
+                    result[var_key] = float(prev_state.get(field, 0) or 0)
+                continue
+            # aggregation "sum": 当年 01 到上一期 的 field 合计
+            if not prev or not year_start:
+                result[var_key] = 0.0
+                continue
+            periods = _period_range(year_start, prev)
+            total = 0.0
+            for p in periods:
+                state = self._get_twin_state_for_person_company(
+                    "person_company_payroll", person_id, company_id, p
+                )
+                if state:
+                    total += float(state.get(field, 0) or 0)
+            result[var_key] = total
+        return result
+
+    def _get_months_employed_in_year(
+        self, person_id: int, company_id: int, period: str
+    ) -> int:
+        """
+        本年度在岗月数（按实际在公司的月数）：
+        - 入职月份：当年该人该公司聘用记录中若有 change_type=入职 且 change_date 在当年，取该月；否则取当年 1 月。
+        - 上个月：当前系统日期的上个月（如今天 2024-05-15 则上个月=2024-04）。
+        - 是否在上月离职：聘用状态中是否存在 change_type=离职 且 effective_date 的年份-月份 = 上个月。
+        - 若上个月有离职，则在岗月数 = 入职月～上个月（含）；否则 = 入职月～当前月（含），当前月取计算周期 period 所在月。
+        返回 0～12 的整数。
+        """
+        try:
+            year = int(period.split("-")[0])
+        except (ValueError, TypeError, AttributeError):
+            return 0
+        twins = self.twin_service.list_twins(
+            "person_company_employment",
+            filters={"person_id": str(person_id), "company_id": str(company_id)},
+        )
+        if not twins:
+            return 0
+        employment_id = twins[0].get("id")
+        if employment_id is None:
+            return 0
+        detail = self.twin_service.get_twin("person_company_employment", employment_id)
+        if not detail:
+            return 0
+        current = detail.get("current") or {}
+        history = detail.get("history") or []
+        all_states = [current] + [h.get("data") or {} for h in history]
+
+        def _ym(s: Any) -> Tuple[int, int]:
+            if not s:
+                return 0, 0
+            s = str(s)[:10]
+            if len(s) >= 7 and s[4] == "-":
+                try:
+                    return int(s[:4]), int(s[5:7])
+                except ValueError:
+                    pass
+            return 0, 0
+
+        entry_month = 13
+        for state in all_states:
+            if (state.get("change_type") or "").strip() != "入职":
+                continue
+            y, m = _ym(state.get("change_date"))
+            if y == year and 1 <= m <= 12:
+                entry_month = min(entry_month, m)
+        if entry_month > 12:
+            entry_month = 1
+
+        today = date.today()
+        if today.month == 1:
+            prev_y, prev_m = today.year - 1, 12
+        else:
+            prev_y, prev_m = today.year, today.month - 1
+        try:
+            cur_y, cur_m = int(period.split("-")[0]), int(period.split("-")[1])
+        except (ValueError, TypeError, IndexError):
+            cur_y, cur_m = year, 12
+
+        has_resignation_in_prev = False
+        for state in all_states:
+            if (state.get("change_type") or "").strip() != "离职":
+                continue
+            y, m = _ym(state.get("effective_date"))
+            if y == prev_y and m == prev_m:
+                has_resignation_in_prev = True
+                break
+
+        if has_resignation_in_prev:
+            end_y, end_m = prev_y, prev_m
+        else:
+            end_y, end_m = cur_y, cur_m
+
+        if end_y < year or (end_y == year and end_m < entry_month):
+            return 0
+        if end_y > year:
+            end_m = 12
+            end_y = year
+        months = (end_y - year) * 12 + (end_m - entry_month) + 1
+        return min(max(0, months), 12)
 
     def _build_context(
         self, person_id: int, company_id: int, period: str
@@ -222,8 +369,16 @@ class PayrollService:
             val = self._resolve_variable_from_spec(variable_key, spec, ctx, period)
             if val is not None:
                 out[variable_key] = val
-        # 为个税第 3 步「累计扣除项目合计」提供上一期同一自然年的累计值
-        out["prev_tax3_in_year"] = self._get_prev_tax3_in_year(ctx, period)
+        # 通用：当年第一期至上一期 payroll 的聚合变量（last=上期单值，sum=期内合计）
+        ytd_specs = config.get("payroll_ytd_variables") or []
+        for k, v in self._get_payroll_ytd_aggregates(
+            person_id, company_id, period, ctx, ytd_specs
+        ).items():
+            out[k] = v
+        # 本年度在岗月数（用于减除费用 = 在岗月数 × 5000）
+        out["months_employed_in_year"] = self._get_months_employed_in_year(
+            person_id, company_id, period
+        )
         return out
 
     # ======== 基于 config JSON 的工资计算步骤（公式仅来自 config） ========
