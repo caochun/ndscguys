@@ -979,7 +979,7 @@ twins:
   person_company_payroll:
     type: activity
     label: "人员-公司工资发放"
-    description: "记录人员每月的工资计算和发放情况（包含计算依据快照和结果）"
+    description: "记录人员每月的工资计算和发放情况（包含计算依据快照和结果）。期数有两个口径：名义期数（本条工资对应的月份）、参考期数（参考日所在月，用于在岗月数/YTD 等当年度口径）。"
     table: "person_company_payroll_activities"
     
     related_entities:
@@ -1012,8 +1012,18 @@ twins:
       period:
         type: string
         required: true
-        label: "发放周期"
-        description: "工资发放周期，格式：YYYY-MM，如 2024-01"
+        label: "名义期数"
+        description: "工资对应的发放周期（名义），格式 YYYY-MM，如 2025-12 表示 2025 年 12 月工资"
+        validation:
+          pattern: "^\\d{4}-\\d{2}$"
+        ui:
+          component: text_input
+      
+      reference_month:
+        type: string
+        required: false
+        label: "参考期数"
+        description: "参考日所在月（实际期数），格式 YYYY-MM。参考日 = 名义期数下一月的 PAYROLL_REFERENCE_DAY 日；用于在岗月数、YTD 聚合等当年度口径，如名义期数 2025-12 → 参考日 2026-01-26 → 参考期数 2026-01"
         validation:
           pattern: "^\\d{4}-\\d{2}$"
         ui:

@@ -142,11 +142,13 @@ class PayrollService:
         spec_list: List[Dict[str, Any]],
     ) -> Dict[str, float]:
         """
-        通用：从「当年第一期」到「上一期」的 payroll 中，按配置做聚合，供公式使用。
+        从已保存工资单中按配置做聚合，供公式使用。所有计算均限定在当年度内（参考日所在年）。
+
+        时间基准：参考日 = period 下一月 PAYROLL_REFERENCE_DAY 日；当年度 = 参考日所在年。
 
         spec_list 每项: variable_key, field, aggregation。
-        - aggregation "last": 取上一期同一年内的该字段值（跨年返回 0）。
-        - aggregation "sum": 取当年 01 至上一期该字段的合计。
+        - aggregation "last": 取上一期工资单中该 field 的值，仅当上一期在当年度内时有效，跨年返回 0。
+        - aggregation "sum": 取当年度 1 月～上一期（含）之间各期工资单该 field 的合计；若上一期在去年则以当年 1 月为区间终点（即只含当年 1 月，若该期未保存则为 0）。
 
         返回 { variable_key: 数值 }。
         """
@@ -154,9 +156,14 @@ class PayrollService:
             return {}
         prev = _prev_period(period)
         try:
-            cur_year = int((period or "").split("-")[0])
-        except (ValueError, TypeError):
-            cur_year = 0
+            cur_y, cur_m = int((period or "").split("-")[0]), int((period or "").split("-")[1])
+        except (ValueError, TypeError, IndexError):
+            cur_y, cur_m = 0, 12
+        if cur_m == 12:
+            ref_date = date(cur_y + 1, 1, min(PAYROLL_REFERENCE_DAY, 31))
+        else:
+            ref_date = date(cur_y, cur_m + 1, min(PAYROLL_REFERENCE_DAY, 31))
+        cur_year = ref_date.year
         year_start = f"{cur_year:04d}-01" if cur_year else ""
         result: Dict[str, float] = {}
         for spec in spec_list:
@@ -183,11 +190,19 @@ class PayrollService:
                 else:
                     result[var_key] = float(prev_state.get(field, 0) or 0)
                 continue
-            # aggregation "sum": 当年 01 到上一期 的 field 合计
-            if not prev or not year_start:
+            # aggregation "sum": 当年度内 当年 01 到上一期的 field 合计；若上一期在去年则以当年 1 月为区间终点
+            if not year_start:
                 result[var_key] = 0.0
                 continue
-            periods = _period_range(year_start, prev)
+            try:
+                prev_year = int(prev.split("-")[0]) if prev else 0
+            except (ValueError, TypeError):
+                prev_year = 0
+            if prev_year < cur_year:
+                sum_end = year_start
+            else:
+                sum_end = prev
+            periods = _period_range(year_start, sum_end)
             total = 0.0
             for p in periods:
                 state = self._get_twin_state_for_person_company(
