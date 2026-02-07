@@ -3,9 +3,10 @@ Payroll Service - 工资计算与发放服务
 """
 from __future__ import annotations
 
+import calendar
 import json
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -43,6 +44,57 @@ def _prev_period(period: str) -> str:
         return f"{y:04d}-{m:02d}"
     except (ValueError, AttributeError):
         return ""
+
+
+def _deduction_tax_period(salary_period: str) -> str:
+    """薪资期数 → 扣减个税期数（薪资期数下一月，即参考日 PAYROLL_REFERENCE_DAY 所在月）。如 2025-12 -> 2026-01"""
+    try:
+        y, m = map(int, salary_period.split("-"))
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+        return f"{y:04d}-{m:02d}"
+    except (ValueError, AttributeError, TypeError):
+        return salary_period
+
+
+def _ytd_ref_date_and_year(period: str, use_next_month: bool) -> Tuple[Optional[date], int, str]:
+    """
+    供 YTD 聚合用：由期数得到参考日、当年度、当年 1 月。
+    use_next_month=True（薪资口径）：参考日 = period 下一月 26 日。
+    use_next_month=False（扣减个税口径）：参考日 = period 当月 26 日。
+    返回 (ref_date, cur_year, year_start)，解析失败时 (None, 0, "")。
+    """
+    try:
+        y, m = int(period.split("-")[0]), int(period.split("-")[1])
+    except (ValueError, TypeError, IndexError, AttributeError):
+        return None, 0, ""
+    if use_next_month:
+        if m == 12:
+            ref_date = date(y + 1, 1, min(PAYROLL_REFERENCE_DAY, 31))
+        else:
+            last_day = calendar.monthrange(y, m + 1)[1]
+            ref_date = date(y, m + 1, min(PAYROLL_REFERENCE_DAY, last_day))
+    else:
+        last_day = calendar.monthrange(y, m)[1]
+        ref_date = date(y, m, min(PAYROLL_REFERENCE_DAY, last_day))
+    cur_year = ref_date.year
+    year_start = f"{cur_year:04d}-01"
+    return ref_date, cur_year, year_start
+
+
+def _period_end_date(period: str) -> Optional[date]:
+    """period 'YYYY-MM' → 该月最后一天，用于 effective_date 比较。"""
+    try:
+        y, m = map(int, period.split("-"))
+        if m == 12:
+            next_first = date(y + 1, 1, 1)
+        else:
+            next_first = date(y, m + 1, 1)
+        return next_first - timedelta(days=1)
+    except (ValueError, TypeError, IndexError, AttributeError):
+        return None
 
 
 def _period_range(start_period: str, end_period: str) -> List[str]:
@@ -137,34 +189,19 @@ class PayrollService:
         self,
         person_id: int,
         company_id: int,
-        period: str,
+        salary_period: str,
+        deduction_tax_period: str,
         ctx: PayrollContext,
         spec_list: List[Dict[str, Any]],
     ) -> Dict[str, float]:
         """
-        从已保存工资单中按配置做聚合，供公式使用。所有计算均限定在当年度内（参考日所在年）。
-
-        时间基准：参考日 = period 下一月 PAYROLL_REFERENCE_DAY 日；当年度 = 参考日所在年。
-
-        spec_list 每项: variable_key, field, aggregation。
-        - aggregation "last": 取上一期工资单中该 field 的值，仅当上一期在当年度内时有效，跨年返回 0。
-        - aggregation "sum": 取当年度 1 月～上一期（含）之间各期工资单该 field 的合计；若上一期在去年则以当年 1 月为区间终点（即只含当年 1 月，若该期未保存则为 0）。
-
-        返回 { variable_key: 数值 }。
+        从已保存工资单中按配置做聚合，供公式使用。
+        每条 spec 可指定 period_type：salary（按薪资期数）或 deduction_tax（按扣减个税期数，默认）。
+        - period_type="salary"：当年度/上一期/汇总区间按 salary_period，查询 time_key=p（工资单即按薪资期数存）。
+        - period_type="deduction_tax"：当年度/上一期/汇总区间按 deduction_tax_period，查询 time_key=_prev_period(d)。
         """
         if not spec_list:
             return {}
-        prev = _prev_period(period)
-        try:
-            cur_y, cur_m = int((period or "").split("-")[0]), int((period or "").split("-")[1])
-        except (ValueError, TypeError, IndexError):
-            cur_y, cur_m = 0, 12
-        if cur_m == 12:
-            ref_date = date(cur_y + 1, 1, min(PAYROLL_REFERENCE_DAY, 31))
-        else:
-            ref_date = date(cur_y, cur_m + 1, min(PAYROLL_REFERENCE_DAY, 31))
-        cur_year = ref_date.year
-        year_start = f"{cur_year:04d}-01" if cur_year else ""
         result: Dict[str, float] = {}
         for spec in spec_list:
             if not isinstance(spec, dict):
@@ -172,41 +209,45 @@ class PayrollService:
             var_key = spec.get("variable_key")
             field = spec.get("field")
             agg = (spec.get("aggregation") or "sum").strip().lower()
+            period_type = (spec.get("period_type") or "deduction_tax").strip().lower()
             if not var_key or not field:
                 continue
+            use_next_month = period_type == "salary"
+            base_period = salary_period if use_next_month else deduction_tax_period
+            ref_date, cur_year, year_start = _ytd_ref_date_and_year(base_period, use_next_month)
+            if ref_date is None or not year_start:
+                result[var_key] = 0.0
+                continue
+            prev = _prev_period(base_period)
+            # 逻辑期数 → 工资单 time_key：薪资口径用自身，扣减个税口径用上一月
+            def payroll_time_key(logical_period: str) -> str:
+                return logical_period if use_next_month else _prev_period(logical_period)
+
             if agg == "last":
-                # 上一期同一年内的单值
-                prev_state = ctx.prev_payroll
+                time_key = payroll_time_key(prev)
+                prev_state = self._get_twin_state_for_person_company(
+                    "person_company_payroll", person_id, company_id, time_key
+                )
                 if not prev_state:
                     result[var_key] = 0.0
-                    continue
-                prev_period_val = prev_state.get("period")
-                try:
-                    prev_year = int(str(prev_period_val).split("-")[0]) if prev_period_val else 0
-                except (ValueError, TypeError):
-                    prev_year = 0
-                if cur_year != prev_year:
-                    result[var_key] = 0.0
                 else:
-                    result[var_key] = float(prev_state.get(field, 0) or 0)
-                continue
-            # aggregation "sum": 当年度内 当年 01 到上一期的 field 合计；若上一期在去年则以当年 1 月为区间终点
-            if not year_start:
-                result[var_key] = 0.0
+                    try:
+                        prev_year = int(str(prev).split("-")[0]) if prev else 0
+                    except (ValueError, TypeError):
+                        prev_year = 0
+                    result[var_key] = float(prev_state.get(field, 0) or 0) if cur_year == prev_year else 0.0
                 continue
             try:
                 prev_year = int(prev.split("-")[0]) if prev else 0
             except (ValueError, TypeError):
                 prev_year = 0
-            if prev_year < cur_year:
-                sum_end = year_start
-            else:
-                sum_end = prev
+            sum_end = prev if prev_year >= cur_year else year_start
             periods = _period_range(year_start, sum_end)
             total = 0.0
             for p in periods:
+                time_key = payroll_time_key(p)
                 state = self._get_twin_state_for_person_company(
-                    "person_company_payroll", person_id, company_id, p
+                    "person_company_payroll", person_id, company_id, time_key
                 )
                 if state:
                     total += float(state.get(field, 0) or 0)
@@ -214,28 +255,26 @@ class PayrollService:
         return result
 
     def _get_months_employed_in_year(
-        self, person_id: int, company_id: int, period: str
+        self, person_id: int, company_id: int, deduction_tax_period: str
     ) -> int:
         """
         本年度在岗月数（按实际在公司的月数），用于减除费用 = 在岗月数 × 5000。
         入职月、上个月、结束月均限定在「参考日所在年份」的自然年内。
-        - 参考日：period 所在月的下一月的 PAYROLL_REFERENCE_DAY 日（如 period=2025-12 → 2026-01-26）。
+        参考日按扣减个税期数：参考日 = deduction_tax_period 当月 PAYROLL_REFERENCE_DAY 日（与 YTD 口径一致）。
         - 年度 year：参考日所在年份（ref_date.year）。
         - 入职月：year 年内若有 change_type=入职 且 change_date 在 year 年，取最早月份；否则默认 1 月。
         - 上个月：参考日所在月的前一月；若参考日为 1 月则上个月为去年 12 月（不在 year 内，不参与同年内逻辑）。
         - 是否在上月离职：仅当上个月在 year 年内时，检查是否存在 离职 且 effective_date 年月 = 上个月。
-        - 结束月（均在 year 年内）：若上月有离职且上个月在 year 内则=上个月，否则=参考日的前一月；若参考日为 1 月则前一月不在 year 内，结束月取 year 年 1 月。
+        - 结束月（均在 year 年内）：若上月有离职且上个月在 year 内则=上个月，否则=参考日所在月。
         - 在岗月数 = 入职月～结束月（含）的月数，限制在 0～12。
         返回 0～12 的整数。
         """
         try:
-            cur_y, cur_m = int(period.split("-")[0]), int(period.split("-")[1])
+            dt_y, dt_m = int((deduction_tax_period or "").split("-")[0]), int((deduction_tax_period or "").split("-")[1])
         except (ValueError, TypeError, IndexError):
             return 0
-        if cur_m == 12:
-            ref_date = date(cur_y + 1, 1, min(PAYROLL_REFERENCE_DAY, 31))
-        else:
-            ref_date = date(cur_y, cur_m + 1, min(PAYROLL_REFERENCE_DAY, 31))
+        last_day = calendar.monthrange(dt_y, dt_m)[1]
+        ref_date = date(dt_y, dt_m, min(PAYROLL_REFERENCE_DAY, last_day))
         year = ref_date.year
 
         twins = self.twin_service.list_twins(
@@ -297,11 +336,8 @@ class PayrollService:
         if has_resignation_in_prev and prev_in_year:
             end_y, end_m = prev_y, prev_m
         else:
-            # 参考日的前一月 = period 所在月；若参考日为 1 月则前一月为去年 12 月，不在 year 内，结束月取 year 年 1 月
-            if ref_date.month == 1:
-                end_y, end_m = year, 1
-            else:
-                end_y, end_m = year, ref_date.month - 1
+            # 上月未离职或上个月不在 year 内：结束月 = 参考日所在月（若参考日为 1 月则已是 year 年 1 月）
+            end_y, end_m = year, ref_date.month
 
         if end_m < entry_month:
             return 0
@@ -309,16 +345,24 @@ class PayrollService:
         return min(max(0, months), 12)
 
     def _build_context(
-        self, person_id: int, company_id: int, period: str
+        self,
+        person_id: int,
+        company_id: int,
+        salary_period: str,
+        deduction_tax_period: str,
     ) -> PayrollContext:
-        """聚合工资计算所需的上下文信息（含上一期 payroll，供个税累计用）"""
-        employment = self._get_latest_employment(person_id, company_id)
-        assessment = self._get_latest_assessment(person_id)
-        social_base = self._get_latest_social_base(person_id, company_id)
-        housing_base = self._get_latest_housing_base(person_id, company_id)
-        tax_deduction = self._get_active_tax_deduction(person_id, period)
-        attendance_record = self._get_attendance_record(person_id, company_id, period)
-        prev_payroll = self._get_prev_payroll_state(person_id, company_id, period)
+        """
+        聚合工资计算所需的上下文信息。
+        salary_period（薪资期数）：用于聘用、考核、考勤、上一期工资单。
+        deduction_tax_period（扣减个税期数）：用于社保基数、公积金基数、专项附加扣除。
+        """
+        employment = self._get_employment_for_period(person_id, company_id, salary_period)
+        assessment = self._get_assessment_for_period(person_id, salary_period)
+        attendance_record = self._get_attendance_record(person_id, company_id, salary_period)
+        prev_payroll = self._get_prev_payroll_state(person_id, company_id, salary_period)
+        social_base = self._get_social_base_for_period(person_id, company_id, deduction_tax_period)
+        housing_base = self._get_housing_base_for_period(person_id, company_id, deduction_tax_period)
+        tax_deduction = self._get_active_tax_deduction(person_id, deduction_tax_period)
 
         return PayrollContext(
             employment=employment,
@@ -382,31 +426,41 @@ class PayrollService:
         return None
 
     def get_calculation_context_variables(
-        self, person_id: int, company_id: int, period: str
+        self,
+        person_id: int,
+        company_id: int,
+        salary_period: str,
+        deduction_tax_period: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         为工资计算步骤公式求值提供「原始变量」字典。
-        完全按 config 中 variable_sources 解析。
+        salary_period：薪资期数。deduction_tax_period：扣减个税期数，不传则按薪资期数下一月推导。
         """
-        ctx = self._build_context(person_id, company_id, period)
+        if deduction_tax_period is None:
+            deduction_tax_period = _deduction_tax_period(salary_period)
+        ctx = self._build_context(
+            person_id, company_id, salary_period, deduction_tax_period
+        )
         config = self.load_calculation_config()
         variable_sources = config.get("variable_sources") or {}
         out: Dict[str, Any] = {}
         for variable_key, spec in variable_sources.items():
             if not isinstance(spec, dict):
                 continue
-            val = self._resolve_variable_from_spec(variable_key, spec, ctx, period)
+            val = self._resolve_variable_from_spec(
+                variable_key, spec, ctx, deduction_tax_period
+            )
             if val is not None:
                 out[variable_key] = val
-        # 通用：当年第一期至上一期 payroll 的聚合变量（last=上期单值，sum=期内合计）
+        # 通用：当年第一期至上一期 payroll 的聚合变量（当年度、上一期、汇总区间均按 deduction_tax_period）
         ytd_specs = config.get("payroll_ytd_variables") or []
         for k, v in self._get_payroll_ytd_aggregates(
-            person_id, company_id, period, ctx, ytd_specs
+            person_id, company_id, salary_period, deduction_tax_period, ctx, ytd_specs
         ).items():
             out[k] = v
-        # 本年度在岗月数（用于减除费用 = 在岗月数 × 5000）
+        # 本年度在岗月数（参考日=薪资期数下一月26日所在年），按薪资期数
         out["months_employed_in_year"] = self._get_months_employed_in_year(
-            person_id, company_id, period
+            person_id, company_id, deduction_tax_period
         )
         return out
 
@@ -588,7 +642,7 @@ class PayrollService:
             )
         )
         data: Dict[str, Any] = {
-            "period": period,
+            "salary_period": period,
             "employment_salary": variables.get("employment_salary"),
             "base_ratio": variables.get("base_ratio"),
             "perf_ratio": variables.get("perf_ratio"),
@@ -752,10 +806,10 @@ class PayrollService:
                 "id": aid,
                 "person_id": pid,
                 "company_id": cid,
-                "period": period,
-                **{k: v for k, v in state.data.items() if k not in ("period",)},
+                "salary_period": period,
+                **{k: v for k, v in state.data.items() if k not in ("salary_period",)},
             }
-            row["period"] = period
+            row["salary_period"] = period
             # 人员姓名：取 person 最新状态 name
             person_state = self.state_dao.get_latest("person", int(pid))
             if person_state and person_state.data:
@@ -770,7 +824,7 @@ class PayrollService:
     ) -> Optional[Dict[str, Any]]:
         """
         获取单条工资单详情（指定 activity_id 与 period 对应的状态）。
-        返回含 id、person_id、company_id、period、person_name、labels（variable_labels）
+        返回含 id、person_id、company_id、salary_period、person_name、labels（variable_labels）
         以及该条状态的全部 data 字段。
         """
         state = self.state_dao.get_state_by_time_key(
@@ -785,7 +839,7 @@ class PayrollService:
             "id": activity_id,
             "person_id": person_id,
             "company_id": company_id,
-            "period": period,
+            "salary_period": period,
             **{k: v for k, v in state.data.items()},
         }
         if person_id is not None:
@@ -800,10 +854,16 @@ class PayrollService:
         row["labels"] = config.get("variable_labels") or {}
         return row
 
-    def _get_latest_employment(
-        self, person_id: int, company_id: int
+    def _get_employment_for_period(
+        self, person_id: int, company_id: int, period: str
     ) -> Optional[Dict[str, Any]]:
-        """获取最近一次聘用状态（按 change_date 排序）"""
+        """
+        获取指定 period 时点已生效的最新聘用状态。
+        只考虑 effective_date ≤ 该 period 月末 的版本，在其中取 effective_date 最大的一条。
+        """
+        period_end = _period_end_date(period)
+        if period_end is None:
+            return None
         twins = self.twin_service.list_twins(
             "person_company_employment",
             filters={
@@ -813,32 +873,65 @@ class PayrollService:
         )
         if not twins:
             return None
-        # change_date 降序
-        return sorted(
-            twins,
-            key=lambda x: x.get("change_date") or "",
-            reverse=True,
-        )[0]
+        activity_id = twins[0].get("id")
+        if activity_id is None:
+            return None
+        detail = self.twin_service.get_twin("person_company_employment", activity_id)
+        if not detail:
+            return None
+        current = detail.get("current") or {}
+        history = detail.get("history") or []
+        all_states = [current] + [h.get("data") or {} for h in history]
+        valid: List[Tuple[Dict[str, Any], date]] = []
+        for state in all_states:
+            eff = _parse_date_to_compare(state.get("effective_date"))
+            if eff is None:
+                eff = date.min
+            if eff <= period_end:
+                valid.append((state, eff))
+        if not valid:
+            return None
+        valid.sort(key=lambda x: x[1], reverse=True)
+        return valid[0][0]
 
-    def _get_latest_assessment(self, person_id: int) -> Optional[Dict[str, Any]]:
-        """获取最近一次考核"""
+    def _get_assessment_for_period(
+        self, person_id: int, period: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        获取指定 period 时点已发生的最新考核。
+        只考虑 assessment_date ≤ 该 period 月末 的记录，在其中取 assessment_date 最大的一条。
+        """
+        period_end = _period_end_date(period)
+        if period_end is None:
+            return None
         twins = self.twin_service.list_twins(
             "person_assessment",
             filters={"person_id": str(person_id)},
         )
         if not twins:
             return None
-        # assessment_date 降序
-        return sorted(
-            twins,
-            key=lambda x: x.get("assessment_date") or "",
-            reverse=True,
-        )[0]
+        valid: List[Tuple[Dict[str, Any], date]] = []
+        for t in twins:
+            ad = _parse_date_to_compare(t.get("assessment_date"))
+            if ad is None:
+                continue
+            if ad <= period_end:
+                valid.append((t, ad))
+        if not valid:
+            return None
+        valid.sort(key=lambda x: x[1], reverse=True)
+        return valid[0][0]
 
-    def _get_latest_social_base(
-        self, person_id: int, company_id: int
+    def _get_social_base_for_period(
+        self, person_id: int, company_id: int, period: str
     ) -> Optional[Dict[str, Any]]:
-        """获取生效日期不晚于当前系统日期的最近一条社保基数"""
+        """
+        获取指定 period 时点已生效的最新社保基数。
+        只考虑 effective_date ≤ 该 period 月末 的记录，在其中取 effective_date 最大的一条。
+        """
+        period_end = _period_end_date(period)
+        if period_end is None:
+            return None
         twins = self.twin_service.list_twins(
             "person_company_social_security_base",
             filters={
@@ -849,21 +942,28 @@ class PayrollService:
         )
         if not twins:
             return None
-        today = date.today()
-        in_effect = []
+        in_effect: List[Tuple[Dict[str, Any], date]] = []
         for t in twins:
             eff_date = _parse_date_to_compare(t.get("effective_date"))
-            if eff_date is not None and eff_date <= today:
+            if eff_date is None:
+                eff_date = date.min
+            if eff_date <= period_end:
                 in_effect.append((t, eff_date))
         if not in_effect:
             return None
         in_effect.sort(key=lambda x: x[1], reverse=True)
         return in_effect[0][0]
 
-    def _get_latest_housing_base(
-        self, person_id: int, company_id: int
+    def _get_housing_base_for_period(
+        self, person_id: int, company_id: int, period: str
     ) -> Optional[Dict[str, Any]]:
-        """获取生效日期不晚于当前系统日期的最近一条公积金基数"""
+        """
+        获取指定 period 时点已生效的最新公积金基数。
+        只考虑 effective_date ≤ 该 period 月末 的记录，在其中取 effective_date 最大的一条。
+        """
+        period_end = _period_end_date(period)
+        if period_end is None:
+            return None
         twins = self.twin_service.list_twins(
             "person_company_housing_fund_base",
             filters={
@@ -874,11 +974,12 @@ class PayrollService:
         )
         if not twins:
             return None
-        today = date.today()
-        in_effect = []
+        in_effect: List[Tuple[Dict[str, Any], date]] = []
         for t in twins:
             eff_date = _parse_date_to_compare(t.get("effective_date"))
-            if eff_date is not None and eff_date <= today:
+            if eff_date is None:
+                eff_date = date.min
+            if eff_date <= period_end:
                 in_effect.append((t, eff_date))
         if not in_effect:
             return None

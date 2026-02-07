@@ -124,10 +124,34 @@ def generate_test_data(db_path: Optional[str] = None):
     })
     print(f"  公积金基数: 10000 元，生效 2025-01-01")
 
+    # 8. 专项附加扣除年度累计：2025-12、2026-01、2026-02 三期，六项均为 0
+    print("\n创建专项附加扣除年度累计记录...")
+    tax_deduction_id = twin_dao.create_activity_twin(
+        "person_tax_deduction",
+        {"person_id": person_id},
+    )
+    for period in ("2025-12", "2026-01", "2026-02"):
+        state_dao.append(
+            "person_tax_deduction",
+            tax_deduction_id,
+            {
+                "person_id": person_id,
+                "period": period,
+                "children_education_amount": 0.0,
+                "continuing_education_amount": 0.0,
+                "housing_loan_interest_amount": 0.0,
+                "housing_rent_amount": 0.0,
+                "elderly_support_amount": 0.0,
+                "infant_childcare_amount": 0.0,
+            },
+            time_key=period,
+        )
+    print(f"  专项附加扣除: 2025-12、2026-01、2026-02 三期，六项累计均为 0")
+
     print("\n测试数据生成完成！")
     print(f"  人员: 戴森 (ID: {person_id})")
     print(f"  公司: 江苏尚诚能源科技有限公司 (ID: {company_id})")
-    print(f"  聘用/考核/考勤/社保基数/公积金基数 已创建")
+    print(f"  聘用/考核/考勤/社保基数/公积金基数/专项附加扣除 已创建")
 
 
 if __name__ == "__main__":

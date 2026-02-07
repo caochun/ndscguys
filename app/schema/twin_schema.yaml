@@ -817,7 +817,6 @@ twins:
 
   person_company_housing_fund_base:
     type: activity
-    label: "人员-公司公积金基数"
     description: "记录人员在公司参保时的公积金缴费基数及其变更历史"
     table: "person_company_housing_fund_base_activities"
     
@@ -994,7 +993,7 @@ twins:
     
     state_table: "person_company_payroll_history"
     mode: time_series
-    unique_key: [activity_id, period]
+    unique_key: [activity_id, salary_period]
     
     fields:
       person_id:
@@ -1009,7 +1008,7 @@ twins:
         required: true
         storage: foreign_key
       
-      period:
+      salary_period:
         type: string
         required: true
         label: "薪资期数"

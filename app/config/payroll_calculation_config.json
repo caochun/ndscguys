@@ -77,9 +77,9 @@
     "tax_deduction_infant": { "source": "field", "from": "tax_deduction", "field": "infant_childcare_amount", "default": 0 }
   },
   "payroll_ytd_variables": [
-    { "variable_key": "ytd_tax_special_cumulative", "field": "tax_special_cumulative", "aggregation": "sum" },
-    { "variable_key": "ytd_base_amount", "field": "base_amount", "aggregation": "sum" },
-    { "variable_key": "prev_tax_cumulative", "field": "tax_cumulative", "aggregation": "last" }
+    { "variable_key": "ytd_tax_special_cumulative", "field": "tax_special_cumulative", "aggregation": "sum", "period_type": "deduction_tax" },
+    { "variable_key": "ytd_base_amount", "field": "base_amount", "aggregation": "sum", "period_type": "deduction_tax" },
+    { "variable_key": "prev_tax_cumulative", "field": "tax_cumulative", "aggregation": "last", "period_type": "deduction_tax" }
   ],
   "sections": {
     "gross": {

@@ -462,8 +462,9 @@
           var total = row.total_amount != null ? Number(row.total_amount).toFixed(2) : '—';
           var status = row.status != null ? row.status : '—';
           var name = row.person_name != null ? row.person_name : ('人员' + row.person_id);
-          var trAttr = ' data-activity-id="' + (row.id != null ? row.id : '') + '" data-period="' + esc(row.period || '') + '" class="cursor-pointer hover:bg-gray-50"';
-          return '<tr' + trAttr + '><td class="px-4 py-2 text-sm text-gray-900">' + esc(row.period || '') + '</td><td class="px-4 py-2 text-sm text-gray-900">' + esc(name) + '</td><td class="px-4 py-2 text-sm text-right tabular-nums">' + base + '</td><td class="px-4 py-2 text-sm text-right tabular-nums">' + social + '</td><td class="px-4 py-2 text-sm text-right tabular-nums">' + tax + '</td><td class="px-4 py-2 text-sm text-right tabular-nums font-medium">' + total + '</td><td class="px-4 py-2 text-sm text-gray-600">' + esc(status) + '</td></tr>';
+          var sp = row.salary_period != null ? row.salary_period : row.period;
+          var trAttr = ' data-activity-id="' + (row.id != null ? row.id : '') + '" data-period="' + esc(sp || '') + '" class="cursor-pointer hover:bg-gray-50"';
+          return '<tr' + trAttr + '><td class="px-4 py-2 text-sm text-gray-900">' + esc(sp || '') + '</td><td class="px-4 py-2 text-sm text-gray-900">' + esc(name) + '</td><td class="px-4 py-2 text-sm text-right tabular-nums">' + base + '</td><td class="px-4 py-2 text-sm text-right tabular-nums">' + social + '</td><td class="px-4 py-2 text-sm text-right tabular-nums">' + tax + '</td><td class="px-4 py-2 text-sm text-right tabular-nums font-medium">' + total + '</td><td class="px-4 py-2 text-sm text-gray-600">' + esc(status) + '</td></tr>';
         }).join('');
         wrap.classList.remove('hidden');
       })
@@ -499,7 +500,7 @@
         function num(v) { if (v == null) return '—'; if (typeof v === 'number') return v.toFixed(2); return v; }
         var html = '';
         html += '<div class="border-b border-gray-200 pb-3 mb-3">';
-        html += '<div class="grid grid-cols-2 gap-x-4 gap-y-1"><div class="text-gray-600">周期</div><div>' + esc(d.period) + '</div>';
+        html += '<div class="grid grid-cols-2 gap-x-4 gap-y-1"><div class="text-gray-600">薪资期数</div><div>' + esc(d.salary_period != null ? d.salary_period : d.period) + '</div>';
         html += '<div class="text-gray-600">人员</div><div>' + esc(d.person_name) + '</div>';
         html += '<div class="text-gray-600">应发</div><div class="tabular-nums">' + num(d.base_amount) + '</div>';
         html += '<div class="text-gray-600">社保公积金扣除</div><div class="tabular-nums">' + num(d.social_deduction_total) + '</div>';
@@ -510,7 +511,7 @@
         html += '<div class="text-gray-700 font-medium mb-2">计算明细</div>';
         html += '<div class="max-h-80 overflow-y-auto border border-gray-200 rounded p-3 bg-gray-50">';
         html += '<table class="min-w-full text-xs"><tbody>';
-        var skip = { id: 1, person_id: 1, company_id: 1, period: 1, person_name: 1, labels: 1, base_amount: 1, social_deduction_total: 1, tax_monthly: 1, total_amount: 1, status: 1 };
+        var skip = { id: 1, person_id: 1, company_id: 1, period: 1, salary_period: 1, person_name: 1, labels: 1, base_amount: 1, social_deduction_total: 1, tax_monthly: 1, total_amount: 1, status: 1 };
         var keys = Object.keys(d).filter(function(k) { return !skip[k]; }).sort();
         keys.forEach(function(k) {
           var v = d[k];
