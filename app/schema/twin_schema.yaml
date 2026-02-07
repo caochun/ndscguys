@@ -430,6 +430,14 @@ twins:
         label: "变动日期"
         ui:
           component: date_picker
+      
+      effective_date:
+        type: date
+        required: false
+        label: "生效日期"
+        description: "本条聘用记录（岗位/薪资等）生效的日期"
+        ui:
+          component: date_picker
 
   person_company_attendance:
     type: activity
@@ -862,8 +870,8 @@ twins:
 
   person_tax_deduction:
     type: activity
-    label: "人员专项附加扣除"
-    description: "记录人员的个人所得税专项附加扣除信息及其变更历史"
+    label: "人员专项附加扣除年度累计"
+    description: "按月度记录人员的个人所得税专项附加扣除年度累计值（每月录入当月止的累计金额）"
     table: "person_tax_deduction_activities"
     
     related_entities:
@@ -873,8 +881,8 @@ twins:
         required: true
     
     state_table: "person_tax_deduction_history"
-    mode: versioned
-    unique_key: [activity_id, version]
+    mode: time_series
+    unique_key: [activity_id, period]
     
     fields:
       person_id:
@@ -883,104 +891,82 @@ twins:
         required: true
         storage: foreign_key
       
+      period:
+        type: string
+        required: true
+        label: "账期"
+        description: "所属月份，格式：YYYY-MM，如 2024-01"
+        validation:
+          pattern: "^\\d{4}-\\d{2}$"
+        storage: unique_key
+        ui:
+          component: text_input
+      
       children_education_amount:
         type: decimal
         required: false
-        label: "子女教育扣除金额"
-        description: "每月子女教育专项附加扣除金额（单位：元）"
+        label: "子女教育累计金额"
+        description: "截至当月的子女教育专项附加扣除年度累计（单位：元）"
         validation:
           min: 0
-          max: 2000
         ui:
           component: number_input
-          suffix: "元/月"
+          suffix: "元"
       
       continuing_education_amount:
         type: decimal
         required: false
-        label: "继续教育扣除金额"
-        description: "每月继续教育专项附加扣除金额（单位：元）"
+        label: "继续教育累计金额"
+        description: "截至当月的继续教育专项附加扣除年度累计（单位：元）"
         validation:
           min: 0
-          max: 400
         ui:
           component: number_input
-          suffix: "元/月"
+          suffix: "元"
       
       housing_loan_interest_amount:
         type: decimal
         required: false
-        label: "住房贷款利息扣除金额"
-        description: "每月住房贷款利息专项附加扣除金额（单位：元）"
+        label: "住房贷款利息累计金额"
+        description: "截至当月的住房贷款利息专项附加扣除年度累计（单位：元）"
         validation:
           min: 0
-          max: 1000
         ui:
           component: number_input
-          suffix: "元/月"
+          suffix: "元"
       
       housing_rent_amount:
         type: decimal
         required: false
-        label: "住房租金扣除金额"
-        description: "每月住房租金专项附加扣除金额（单位：元）"
+        label: "住房租金累计金额"
+        description: "截至当月的住房租金专项附加扣除年度累计（单位：元）"
         validation:
           min: 0
-          max: 1500
         ui:
           component: number_input
-          suffix: "元/月"
+          suffix: "元"
       
       elderly_support_amount:
         type: decimal
         required: false
-        label: "赡养老人扣除金额"
-        description: "每月赡养老人专项附加扣除金额（单位：元）"
+        label: "赡养老人累计金额"
+        description: "截至当月的赡养老人专项附加扣除年度累计（单位：元）"
         validation:
           min: 0
-          max: 2000
         ui:
           component: number_input
-          suffix: "元/月"
+          suffix: "元"
       
       infant_childcare_amount:
         type: decimal
         required: false
-        label: "3岁以下婴幼儿照护扣除金额"
-        description: "每月3岁以下婴幼儿照护专项附加扣除金额（单位：元）"
+        label: "3岁以下婴幼儿照护累计金额"
+        description: "截至当月的3岁以下婴幼儿照护专项附加扣除年度累计（单位：元）"
         validation:
           min: 0
-          max: 2000
         ui:
           component: number_input
-          suffix: "元/月"
-      
-      effective_date:
-        type: date
-        required: true
-        label: "生效日期"
-        description: "本次扣除生效的起始日期"
-        auto: date
-        ui:
-          component: date_picker
-      
-      expiry_date:
-        type: date
-        required: false
-        label: "失效日期"
-        description: "扣除失效的日期（如子女毕业、贷款还清等）"
-        ui:
-          component: date_picker
-      
-      status:
-        type: enum
-        required: true
-        label: "状态"
-        description: "扣除状态"
-        options: ["生效中", "已失效"]
-        default: "生效中"
-        ui:
-          component: select
+          suffix: "元"
       
       remarks:
         type: string

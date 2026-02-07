@@ -205,6 +205,7 @@ async function showPersonEmployments(personId) {
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">薪资</th>';
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">变动类型</th>';
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">变动日期</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">生效日期</th>';
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>';
             html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
             
@@ -268,6 +269,7 @@ async function showPersonEmployments(personId) {
                     </span>
                 </td>`;
                 html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.change_date || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${emp.effective_date || '-'}</td>`;
                 html += `<td class="px-4 py-3 text-sm"><button type="button" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium" onclick="event.stopPropagation(); showEmploymentDetail(${emp.id}, ${personId})">详情</button></td>`;
                 html += '</tr>';
             });
@@ -336,6 +338,7 @@ async function showEmploymentDetail(employmentId, personId) {
         html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">薪资:</span><span class="text-sm text-gray-900 flex-1">${salaryCell(current)}</span></div>`;
         html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">变动类型:</span><span class="text-sm flex-1">${badge(current.change_type, changeTypeColors)}</span></div>`;
         html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">变动日期:</span><span class="text-sm text-gray-900 flex-1">${current.change_date || '-'}</span></div>`;
+        html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">生效日期:</span><span class="text-sm text-gray-900 flex-1">${current.effective_date || '-'}</span></div>`;
         html += '</div></div>';
         // 历史记录表（含岗位类别、职位级别及颜色）
         if (history.length > 0) {
@@ -354,6 +357,7 @@ async function showEmploymentDetail(employmentId, personId) {
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">薪资</th>';
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">变动类型</th>';
             html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">变动日期</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">生效日期</th>';
             html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
             history.forEach(record => {
                 const d = record.data || {};
@@ -370,6 +374,7 @@ async function showEmploymentDetail(employmentId, personId) {
                 html += `<td class="px-4 py-3 text-sm text-gray-900">${salaryCell(d)}</td>`;
                 html += `<td class="px-4 py-3 text-sm">${badge(d.change_type, changeTypeColors)}</td>`;
                 html += `<td class="px-4 py-3 text-sm text-gray-900">${d.change_date || '-'}</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-900">${d.effective_date || '-'}</td>`;
                 html += '</tr>';
             });
             html += '</tbody></table></div></div>';
@@ -600,6 +605,7 @@ function renderTable(employments) {
         { key: 'salary', label: '薪资', type: 'employment' },
         { key: 'change_type', label: '变动类型', type: 'employment' },
         { key: 'change_date', label: '变动日期', type: 'employment' },
+        { key: 'effective_date', label: '生效日期', type: 'employment' },
     ];
     
     // 生成表头
@@ -717,7 +723,9 @@ function renderFilterFields() {
         'employee_type': { label: '员工类别', type: 'select', options: ['实习', '试用', '外聘', '正式'] },
         'position_category': { label: '岗位类别', type: 'select', options: ['普通员工', '部门负责人', 'BOSS'] },
         'job_level': { label: '职位级别', type: 'select', options: ['初级', '中级', '高级', '其他'] },
-        'change_type': { label: '变动类型', type: 'select', options: ['入职', '转岗', '调部门', '转公司', '停薪留职', '返岗', '离职'] }
+        'change_type': { label: '变动类型', type: 'select', options: ['入职', '转岗', '调部门', '转公司', '停薪留职', '返岗', '离职'] },
+        'change_date': { label: '变动日期', type: 'text' },
+        'effective_date': { label: '生效日期', type: 'text' }
     };
     
     // 使用 Object.keys() 确保按照 schema 定义的顺序遍历

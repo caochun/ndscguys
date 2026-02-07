@@ -9,8 +9,8 @@
 {% block content %}
 <div class="px-4 py-6 sm:px-0">
     <div class="mb-6">
-        <h2 class="text-2xl font-bold text-gray-900">缴费与专项附加扣除管理</h2>
-        <p class="mt-1 text-sm text-gray-500">通过标签页查看社保基数、公积金基数和专项附加扣除信息</p>
+        <h2 class="text-2xl font-bold text-gray-900">缴费与专项附加扣除年度累计管理</h2>
+        <p class="mt-1 text-sm text-gray-500">通过标签页查看社保基数、公积金基数和专项附加扣除年度累计信息</p>
     </div>
 
     <!-- Tabs -->
@@ -24,7 +24,7 @@
                     公积金基数
                 </button>
                 <button id="tab-tax" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                    专项附加扣除
+                    专项附加扣除年度累计
                 </button>
             </nav>
             <div class="flex items-center">
@@ -35,7 +35,7 @@
                     + 新增公积金基数
                 </button>
                 <button id="add-tax-deduction-btn" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm text-sm">
-                    + 新增专项附加扣除
+                    + 新增专项附加扣除年度累计
                 </button>
             </div>
         </div>
@@ -149,7 +149,7 @@
         </div>
     </div>
 
-    <!-- 专项附加扣除 Tab 内容 -->
+    <!-- 专项附加扣除年度累计 Tab 内容 -->
     <div id="section-tax" class="tab-content hidden">
         <!-- 过滤器区域 -->
         <div id="tax-filter-section" class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
@@ -247,12 +247,12 @@
         </div>
     </div>
 
-    <!-- 详情模态框 - 专项附加扣除 -->
+    <!-- 详情模态框 - 专项附加扣除年度累计 -->
     <div id="tax-deduction-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" style="background-color: rgba(0,0,0,0.5);">
         <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
             <div class="mt-3">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-medium text-gray-900">专项附加扣除详情</h3>
+                    <h3 class="text-lg font-medium text-gray-900">专项附加扣除年度累计详情</h3>
                     <div class="flex gap-2">
                         <button id="tax-edit-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-1.5 px-3 rounded-md shadow-sm text-sm">
                             编辑
@@ -336,7 +336,7 @@
         <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
             <div class="mt-3">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-medium text-gray-900">编辑专项附加扣除</h3>
+                    <h3 class="text-lg font-medium text-gray-900">编辑专项附加扣除年度累计</h3>
                     <button id="tax-close-edit-form-modal" class="text-gray-400 hover:text-gray-500">
                         <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -429,7 +429,7 @@
         <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
             <div class="mt-3">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-medium text-gray-900">新增专项附加扣除</h3>
+                    <h3 class="text-lg font-medium text-gray-900">新增专项附加扣除年度累计</h3>
                     <button id="tax-close-add-form-modal" class="text-gray-400 hover:text-gray-500">
                         <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -2178,13 +2178,12 @@ function initTaxDeduction() {
         filterFields.innerHTML = '';
         const filterableFieldsConfig = [
             { fieldName: 'person_name', label: '人员-姓名', type: 'text' },
-            { fieldName: 'children_education_amount', label: '子女教育金额(>=)', type: 'number' },
-            { fieldName: 'continuing_education_amount', label: '继续教育金额(>=)', type: 'number' },
-            { fieldName: 'housing_loan_interest_amount', label: '住房贷款利息金额(>=)', type: 'number' },
-            { fieldName: 'housing_rent_amount', label: '住房租金金额(>=)', type: 'number' },
-            { fieldName: 'elderly_support_amount', label: '赡养老人金额(>=)', type: 'number' },
-            { fieldName: 'status', label: '状态', type: 'select', options: ['生效中', '已失效'] },
-            { fieldName: 'effective_date', label: '生效日期', type: 'date' }
+            { fieldName: 'period', label: '账期(YYYY-MM)', type: 'text' },
+            { fieldName: 'children_education_amount', label: '子女教育累计(>=)', type: 'number' },
+            { fieldName: 'continuing_education_amount', label: '继续教育累计(>=)', type: 'number' },
+            { fieldName: 'housing_loan_interest_amount', label: '住房贷款利息累计(>=)', type: 'number' },
+            { fieldName: 'housing_rent_amount', label: '住房租金累计(>=)', type: 'number' },
+            { fieldName: 'elderly_support_amount', label: '赡养老人累计(>=)', type: 'number' }
         ];
         filterableFieldsConfig.forEach(config => {
             const value = currentFilters[config.fieldName] || '';
@@ -2211,8 +2210,8 @@ function initTaxDeduction() {
 
     function getFilterValues() {
         const filters = {};
-        ['person_name', 'children_education_amount', 'continuing_education_amount', 
-         'housing_loan_interest_amount', 'housing_rent_amount', 'elderly_support_amount', 'status', 'effective_date'].forEach(fieldName => {
+        ['person_name', 'period', 'children_education_amount', 'continuing_education_amount',
+         'housing_loan_interest_amount', 'housing_rent_amount', 'elderly_support_amount'].forEach(fieldName => {
             const input = document.getElementById(`tax-filter-${fieldName}`);
             if (input && input.value && input.value.trim()) {
                 filters[fieldName] = input.value.trim();
@@ -2250,7 +2249,36 @@ function initTaxDeduction() {
             if (result.data && result.data.length > 0) {
                 renderTable(result.data);
             } else {
-                container.innerHTML = '<div class="text-center py-12 text-gray-500">暂无数据</div>';
+                // 保留表格结构，只清空表头表体并显示「暂无数据」，避免新增后无法渲染列表
+                const headerRow = document.getElementById('tax-table-header');
+                const tbody = document.getElementById('tax-table-body');
+                if (headerRow && tbody) {
+                    headerRow.innerHTML = '';
+                    tbody.innerHTML = '';
+                    const columns = [
+                        { key: 'person_name', label: '人员姓名' },
+                        { key: 'period', label: '账期' },
+                        { key: 'children_education_amount', label: '子女教育累计' },
+                        { key: 'continuing_education_amount', label: '继续教育累计' },
+                        { key: 'housing_loan_interest_amount', label: '住房贷款利息累计' },
+                        { key: 'housing_rent_amount', label: '住房租金累计' },
+                        { key: 'elderly_support_amount', label: '赡养老人累计' },
+                        { key: 'infant_childcare_amount', label: '3岁以下婴幼儿照护累计' }
+                    ];
+                    columns.forEach(col => {
+                        const th = document.createElement('th');
+                        th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+                        th.textContent = col.label;
+                        headerRow.appendChild(th);
+                    });
+                    const tr = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.setAttribute('colspan', '8');
+                    td.className = 'text-center py-12 text-gray-500';
+                    td.textContent = '暂无数据';
+                    tr.appendChild(td);
+                    tbody.appendChild(tr);
+                }
             }
         } catch (err) {
             loading.classList.add('hidden');
@@ -2267,14 +2295,13 @@ function initTaxDeduction() {
         tbody.innerHTML = '';
         const columns = [
             { key: 'person_name', label: '人员姓名' },
-            { key: 'children_education_amount', label: '子女教育' },
-            { key: 'continuing_education_amount', label: '继续教育' },
-            { key: 'housing_loan_interest_amount', label: '住房贷款利息' },
-            { key: 'housing_rent_amount', label: '住房租金' },
-            { key: 'elderly_support_amount', label: '赡养老人' },
-            { key: 'status', label: '状态' },
-            { key: 'effective_date', label: '生效日期' },
-            { key: 'expiry_date', label: '失效日期' }
+            { key: 'period', label: '账期' },
+            { key: 'children_education_amount', label: '子女教育累计' },
+            { key: 'continuing_education_amount', label: '继续教育累计' },
+            { key: 'housing_loan_interest_amount', label: '住房贷款利息累计' },
+            { key: 'housing_rent_amount', label: '住房租金累计' },
+            { key: 'elderly_support_amount', label: '赡养老人累计' },
+            { key: 'infant_childcare_amount', label: '3岁以下婴幼儿照护累计' }
         ];
         columns.forEach(col => {
             const th = document.createElement('th');
@@ -2285,24 +2312,21 @@ function initTaxDeduction() {
         records.forEach(record => {
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-gray-50 cursor-pointer';
-            tr.onclick = () => showTaxDeductionDetail(record.id);
+            tr.onclick = () => showTaxDeductionDetail(record.id, record.period);
             columns.forEach(col => {
                 const td = document.createElement('td');
                 td.className = 'whitespace-nowrap px-6 py-4 text-sm text-gray-900';
                 let value = record[col.key];
-                // 处理金额字段（6种扣除类型的金额）
-                if (col.key.endsWith('_amount') && value !== undefined && value !== null) {
-                    const amount = parseFloat(value);
-                    if (amount > 0) {
-                        td.textContent = `¥${amount.toLocaleString()}元/月`;
+                // 处理金额字段（年度累计）：0 也显示为 ¥0元，仅无值显示 -
+                if (col.key.endsWith('_amount')) {
+                    if (value !== undefined && value !== null && value !== '') {
+                        const amount = parseFloat(value);
+                        td.textContent = isNaN(amount) ? '-' : `¥${amount.toLocaleString()}元`;
                     } else {
                         td.textContent = '-';
                     }
-                } else if (col.key === 'status' && value) {
-                    const statusColor = value === '生效中' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
-                    td.innerHTML = `<span class="px-2 py-1 rounded-full text-xs font-medium ${statusColor}">${value}</span>`;
-                } else if ((col.key === 'effective_date' || col.key === 'expiry_date') && value) {
-                    td.textContent = new Date(value).toLocaleDateString('zh-CN');
+                } else if (col.key === 'period' && value) {
+                    td.textContent = value;
                 } else {
                     td.textContent = value || '-';
                 }
@@ -2312,7 +2336,7 @@ function initTaxDeduction() {
         });
     }
 
-    async function showTaxDeductionDetail(activityId) {
+    async function showTaxDeductionDetail(activityId, period) {
         try {
             const response = await fetch(`/api/twins/person_tax_deduction/${activityId}?enrich=person`);
             const result = await response.json();
@@ -2321,76 +2345,61 @@ function initTaxDeduction() {
                 return;
             }
             const data = result.data;
+            const current = data.current || {};
+            const currentPeriod = period || current.period;
             const modal = document.getElementById('tax-deduction-modal');
             const content = document.getElementById('tax-deduction-detail-content');
-            
-            // 保存当前数据以便编辑时使用
             window.currentTaxDeductionData = {
                 activityId: activityId,
+                period: currentPeriod,
                 personName: data.person?.current?.name || data.person?.name || '',
-                current: data.current || {}
+                current: current
             };
-            let html = '<div class="space-y-6">';
-            html += '<div><h4 class="text-md font-semibold text-gray-900 mb-3">当前信息</h4><div class="bg-gray-50 rounded-lg p-4 space-y-3">';
             const fields = schema.fields || {};
             const fieldNames = Object.keys(fields);
+            let html = '<div class="space-y-6">';
+            html += '<div><h4 class="text-md font-semibold text-gray-900 mb-3">当前信息</h4><div class="bg-gray-50 rounded-lg p-4 space-y-3">';
             fieldNames.forEach(fieldName => {
                 const fieldDef = fields[fieldName];
                 if (fieldDef.type === 'reference') return;
-                const value = data.current[fieldName];
-                if (value !== undefined && value !== null && value !== '') {
-                    const label = fieldDef.label || fieldName;
-                    let displayValue = value;
-                    // 处理金额字段（6种扣除类型的金额）
-                    if (fieldName.endsWith('_amount') && value !== undefined && value !== null) {
+                const value = current[fieldName];
+                const label = fieldDef.label || fieldName;
+                let displayValue = value;
+                if (fieldName.endsWith('_amount')) {
+                    if (value !== undefined && value !== null && value !== '') {
                         const amount = parseFloat(value);
-                        if (amount > 0) {
-                            displayValue = `¥${amount.toLocaleString()}元/月`;
-                        } else {
-                            displayValue = '-';
-                        }
-                    } else if (fieldDef.type === 'date') {
-                        displayValue = new Date(value).toLocaleDateString('zh-CN');
-                    } else if (fieldName === 'status') {
-                        const statusColor = value === '生效中' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
-                        displayValue = `<span class="px-2 py-1 rounded-full text-xs font-medium ${statusColor}">${value}</span>`;
-                    }
-                    html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">${label}:</span><span class="text-sm text-gray-900 flex-1">${displayValue}</span></div>`;
+                        displayValue = isNaN(amount) ? '-' : `¥${amount.toLocaleString()}元`;
+                    } else displayValue = '-';
+                } else if (value === undefined || value === null || value === '') {
+                    displayValue = '-';
                 }
+                html += `<div class="flex"><span class="text-sm font-medium text-gray-700 w-32">${label}:</span><span class="text-sm text-gray-900 flex-1">${displayValue}</span></div>`;
             });
             html += '</div></div>';
-            if (data.history && data.history.length > 1) {
-                html += '<div><h4 class="text-md font-semibold text-gray-900 mb-3">历史记录</h4><div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">版本</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">时间</th>';
+            if (data.history && data.history.length > 0) {
+                html += '<div><h4 class="text-md font-semibold text-gray-900 mb-3">各月累计</h4><div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">账期</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">时间</th>';
                 fieldNames.forEach(fieldName => {
                     const fieldDef = fields[fieldName];
                     if (fieldDef.type === 'reference') return;
-                    const label = fieldDef.label || fieldName;
-                    html += `<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">${label}</th>`;
+                    html += `<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">${fieldDef.label || fieldName}</th>`;
                 });
                 html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
                 data.history.forEach(record => {
+                    const d = record.data || {};
                     html += '<tr>';
-                    html += `<td class="px-4 py-3 text-sm text-gray-900">${record.version}</td>`;
-                    html += `<td class="px-4 py-3 text-sm text-gray-500">${new Date(record.ts).toLocaleString()}</td>`;
+                    html += `<td class="px-4 py-3 text-sm text-gray-900">${record.time_key || record.version || '-'}</td>`;
+                    html += `<td class="px-4 py-3 text-sm text-gray-500">${record.ts ? new Date(record.ts).toLocaleString() : '-'}</td>`;
                     fieldNames.forEach(fieldName => {
                         const fieldDef = fields[fieldName];
                         if (fieldDef.type === 'reference') return;
-                        let value = record.data[fieldName] || '';
-                        // 处理金额字段（6种扣除类型的金额）
-                        if (fieldName.endsWith('_amount') && value !== undefined && value !== null) {
-                            const amount = parseFloat(value);
-                            if (amount > 0) {
-                                value = `¥${amount.toLocaleString()}元/月`;
-                            } else {
-                                value = '-';
-                            }
-                        } else if (fieldDef.type === 'date' && value) {
-                            value = new Date(value).toLocaleDateString('zh-CN');
-                        } else if (fieldName === 'status' && value) {
-                            const statusColor = value === '生效中' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
-                            value = `<span class="px-2 py-1 rounded-full text-xs font-medium ${statusColor}">${value}</span>`;
+                        let value = d[fieldName];
+                        if (fieldName.endsWith('_amount')) {
+                            if (value !== undefined && value !== null && value !== '') {
+                                const amount = parseFloat(value);
+                                value = isNaN(amount) ? '-' : `¥${amount.toLocaleString()}元`;
+                            } else value = '-';
                         }
-                        html += `<td class="px-4 py-3 text-sm text-gray-900">${value || '-'}</td>`;
+                        html += `<td class="px-4 py-3 text-sm text-gray-900">${value !== undefined && value !== null && value !== '' ? value : '-'}</td>`;
                     });
                     html += '</tr>';
                 });
@@ -2429,7 +2438,7 @@ function initTaxDeduction() {
     // 打开编辑表单
     async function openEditTaxDeductionForm() {
         if (!window.currentTaxDeductionData) {
-            alert('无法编辑：未找到专项附加扣除数据');
+            alert('无法编辑：未找到专项附加扣除年度累计数据');
             return;
         }
         
@@ -2578,7 +2587,7 @@ function initTaxDeduction() {
         }
     }
 
-    // 表单验证
+    // 表单验证（专项附加扣除年度累计：含 period 必填与 YYYY-MM 格式）
     function validateTaxDeductionForm(formData) {
         const fields = schema.fields || {};
         const errors = {};
@@ -2589,21 +2598,22 @@ function initTaxDeduction() {
             const value = formData.get(fieldName);
             const validation = fieldDef.validation || {};
             
-            // 跳过 reference 字段（person_id）
             if (fieldDef.type === 'reference') continue;
             
-            // 必填验证
-            if (fieldDef.required && (!value || value.trim() === '')) {
+            if (fieldDef.required && (!value || (typeof value === 'string' && value.trim() === ''))) {
                 errors[fieldName] = `${fieldDef.label || fieldName} 是必填项`;
                 continue;
             }
             
-            // 如果值为空且不是必填，跳过其他验证
-            if (!value || value.trim() === '') {
-                continue;
+            if (!value || (typeof value === 'string' && value.trim() === '')) continue;
+            
+            if (fieldName === 'period' && validation.pattern) {
+                if (!/^\d{4}-\d{2}$/.test(String(value).trim())) {
+                    errors[fieldName] = `${fieldDef.label || fieldName} 格式应为 YYYY-MM，如 2024-01`;
+                    continue;
+                }
             }
             
-            // 数值范围验证
             if (fieldDef.type === 'decimal' || fieldDef.type === 'number') {
                 const numValue = parseFloat(value);
                 if (isNaN(numValue)) {
@@ -2659,7 +2669,7 @@ function initTaxDeduction() {
         // 获取当前专项附加扣除记录的 activityId
         const activityId = window.currentTaxDeductionData?.activityId;
         if (!activityId) {
-            alert('无法更新：未找到专项附加扣除记录ID');
+            alert('无法更新：未找到专项附加扣除年度累计记录ID');
             return;
         }
         
@@ -2816,6 +2826,9 @@ function initTaxDeduction() {
                     value = new Date().toISOString();
                 }
             }
+            if (fieldName === 'period' && !value) {
+                value = new Date().toISOString().slice(0, 7);
+            }
             
             let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
             fieldHtml += `<div class="md:col-span-1">
@@ -2823,6 +2836,9 @@ function initTaxDeduction() {
             
             if (fieldDef.validation) {
                 const validation = fieldDef.validation;
+                if (validation.pattern && fieldName === 'period') {
+                    fieldHtml += `<p class="text-xs text-gray-500 mt-1 text-right">格式: YYYY-MM，如 2024-01</p>`;
+                }
                 if (validation.min !== undefined || validation.max !== undefined) {
                     const min = validation.min !== undefined ? validation.min : '';
                     const max = validation.max !== undefined ? validation.max : '';

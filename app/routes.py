@@ -90,7 +90,7 @@ def contributions():
     """缴费与专项附加扣除汇总页（Tab 视图）"""
     social_schema = build_schema_dict("person_company_social_security_base", "社保基数")
     housing_schema = build_schema_dict("person_company_housing_fund_base", "公积金基数")
-    tax_schema = build_schema_dict("person_tax_deduction", "专项附加扣除")
+    tax_schema = build_schema_dict("person_tax_deduction", "专项附加扣除年度累计")
     return render_template("contributions.html", 
                           social_schema=social_schema,
                           housing_schema=housing_schema,

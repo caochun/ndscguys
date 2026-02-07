@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -14,6 +14,19 @@ from app.services.twin_service import TwinService
 
 # 月计薪天数（考勤扣减公式用）
 MONTHLY_WORK_DAYS = 21.75
+
+
+def _parse_date_to_compare(raw: Any) -> Optional[date]:
+    """把 effective_date 等解析为 date，用于与当前日期比较；解析失败返回 None。"""
+    if not raw:
+        return None
+    try:
+        if hasattr(raw, "year"):
+            return raw
+        s = str(raw)[:10]
+        return datetime.strptime(s, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return None
 
 
 def _prev_period(period: str) -> str:
@@ -70,6 +83,22 @@ class PayrollService:
         state = self.state_dao.get_state_by_time_key(twin_name, twin_id, time_key)
         return state.data if state and state.data else None
 
+    def _get_twin_state_for_person(
+        self, twin_name: str, person_id: int, time_key: str
+    ) -> Optional[Dict[str, Any]]:
+        """按 person_id 取 time_series twin 的某条状态，返回 state.data（用于专项附加扣除年度累计等）。"""
+        twins = self.twin_service.list_twins(
+            twin_name,
+            filters={"person_id": str(person_id)},
+        )
+        if not twins:
+            return None
+        twin_id = twins[0].get("id")
+        if twin_id is None:
+            return None
+        state = self.state_dao.get_state_by_time_key(twin_name, twin_id, time_key)
+        return state.data if state and state.data else None
+
     def _get_prev_payroll_state(
         self, person_id: int, company_id: int, period: str
     ) -> Optional[Dict[str, Any]]:
@@ -80,6 +109,28 @@ class PayrollService:
         return self._get_twin_state_for_person_company(
             "person_company_payroll", person_id, company_id, prev
         )
+
+    def _get_prev_tax3_in_year(self, ctx: PayrollContext, period: str) -> float:
+        """
+        获取上一期在同一自然年内的累计扣除项目合计（tax_3），供本期继续累计使用。
+        若上一期不存在、无 period 字段或跨年，则返回 0.0。
+        """
+        prev = ctx.prev_payroll
+        if not prev:
+            return 0.0
+        prev_period = prev.get("period")
+        if not prev_period:
+            return 0.0
+        try:
+            cur_year = int((period or "").split("-")[0])
+            prev_year = int(str(prev_period).split("-")[0])
+        except (ValueError, TypeError):
+            # 解析失败时，退化为沿用上一期的 tax_3
+            return float(prev.get("tax_3", 0) or 0)
+        if cur_year != prev_year:
+            # 跨自然年，累计从 0 重新开始
+            return 0.0
+        return float(prev.get("tax_3", 0) or 0)
 
     def _build_context(
         self, person_id: int, company_id: int, period: str
@@ -170,7 +221,9 @@ class PayrollService:
                 continue
             val = self._resolve_variable_from_spec(variable_key, spec, ctx, period)
             if val is not None:
-                out[variable_key] = round(val, 2) if isinstance(val, (int, float)) else val
+                out[variable_key] = val
+        # 为个税第 3 步「累计扣除项目合计」提供上一期同一自然年的累计值
+        out["prev_tax3_in_year"] = self._get_prev_tax3_in_year(ctx, period)
         return out
 
     # ======== 基于 config JSON 的工资计算步骤（公式仅来自 config） ========
@@ -601,7 +654,7 @@ class PayrollService:
     def _get_latest_social_base(
         self, person_id: int, company_id: int
     ) -> Optional[Dict[str, Any]]:
-        """获取最近一次社保基数"""
+        """获取生效日期不晚于当前系统日期的最近一条社保基数"""
         twins = self.twin_service.list_twins(
             "person_company_social_security_base",
             filters={
@@ -612,16 +665,21 @@ class PayrollService:
         )
         if not twins:
             return None
-        return sorted(
-            twins,
-            key=lambda x: x.get("effective_date") or "",
-            reverse=True,
-        )[0]
+        today = date.today()
+        in_effect = []
+        for t in twins:
+            eff_date = _parse_date_to_compare(t.get("effective_date"))
+            if eff_date is not None and eff_date <= today:
+                in_effect.append((t, eff_date))
+        if not in_effect:
+            return None
+        in_effect.sort(key=lambda x: x[1], reverse=True)
+        return in_effect[0][0]
 
     def _get_latest_housing_base(
         self, person_id: int, company_id: int
     ) -> Optional[Dict[str, Any]]:
-        """获取最近一次公积金基数"""
+        """获取生效日期不晚于当前系统日期的最近一条公积金基数"""
         twins = self.twin_service.list_twins(
             "person_company_housing_fund_base",
             filters={
@@ -632,53 +690,25 @@ class PayrollService:
         )
         if not twins:
             return None
-        return sorted(
-            twins,
-            key=lambda x: x.get("effective_date") or "",
-            reverse=True,
-        )[0]
+        today = date.today()
+        in_effect = []
+        for t in twins:
+            eff_date = _parse_date_to_compare(t.get("effective_date"))
+            if eff_date is not None and eff_date <= today:
+                in_effect.append((t, eff_date))
+        if not in_effect:
+            return None
+        in_effect.sort(key=lambda x: x[1], reverse=True)
+        return in_effect[0][0]
 
     def _get_active_tax_deduction(
         self, person_id: int, period: str
     ) -> Optional[Dict[str, Any]]:
         """
-        获取当前人员在指定 period 内生效的那一条专项附加扣除记录（每人每期一条）。
-        该条记录包含 7 个金额字段，专项附加扣除合计 = 这 7 个字段的加总。
-        条件：effective_date <= 本月最后一天，且 expiry_date 为空或 >= 本月第一天。
+        获取当前人员在指定 period（账期 YYYY-MM）的专项附加扣除年度累计记录（time_series，每人每期一条）。
+        该条记录包含 6 个金额字段（年度累计值），专项附加扣除合计 = 这 6 个字段的加总。
         """
-        twins = self.twin_service.list_twins(
-            "person_tax_deduction",
-            filters={"person_id": str(person_id), "status": "生效中"},
-        )
-        if not twins:
-            return None
-
-        period_start = datetime.strptime(period + "-01", "%Y-%m-%d").date()
-        if period_start.month == 12:
-            next_month = datetime(period_start.year + 1, 1, 1).date()
-        else:
-            next_month = datetime(period_start.year, period_start.month + 1, 1).date()
-        period_end = next_month.replace(day=1)
-
-        def parse_date(value: Optional[str]) -> Optional[datetime.date]:
-            if not value:
-                return None
-            try:
-                return datetime.strptime(value, "%Y-%m-%d").date()
-            except ValueError:
-                return None
-
-        for d in twins:
-            eff = parse_date(d.get("effective_date"))
-            exp = parse_date(d.get("expiry_date"))
-            if not eff:
-                continue
-            if eff > period_end:
-                continue
-            if exp and exp < period_start:
-                continue
-            return d
-        return None
+        return self._get_twin_state_for_person("person_tax_deduction", person_id, period)
 
     def _get_attendance_record(
         self, person_id: int, company_id: int, period: str
