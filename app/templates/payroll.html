@@ -280,7 +280,7 @@
   function updateFooterValues() {
     var gLast = grossSteps.length ? grossValues[String(grossSteps[grossSteps.length - 1].step)] : undefined;
     var sLast = socialSteps.length ? socialValues[String(socialSteps[socialSteps.length - 1].step)] : undefined;
-    var tLast = stepValues['tax_14'];
+    var tLast = steps.length ? stepValues[String(steps[steps.length - 1].step)] : undefined;
     if (gLast !== undefined && gLast !== null) {
       grossFooterValue.textContent = Number(gLast).toFixed(2) + ' 元';
       grossFooterValue.classList.remove('empty');
@@ -346,8 +346,8 @@
 
   function renderStepList() {
     stepListEl.innerHTML = steps.map((s, i) => {
-      const val = stepValues['tax_' + s.step];
-      const valStr = val !== undefined ? Number(val).toFixed(2) : '—';
+      const val = stepValues[String(s.step)];
+      const valStr = val !== undefined && val !== null ? Number(val).toFixed(2) : '—';
       return '<li class="step-row px-4 py-2.5 flex items-center justify-between gap-2" data-step="' + s.step + '" data-index="' + i + '">' +
         '<span class="text-sm font-medium text-gray-900 truncate">' + escapeHtml(s.step + '. ' + s.field_name) + '</span>' +
         '<span class="text-sm text-gray-500 tabular-nums flex-shrink-0">' + valStr + '</span>' +
@@ -457,8 +457,8 @@
         function esc(s) { if (s == null) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
         tbody.innerHTML = list.map(function(row) {
           var base = row.base_amount != null ? Number(row.base_amount).toFixed(2) : '—';
-          var social = row.social_5 != null ? Number(row.social_5).toFixed(2) : '—';
-          var tax = row.tax_14 != null ? Number(row.tax_14).toFixed(2) : '—';
+          var social = row.social_deduction_total != null ? Number(row.social_deduction_total).toFixed(2) : '—';
+          var tax = row.tax_monthly != null ? Number(row.tax_monthly).toFixed(2) : '—';
           var total = row.total_amount != null ? Number(row.total_amount).toFixed(2) : '—';
           var status = row.status != null ? row.status : '—';
           var name = row.person_name != null ? row.person_name : ('人员' + row.person_id);
@@ -502,15 +502,15 @@
         html += '<div class="grid grid-cols-2 gap-x-4 gap-y-1"><div class="text-gray-600">周期</div><div>' + esc(d.period) + '</div>';
         html += '<div class="text-gray-600">人员</div><div>' + esc(d.person_name) + '</div>';
         html += '<div class="text-gray-600">应发</div><div class="tabular-nums">' + num(d.base_amount) + '</div>';
-        html += '<div class="text-gray-600">社保公积金扣除</div><div class="tabular-nums">' + num(d.social_5) + '</div>';
-        html += '<div class="text-gray-600">个税</div><div class="tabular-nums">' + num(d.tax_14) + '</div>';
+        html += '<div class="text-gray-600">社保公积金扣除</div><div class="tabular-nums">' + num(d.social_deduction_total) + '</div>';
+        html += '<div class="text-gray-600">个税</div><div class="tabular-nums">' + num(d.tax_monthly) + '</div>';
         html += '<div class="text-gray-600">实发</div><div class="tabular-nums font-medium">' + num(d.total_amount) + '</div>';
         html += '<div class="text-gray-600">状态</div><div>' + esc(d.status) + '</div>';
         html += '</div></div>';
         html += '<div class="text-gray-700 font-medium mb-2">计算明细</div>';
         html += '<div class="max-h-80 overflow-y-auto border border-gray-200 rounded p-3 bg-gray-50">';
         html += '<table class="min-w-full text-xs"><tbody>';
-        var skip = { id: 1, person_id: 1, company_id: 1, period: 1, person_name: 1, labels: 1, base_amount: 1, social_5: 1, tax_14: 1, total_amount: 1, status: 1 };
+        var skip = { id: 1, person_id: 1, company_id: 1, period: 1, person_name: 1, labels: 1, base_amount: 1, social_deduction_total: 1, tax_monthly: 1, total_amount: 1, status: 1 };
         var keys = Object.keys(d).filter(function(k) { return !skip[k]; }).sort();
         keys.forEach(function(k) {
           var v = d[k];
@@ -658,8 +658,8 @@
     var i = parseInt(row.getAttribute('data-index'), 10);
     var s = steps[i];
     if (!s) return;
-    var v = stepValues['tax_' + s.step];
-    var valueStr = v !== undefined ? Number(v).toFixed(2) + ' 元' : '—';
+    var v = stepValues[String(s.step)];
+    var valueStr = v !== undefined && v !== null ? Number(v).toFixed(2) + ' 元' : '—';
     if (s.source === 'prev_month') valueStr = (v !== undefined ? Number(v).toFixed(2) : '0') + '（上月带入暂为 0）';
     var desc = (s.desc != null && s.desc !== '') ? ('第' + s.step + '步：' + s.desc) : (s.field_name || '');
     showStepTooltip(row, s.field_name || '', desc, valueStr);

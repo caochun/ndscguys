@@ -15,6 +15,9 @@ from app.services.twin_service import TwinService
 # 月计薪天数（考勤扣减公式用）
 MONTHLY_WORK_DAYS = 21.75
 
+# 在岗月数计算中「参考日」：取工资期数所在月的下一月的该日作为参考日期，用于推导「上个月」（与系统当前时间解耦）
+PAYROLL_REFERENCE_DAY = 26
+
 
 def _parse_date_to_compare(raw: Any) -> Optional[date]:
     """把 effective_date 等解析为 date，用于与当前日期比较；解析失败返回 None。"""
@@ -199,17 +202,27 @@ class PayrollService:
         self, person_id: int, company_id: int, period: str
     ) -> int:
         """
-        本年度在岗月数（按实际在公司的月数）：
-        - 入职月份：当年该人该公司聘用记录中若有 change_type=入职 且 change_date 在当年，取该月；否则取当年 1 月。
-        - 上个月：当前系统日期的上个月（如今天 2024-05-15 则上个月=2024-04）。
-        - 是否在上月离职：聘用状态中是否存在 change_type=离职 且 effective_date 的年份-月份 = 上个月。
-        - 若上个月有离职，则在岗月数 = 入职月～上个月（含）；否则 = 入职月～当前月（含），当前月取计算周期 period 所在月。
+        本年度在岗月数（按实际在公司的月数），用于减除费用 = 在岗月数 × 5000。
+        入职月、上个月、结束月均限定在「参考日所在年份」的自然年内。
+        - 参考日：period 所在月的下一月的 PAYROLL_REFERENCE_DAY 日（如 period=2025-12 → 2026-01-26）。
+        - 年度 year：参考日所在年份（ref_date.year）。
+        - 入职月：year 年内若有 change_type=入职 且 change_date 在 year 年，取最早月份；否则默认 1 月。
+        - 上个月：参考日所在月的前一月；若参考日为 1 月则上个月为去年 12 月（不在 year 内，不参与同年内逻辑）。
+        - 是否在上月离职：仅当上个月在 year 年内时，检查是否存在 离职 且 effective_date 年月 = 上个月。
+        - 结束月（均在 year 年内）：若上月有离职且上个月在 year 内则=上个月，否则=参考日的前一月；若参考日为 1 月则前一月不在 year 内，结束月取 year 年 1 月。
+        - 在岗月数 = 入职月～结束月（含）的月数，限制在 0～12。
         返回 0～12 的整数。
         """
         try:
-            year = int(period.split("-")[0])
-        except (ValueError, TypeError, AttributeError):
+            cur_y, cur_m = int(period.split("-")[0]), int(period.split("-")[1])
+        except (ValueError, TypeError, IndexError):
             return 0
+        if cur_m == 12:
+            ref_date = date(cur_y + 1, 1, min(PAYROLL_REFERENCE_DAY, 31))
+        else:
+            ref_date = date(cur_y, cur_m + 1, min(PAYROLL_REFERENCE_DAY, 31))
+        year = ref_date.year
+
         twins = self.twin_service.list_twins(
             "person_company_employment",
             filters={"person_id": str(person_id), "company_id": str(company_id)},
@@ -237,6 +250,7 @@ class PayrollService:
                     pass
             return 0, 0
 
+        # 入职月：在参考日所在年 year 内
         entry_month = 13
         for state in all_states:
             if (state.get("change_type") or "").strip() != "入职":
@@ -247,36 +261,36 @@ class PayrollService:
         if entry_month > 12:
             entry_month = 1
 
-        today = date.today()
-        if today.month == 1:
-            prev_y, prev_m = today.year - 1, 12
+        # 上个月：参考日所在月的前一月（仅在 year 年内时参与「上月离职」判断）
+        if ref_date.month == 1:
+            prev_y, prev_m = year - 1, 12
         else:
-            prev_y, prev_m = today.year, today.month - 1
-        try:
-            cur_y, cur_m = int(period.split("-")[0]), int(period.split("-")[1])
-        except (ValueError, TypeError, IndexError):
-            cur_y, cur_m = year, 12
+            prev_y, prev_m = year, ref_date.month - 1
+        prev_in_year = prev_y == year
 
         has_resignation_in_prev = False
-        for state in all_states:
-            if (state.get("change_type") or "").strip() != "离职":
-                continue
-            y, m = _ym(state.get("effective_date"))
-            if y == prev_y and m == prev_m:
-                has_resignation_in_prev = True
-                break
+        if prev_in_year:
+            for state in all_states:
+                if (state.get("change_type") or "").strip() != "离职":
+                    continue
+                y, m = _ym(state.get("effective_date"))
+                if y == prev_y and m == prev_m:
+                    has_resignation_in_prev = True
+                    break
 
-        if has_resignation_in_prev:
+        # 结束月：限定在 year 年内
+        if has_resignation_in_prev and prev_in_year:
             end_y, end_m = prev_y, prev_m
         else:
-            end_y, end_m = cur_y, cur_m
+            # 参考日的前一月 = period 所在月；若参考日为 1 月则前一月为去年 12 月，不在 year 内，结束月取 year 年 1 月
+            if ref_date.month == 1:
+                end_y, end_m = year, 1
+            else:
+                end_y, end_m = year, ref_date.month - 1
 
-        if end_y < year or (end_y == year and end_m < entry_month):
+        if end_m < entry_month:
             return 0
-        if end_y > year:
-            end_m = 12
-            end_y = year
-        months = (end_y - year) * 12 + (end_m - entry_month) + 1
+        months = (end_m - entry_month) + 1
         return min(max(0, months), 12)
 
     def _build_context(
@@ -529,8 +543,8 @@ class PayrollService:
             result[section_id] = {"steps": steps, "values": display_values}
         # 实发薪资 = 应发 - 社保公积金扣除合计 - 本月个税；写入 person_company_payroll 时使用 total_amount 字段
         base = float(result.get("gross", {}).get("values", {}).get("base_amount", 0) or 0)
-        social_total = float(result.get("social", {}).get("values", {}).get("social_5", 0) or 0)
-        tax_month = float(result.get("tax", {}).get("values", {}).get("tax_14", 0) or 0)
+        social_total = float(result.get("social", {}).get("values", {}).get("social_deduction_total", 0) or 0)
+        tax_month = float(result.get("tax", {}).get("values", {}).get("tax_monthly", 0) or 0)
         result["total_amount"] = round(max(0.0, base - social_total - tax_month), 2)
         return result
 
@@ -591,8 +605,8 @@ class PayrollService:
             if key not in ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"):
                 data[key] = round(float(val), 2) if isinstance(val, (int, float)) else val
         data["base_amount"] = round(float(result.get("gross", {}).get("values", {}).get("base_amount", 0) or 0), 2)
-        data["social_5"] = round(float(result.get("social", {}).get("values", {}).get("social_5", 0) or 0), 2)
-        data["tax_14"] = round(float(result.get("tax", {}).get("values", {}).get("tax_14", 0) or 0), 2)
+        data["social_deduction_total"] = round(float(result.get("social", {}).get("values", {}).get("social_deduction_total", 0) or 0), 2)
+        data["tax_monthly"] = round(float(result.get("tax", {}).get("values", {}).get("tax_monthly", 0) or 0), 2)
         data["total_amount"] = result.get("total_amount", 0)
         return data
 
@@ -701,7 +715,7 @@ class PayrollService:
     ) -> List[Dict[str, Any]]:
         """
         列出指定周期、公司下已创建的工资单（person_company_payroll 状态 time_key=period）。
-        返回列表项含 activity id、person_id、company_id、period、base_amount、social_5、tax_14、total_amount、status 及 person_name（enrich）。
+        返回列表项含 activity id、person_id、company_id、period、base_amount、social_deduction_total、tax_monthly、total_amount、status 及 person_name（enrich）。
         """
         activities = self.twin_service.list_twins(
             "person_company_payroll",

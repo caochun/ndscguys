@@ -80,7 +80,7 @@ def safe_eval_expression(expression: str, variables: Dict[str, Any]) -> float:
 
 
 def eval_step_expression(expression: str, variables: Dict[str, Any]) -> float:
-    """安全求值单步公式，变量可为 tax_1、gross_2 等及上下文键。"""
+    """安全求值单步公式，变量可为 tax_special_cumulative、gross_base_part 等及上下文键。"""
     if not expression or not expression.strip():
         return 0.0
     safe_vars = {}
