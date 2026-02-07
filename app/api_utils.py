@@ -11,7 +11,6 @@ from typing import Optional, Any
 from app.root_config import Config
 from app.services.twin_service import TwinService
 from app.services.payroll_service import PayrollService
-from app.schema.loader import SchemaLoader
 
 
 def standard_response(
@@ -43,8 +42,3 @@ def get_payroll_service(db_path: Optional[str] = None) -> PayrollService:
     if db_path is None:
         db_path = str(Config.DATABASE_PATH)
     return PayrollService(db_path=db_path)
-
-
-def get_schema_loader() -> SchemaLoader:
-    """获取 SchemaLoader 实例"""
-    return SchemaLoader()

@@ -16,7 +16,7 @@ from app.services.twin_service import TwinService
 # 月计薪天数（考勤扣减公式用）
 MONTHLY_WORK_DAYS = 21.75
 
-# 在岗月数计算中「参考日」：取工资期数所在月的下一月的该日作为参考日期，用于推导「上个月」（与系统当前时间解耦）
+# 在岗月数计算中「参考日」：取扣减个税期数当月的该日作为参考日期，用于推导在岗月数（与系统当前时间解耦）
 PAYROLL_REFERENCE_DAY = 26
 
 
@@ -101,7 +101,6 @@ class PayrollContext:
     housing_base: Optional[Dict[str, Any]]
     tax_deduction: Optional[Dict[str, Any]]  # 当前人员在 period 内生效的那一条专项附加扣除记录（每人每期一条）
     attendance_record: Optional[Dict[str, Any]] = None
-    prev_payroll: Optional[Dict[str, Any]] = None  # 上一期 person_company_payroll 状态（用于个税累计）
 
 
 class PayrollService:
@@ -149,24 +148,12 @@ class PayrollService:
         state = self.state_dao.get_state_by_time_key(twin_name, twin_id, time_key)
         return state.data if state and state.data else None
 
-    def _get_prev_payroll_state(
-        self, person_id: int, company_id: int, period: str
-    ) -> Optional[Dict[str, Any]]:
-        """获取此人上一期的 person_company_payroll 状态（用于个税 tax_4/tax_7/tax_13）。"""
-        prev = _prev_period(period)
-        if not prev:
-            return None
-        return self._get_twin_state_for_person_company(
-            "person_company_payroll", person_id, company_id, prev
-        )
-
     def _get_payroll_ytd_aggregates(
         self,
         person_id: int,
         company_id: int,
         salary_period: str,
         deduction_tax_period: str,
-        ctx: PayrollContext,
         spec_list: List[Dict[str, Any]],
     ) -> Dict[str, float]:
         """
@@ -381,7 +368,6 @@ class PayrollService:
         employment = self._get_employment_for_period(person_id, company_id, salary_period)
         assessment = self._get_assessment_for_period(person_id, salary_period)
         attendance_record = self._get_attendance_record(person_id, company_id, salary_period)
-        prev_payroll = self._get_prev_payroll_state(person_id, company_id, salary_period)
         social_base = self._get_social_base_for_period(person_id, company_id, deduction_tax_period)
         housing_base = self._get_housing_base_for_period(person_id, company_id, deduction_tax_period)
         tax_deduction = self._get_active_tax_deduction(person_id, deduction_tax_period)
@@ -393,7 +379,6 @@ class PayrollService:
             housing_base=housing_base,
             tax_deduction=tax_deduction,
             attendance_record=attendance_record,
-            prev_payroll=prev_payroll,
         )
 
     @staticmethod
@@ -477,10 +462,10 @@ class PayrollService:
         # 通用：当年第一期至上一期 payroll 的聚合变量（当年度、上一期、汇总区间均按 deduction_tax_period）
         ytd_specs = config.get("payroll_ytd_variables") or []
         for k, v in self._get_payroll_ytd_aggregates(
-            person_id, company_id, salary_period, deduction_tax_period, ctx, ytd_specs
+            person_id, company_id, salary_period, deduction_tax_period, ytd_specs
         ).items():
             out[k] = v
-        # 本年度在岗月数（参考日=薪资期数下一月26日所在年），按薪资期数
+        # 本年度在岗月数（参考日=扣减个税期数当月26日所在年），按 deduction_tax_period
         out["months_employed_in_year"] = self._get_months_employed_in_year(
             person_id, company_id, deduction_tax_period
         )
