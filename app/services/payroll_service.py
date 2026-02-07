@@ -59,31 +59,6 @@ def _deduction_tax_period(salary_period: str) -> str:
         return salary_period
 
 
-def _ytd_ref_date_and_year(period: str, use_next_month: bool) -> Tuple[Optional[date], int, str]:
-    """
-    供 YTD 聚合用：由期数得到参考日、当年度、当年 1 月。
-    use_next_month=True（薪资口径）：参考日 = period 下一月 26 日。
-    use_next_month=False（扣减个税口径）：参考日 = period 当月 26 日。
-    返回 (ref_date, cur_year, year_start)，解析失败时 (None, 0, "")。
-    """
-    try:
-        y, m = int(period.split("-")[0]), int(period.split("-")[1])
-    except (ValueError, TypeError, IndexError, AttributeError):
-        return None, 0, ""
-    if use_next_month:
-        if m == 12:
-            ref_date = date(y + 1, 1, min(PAYROLL_REFERENCE_DAY, 31))
-        else:
-            last_day = calendar.monthrange(y, m + 1)[1]
-            ref_date = date(y, m + 1, min(PAYROLL_REFERENCE_DAY, last_day))
-    else:
-        last_day = calendar.monthrange(y, m)[1]
-        ref_date = date(y, m, min(PAYROLL_REFERENCE_DAY, last_day))
-    cur_year = ref_date.year
-    year_start = f"{cur_year:04d}-01"
-    return ref_date, cur_year, year_start
-
-
 def _period_end_date(period: str) -> Optional[date]:
     """period 'YYYY-MM' → 该月最后一天，用于 effective_date 比较。"""
     try:
@@ -212,42 +187,89 @@ class PayrollService:
             period_type = (spec.get("period_type") or "deduction_tax").strip().lower()
             if not var_key or not field:
                 continue
-            use_next_month = period_type == "salary"
-            base_period = salary_period if use_next_month else deduction_tax_period
-            ref_date, cur_year, year_start = _ytd_ref_date_and_year(base_period, use_next_month)
-            if ref_date is None or not year_start:
-                result[var_key] = 0.0
+            if period_type == "salary":
+                # 按薪资期数：参考日 = salary_period 下一月 26 日
+                prev = _prev_period(salary_period)
+                try:
+                    sy, sm = int((salary_period or "").split("-")[0]), int((salary_period or "").split("-")[1])
+                except (ValueError, TypeError, IndexError):
+                    sy, sm = 0, 12
+                if sm == 12:
+                    ref_date = date(sy + 1, 1, min(PAYROLL_REFERENCE_DAY, 31))
+                else:
+                    last_day = calendar.monthrange(sy, sm + 1)[1]
+                    ref_date = date(sy, sm + 1, min(PAYROLL_REFERENCE_DAY, last_day))
+                cur_year = ref_date.year
+                year_start = f"{cur_year:04d}-01" if cur_year else ""
+                if agg == "last":
+                    prev_state = self._get_twin_state_for_person_company(
+                        "person_company_payroll", person_id, company_id, prev
+                    )
+                    if not prev_state:
+                        result[var_key] = 0.0
+                    else:
+                        try:
+                            prev_year = int(prev.split("-")[0]) if prev else 0
+                        except (ValueError, TypeError):
+                            prev_year = 0
+                        result[var_key] = float(prev_state.get(field, 0) or 0) if cur_year == prev_year else 0.0
+                    continue
+                if not year_start:
+                    result[var_key] = 0.0
+                    continue
+                try:
+                    prev_year = int(prev.split("-")[0]) if prev else 0
+                except (ValueError, TypeError):
+                    prev_year = 0
+                sum_end = prev if prev_year >= cur_year else year_start
+                periods = _period_range(year_start, sum_end)
+                total = 0.0
+                for p in periods:
+                    state = self._get_twin_state_for_person_company(
+                        "person_company_payroll", person_id, company_id, p
+                    )
+                    if state:
+                        total += float(state.get(field, 0) or 0)
+                result[var_key] = total
                 continue
-            prev = _prev_period(base_period)
-            # 逻辑期数 → 工资单 time_key：薪资口径用自身，扣减个税口径用上一月
-            def payroll_time_key(logical_period: str) -> str:
-                return logical_period if use_next_month else _prev_period(logical_period)
-
+            # period_type == "deduction_tax"
+            prev_dt = _prev_period(deduction_tax_period)
+            try:
+                dt_y, dt_m = int((deduction_tax_period or "").split("-")[0]), int((deduction_tax_period or "").split("-")[1])
+            except (ValueError, TypeError, IndexError):
+                dt_y, dt_m = 0, 12
+            last_day = calendar.monthrange(dt_y, dt_m)[1]
+            ref_date = date(dt_y, dt_m, min(PAYROLL_REFERENCE_DAY, last_day))
+            cur_year = ref_date.year
+            year_start = f"{cur_year:04d}-01" if cur_year else ""
             if agg == "last":
-                time_key = payroll_time_key(prev)
+                salary_key_for_prev_dt = _prev_period(prev_dt)
                 prev_state = self._get_twin_state_for_person_company(
-                    "person_company_payroll", person_id, company_id, time_key
+                    "person_company_payroll", person_id, company_id, salary_key_for_prev_dt
                 )
                 if not prev_state:
                     result[var_key] = 0.0
                 else:
                     try:
-                        prev_year = int(str(prev).split("-")[0]) if prev else 0
+                        prev_year = int(str(prev_dt).split("-")[0]) if prev_dt else 0
                     except (ValueError, TypeError):
                         prev_year = 0
                     result[var_key] = float(prev_state.get(field, 0) or 0) if cur_year == prev_year else 0.0
                 continue
+            if not year_start:
+                result[var_key] = 0.0
+                continue
             try:
-                prev_year = int(prev.split("-")[0]) if prev else 0
+                prev_year = int(prev_dt.split("-")[0]) if prev_dt else 0
             except (ValueError, TypeError):
                 prev_year = 0
-            sum_end = prev if prev_year >= cur_year else year_start
-            periods = _period_range(year_start, sum_end)
+            sum_end = prev_dt if prev_year >= cur_year else year_start
+            deduction_periods = _period_range(year_start, sum_end)
             total = 0.0
-            for p in periods:
-                time_key = payroll_time_key(p)
+            for d in deduction_periods:
+                salary_key = _prev_period(d)
                 state = self._get_twin_state_for_person_company(
-                    "person_company_payroll", person_id, company_id, time_key
+                    "person_company_payroll", person_id, company_id, salary_key
                 )
                 if state:
                     total += float(state.get(field, 0) or 0)
