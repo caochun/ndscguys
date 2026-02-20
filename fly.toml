@@ -1,0 +1,38 @@
+# fly.toml - Fly.io 部署配置
+# 首次部署前请将 app 名称改为你自己的（全局唯一）
+
+app = "ndscguys"
+primary_region = "nrt"  # 东京，离中国最近的 Fly.io 节点
+
+[build]
+
+[env]
+  FLASK_ENV = "production"
+
+[mounts]
+  source = "twin_data"
+  destination = "/app/data"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8080
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/"

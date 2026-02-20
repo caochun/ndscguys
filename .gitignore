@@ -27,9 +27,10 @@ ENV/
 .venv/
 .env/
 
-# IDE
+# IDE / Tools
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 *~
@@ -77,3 +78,6 @@ dmypy.json
 *.bak
 *.swp
 *~
+
+# Fly.io
+.fly/
