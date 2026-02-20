@@ -1,12 +1,10 @@
-# fly.toml app configuration file generated for ndsc-hr on 2026-02-20T09:27:57Z
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
-
 app = 'ndsc-hr'
 primary_region = 'nrt'
 
 [build]
+
+[env]
+  FLASK_ENV = "production"
 
 [http_service]
   internal_port = 8080
@@ -17,7 +15,6 @@ primary_region = 'nrt'
   processes = ['app']
 
 [[vm]]
-  memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
   memory_mb = 256
