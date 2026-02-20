@@ -10,6 +10,8 @@ COPY . .
 # 数据目录由 Fly.io Volume 挂载，这里只确保目录存在（首次部署时用）
 RUN mkdir -p /app/data
 
+RUN chmod +x /app/docker-entrypoint.sh
+
 EXPOSE 8080
 
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:8080", "main:app"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

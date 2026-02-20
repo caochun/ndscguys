@@ -1,0 +1,581 @@
+# payroll_metrics.yaml
+# 工资计算指标注册表 —— 所有指标的时间维度与来源在此显式声明
+#
+# temporal_type 说明：
+#   constant       - 固定常量，无时间依赖
+#   point_in_time  - 截至 period_basis 月末已生效的最新版本（事件驱动变化）
+#                    scan_mode: version_history（单 activity 遍历版本历史）
+#                             | activity_scan（多 activity 扫描最新状态）
+#   period_record  - period_basis 对应月份的那条时序记录（有则有，无则缺）
+#   config_lookup  - 按 period_basis 从配置文件查对应行
+#   ytd_sum        - 当年 1 月至上期（deduction_tax 口径）的历史工资单累计 sum
+#   prev_value     - 上期工资单的指定字段值（同年内，跨年归零）
+#   cross_period   - 跨期推导（如在岗月数），调用注册的 resolver
+#   formula        - 由 depends_on 中的其他指标通过表达式计算
+
+sections:
+  gross:
+    label: "应发薪资计算"
+    display_order:
+      - employment_salary
+      - gross_base_part
+      - gross_perf_part
+      - gross_base_discount
+      - gross_perf_discount
+      - assessment_coefficient
+      - gross_perf_actual
+      - gross_personal_leave
+      - gross_sick_leave
+      - gross_attendance_deduction
+      - reward_punishment_amount
+      - base_amount
+
+  social:
+    label: "社保公积金扣除计算"
+    display_order:
+      - social_three_insurance
+      - serious_illness_amount
+      - social_deduction
+      - social_housing_deduction
+      - social_deduction_total
+
+  tax:
+    label: "个税计算"
+    display_order:
+      - tax_special_cumulative
+      - tax_additional_total
+      - tax_deduction_total
+      - tax_cumulative_income
+      - tax_standard_deduction
+      - tax_taxable_income
+      - tax_cumulative_part
+      - tax_cumulative
+      - tax_monthly
+
+metrics:
+
+  # ── 常量 ──────────────────────────────────────────────────────────────────
+  MONTHLY_WORK_DAYS:
+    label: "月计薪天数"
+    temporal_type: constant
+    period_basis: none
+    source:
+      value: 21.75
+    persist: true
+
+  # ── point_in_time / salary_period ─────────────────────────────────────────
+  employment_salary:
+    label: "聘用薪资"
+    unit: "元"
+    temporal_type: point_in_time
+    period_basis: salary
+    source:
+      twin: person_company_employment
+      scan_mode: version_history
+      field: salary
+      effective_field: effective_date
+      transform: salary_to_monthly
+    persist: true
+    desc: "当月聘用记录月薪，用于岗位划分与考勤扣减"
+
+  base_ratio:
+    label: "基础薪资比例"
+    temporal_type: point_in_time
+    period_basis: salary
+    source:
+      twin: person_company_employment
+      scan_mode: version_history
+      field: position_category
+      effective_field: effective_date
+      transform: position_to_base_ratio
+      default: 0.7
+    persist: true
+
+  perf_ratio:
+    label: "绩效薪资比例"
+    temporal_type: point_in_time
+    period_basis: salary
+    source:
+      twin: person_company_employment
+      scan_mode: version_history
+      field: position_category
+      effective_field: effective_date
+      transform: position_to_perf_ratio
+      default: 0.3
+    persist: true
+
+  employee_discount:
+    label: "员工类别折算系数"
+    temporal_type: point_in_time
+    period_basis: salary
+    source:
+      twin: person_company_employment
+      scan_mode: version_history
+      field: employee_type
+      effective_field: effective_date
+      transform: employee_type_to_discount
+      default: 1.0
+    persist: true
+
+  assessment_coefficient:
+    label: "绩效系数"
+    temporal_type: point_in_time
+    period_basis: salary
+    source:
+      twin: person_assessment
+      scan_mode: activity_scan
+      field: grade
+      effective_field: assessment_date
+      transform: grade_to_coefficient
+      default: 1.0
+    persist: true
+    desc: "按考核等级从 assessment_grade_coefficient 配置查取"
+
+  # ── period_record / salary_period ─────────────────────────────────────────
+  personal_leave_days:
+    label: "事假天数"
+    unit: "天"
+    temporal_type: period_record
+    period_basis: salary
+    source:
+      twin: person_company_attendance
+      field: personal_leave_days
+      default: 0
+    persist: true
+
+  sick_leave_days:
+    label: "病假天数"
+    unit: "天"
+    temporal_type: period_record
+    period_basis: salary
+    source:
+      twin: person_company_attendance
+      field: sick_leave_days
+      default: 0
+    persist: true
+
+  reward_punishment_amount:
+    label: "奖惩金额"
+    unit: "元"
+    temporal_type: period_record
+    period_basis: salary
+    source:
+      twin: person_company_attendance
+      field: reward_punishment_amount
+      default: 0
+    persist: true
+
+  # ── point_in_time / deduction_tax_period ──────────────────────────────────
+  social_security_base:
+    label: "社保基数"
+    unit: "元"
+    temporal_type: point_in_time
+    period_basis: deduction_tax
+    source:
+      twin: person_company_social_security_base
+      scan_mode: version_history
+      field: base_amount
+      effective_field: effective_date
+      default: 0
+    persist: true
+
+  housing_fund_base:
+    label: "公积金基数"
+    unit: "元"
+    temporal_type: point_in_time
+    period_basis: deduction_tax
+    source:
+      twin: person_company_housing_fund_base
+      scan_mode: version_history
+      field: base_amount
+      effective_field: effective_date
+      default: 0
+    persist: true
+
+  # ── config_lookup / deduction_tax_period ──────────────────────────────────
+  pension_rate:
+    label: "养老个人比例"
+    temporal_type: config_lookup
+    period_basis: deduction_tax
+    source:
+      config: social_security_config
+      field: pension_employee_rate
+      default: 0.105
+    persist: true
+
+  unemployment_rate:
+    label: "失业个人比例"
+    temporal_type: config_lookup
+    period_basis: deduction_tax
+    source:
+      config: social_security_config
+      field: unemployment_employee_rate
+      default: 0
+    persist: true
+
+  medical_rate:
+    label: "医疗个人比例"
+    temporal_type: config_lookup
+    period_basis: deduction_tax
+    source:
+      config: social_security_config
+      field: medical_employee_rate
+      default: 0
+    persist: true
+
+  housing_rate:
+    label: "公积金个人比例"
+    temporal_type: config_lookup
+    period_basis: deduction_tax
+    source:
+      config: social_security_config
+      field: housing_fund_employee_rate
+      default: 0.12
+    persist: true
+
+  serious_illness_amount:
+    label: "大病个人缴费金额"
+    unit: "元"
+    temporal_type: config_lookup
+    period_basis: deduction_tax
+    source:
+      config: social_security_config
+      field: serious_illness_employee_amount
+      default: 0
+    persist: true
+
+  # ── period_record / deduction_tax_period ──────────────────────────────────
+  tax_deduction_children:
+    label: "子女教育"
+    unit: "元"
+    temporal_type: period_record
+    period_basis: deduction_tax
+    source:
+      twin: person_tax_deduction
+      field: children_education_amount
+      default: 0
+    persist: false
+
+  tax_deduction_continuing:
+    label: "继续教育"
+    unit: "元"
+    temporal_type: period_record
+    period_basis: deduction_tax
+    source:
+      twin: person_tax_deduction
+      field: continuing_education_amount
+      default: 0
+    persist: false
+
+  tax_deduction_housing_loan:
+    label: "住房贷款利息"
+    unit: "元"
+    temporal_type: period_record
+    period_basis: deduction_tax
+    source:
+      twin: person_tax_deduction
+      field: housing_loan_interest_amount
+      default: 0
+    persist: false
+
+  tax_deduction_housing_rent:
+    label: "住房租金"
+    unit: "元"
+    temporal_type: period_record
+    period_basis: deduction_tax
+    source:
+      twin: person_tax_deduction
+      field: housing_rent_amount
+      default: 0
+    persist: false
+
+  tax_deduction_elderly:
+    label: "赡养老人"
+    unit: "元"
+    temporal_type: period_record
+    period_basis: deduction_tax
+    source:
+      twin: person_tax_deduction
+      field: elderly_support_amount
+      default: 0
+    persist: false
+
+  tax_deduction_infant:
+    label: "3岁以下婴幼儿照护"
+    unit: "元"
+    temporal_type: period_record
+    period_basis: deduction_tax
+    source:
+      twin: person_tax_deduction
+      field: infant_childcare_amount
+      default: 0
+    persist: false
+
+  # ── cross_period ───────────────────────────────────────────────────────────
+  months_employed_in_year:
+    label: "本年度在岗月数"
+    unit: "月"
+    temporal_type: cross_period
+    period_basis: deduction_tax
+    source:
+      resolver: months_employed_in_year
+    persist: true
+    desc: "参考日=扣减个税期数当月26日；入职月～结束月（含），限0～12"
+
+  # ── ytd_sum ────────────────────────────────────────────────────────────────
+  ytd_base_amount:
+    label: "当年至上期应发金额合计"
+    unit: "元"
+    temporal_type: ytd_sum
+    period_basis: deduction_tax
+    source:
+      from_metric: base_amount
+    persist: false
+
+  ytd_tax_special_cumulative:
+    label: "当年至上期专项累计扣除合计"
+    unit: "元"
+    temporal_type: ytd_sum
+    period_basis: deduction_tax
+    source:
+      from_metric: tax_special_cumulative
+    persist: false
+
+  # ── prev_value ─────────────────────────────────────────────────────────────
+  prev_tax_cumulative:
+    label: "上期累计个税"
+    unit: "元"
+    temporal_type: prev_value
+    period_basis: deduction_tax
+    source:
+      from_metric: tax_cumulative
+    persist: false
+
+  # ── formula / 应发薪资 ────────────────────────────────────────────────────
+  gross_base_part:
+    label: "基础薪资部分"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "employment_salary * base_ratio"
+      depends_on: [employment_salary, base_ratio]
+    persist: true
+    desc: "聘用薪资 × 基础薪资比例"
+
+  gross_perf_part:
+    label: "绩效薪资部分"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "employment_salary * perf_ratio"
+      depends_on: [employment_salary, perf_ratio]
+    persist: true
+    desc: "聘用薪资 × 绩效薪资比例"
+
+  gross_base_discount:
+    label: "折算后基础薪资"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "gross_base_part * employee_discount"
+      depends_on: [gross_base_part, employee_discount]
+    persist: true
+    desc: "基础薪资部分 × 员工类别折算系数"
+
+  gross_perf_discount:
+    label: "折算后绩效薪资"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "gross_perf_part * employee_discount"
+      depends_on: [gross_perf_part, employee_discount]
+    persist: true
+    desc: "绩效薪资部分 × 员工类别折算系数"
+
+  gross_perf_actual:
+    label: "实际绩效薪资"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "gross_perf_discount * assessment_coefficient"
+      depends_on: [gross_perf_discount, assessment_coefficient]
+    persist: true
+    desc: "折算后绩效薪资 × 绩效系数"
+
+  gross_personal_leave:
+    label: "事假扣减"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "employment_salary / MONTHLY_WORK_DAYS * personal_leave_days"
+      depends_on: [employment_salary, MONTHLY_WORK_DAYS, personal_leave_days]
+    persist: true
+    desc: "聘用薪资 ÷ 月计薪天数(21.75) × 事假天数"
+
+  gross_sick_leave:
+    label: "病假扣减"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "employment_salary / MONTHLY_WORK_DAYS * 0.3 * sick_leave_days"
+      depends_on: [employment_salary, MONTHLY_WORK_DAYS, sick_leave_days]
+    persist: true
+    desc: "聘用薪资 ÷ 月计薪天数(21.75) × 0.3 × 病假天数"
+
+  gross_attendance_deduction:
+    label: "考勤扣减合计"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "gross_personal_leave + gross_sick_leave"
+      depends_on: [gross_personal_leave, gross_sick_leave]
+    persist: true
+    desc: "事假扣减 + 病假扣减"
+
+  base_amount:
+    label: "应发金额"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "max(0, gross_base_discount + gross_perf_actual - gross_attendance_deduction + reward_punishment_amount)"
+      depends_on: [gross_base_discount, gross_perf_actual, gross_attendance_deduction, reward_punishment_amount]
+    persist: true
+    desc: "折算后基础 + 实际绩效 - 考勤扣减合计 + 奖惩，结果>=0"
+
+  # ── formula / 社保公积金 ───────────────────────────────────────────────────
+  social_three_insurance:
+    label: "社保三险个人合计"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "social_security_base * (pension_rate + unemployment_rate + medical_rate)"
+      depends_on: [social_security_base, pension_rate, unemployment_rate, medical_rate]
+    persist: true
+    desc: "社保基数 × (养老 + 失业 + 医疗个人比例)"
+
+  social_deduction:
+    label: "社保个人扣除"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "social_three_insurance + serious_illness_amount"
+      depends_on: [social_three_insurance, serious_illness_amount]
+    persist: true
+    desc: "社保三险个人合计 + 大病个人缴费金额"
+
+  social_housing_deduction:
+    label: "公积金个人扣除"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "housing_fund_base * housing_rate"
+      depends_on: [housing_fund_base, housing_rate]
+    persist: true
+    desc: "公积金基数 × 公积金个人比例"
+
+  social_deduction_total:
+    label: "社保公积金扣除合计"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "social_deduction + social_housing_deduction"
+      depends_on: [social_deduction, social_housing_deduction]
+    persist: true
+    desc: "社保个人扣除 + 公积金个人扣除"
+
+  # ── formula / 个税 ─────────────────────────────────────────────────────────
+  tax_special_cumulative:
+    label: "专项累计扣除"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "social_deduction + social_housing_deduction"
+      depends_on: [social_deduction, social_housing_deduction]
+    persist: true
+    desc: "当期社保个人扣除 + 公积金个人扣除"
+
+  tax_additional_total:
+    label: "当年专项附加扣除合计"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "tax_deduction_children + tax_deduction_continuing + tax_deduction_housing_loan + tax_deduction_housing_rent + tax_deduction_elderly + tax_deduction_infant"
+      depends_on:
+        - tax_deduction_children
+        - tax_deduction_continuing
+        - tax_deduction_housing_loan
+        - tax_deduction_housing_rent
+        - tax_deduction_elderly
+        - tax_deduction_infant
+    persist: true
+    desc: "子女教育+继续教育+住房贷款利息+住房租金+赡养老人+3岁以下婴幼儿照护"
+
+  tax_deduction_total:
+    label: "累计扣除项目合计"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "ytd_tax_special_cumulative + tax_special_cumulative + tax_additional_total"
+      depends_on: [ytd_tax_special_cumulative, tax_special_cumulative, tax_additional_total]
+    persist: true
+    desc: "当年至上期专项累计扣除合计 + 当期专项累计扣除 + 当年专项附加扣除合计"
+
+  tax_cumulative_income:
+    label: "累计收入"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "ytd_base_amount + base_amount"
+      depends_on: [ytd_base_amount, base_amount]
+    persist: true
+    desc: "当年至上期应发合计 + 本期应发金额"
+
+  tax_standard_deduction:
+    label: "减除费用"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "months_employed_in_year * 5000"
+      depends_on: [months_employed_in_year]
+    persist: true
+    desc: "本年度在岗月数 × 5000"
+
+  tax_taxable_income:
+    label: "应税收入"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "base_amount - tax_special_cumulative"
+      depends_on: [base_amount, tax_special_cumulative]
+    persist: true
+    desc: "当期应发金额 - 当期专项累计扣除"
+
+  tax_cumulative_part:
+    label: "累计计税部分"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "max(0, tax_cumulative_income - tax_deduction_total - tax_standard_deduction)"
+      depends_on: [tax_cumulative_income, tax_deduction_total, tax_standard_deduction]
+    persist: true
+    desc: "max(0, 累计收入 - 累计扣除项目合计 - 减除费用)"
+
+  tax_cumulative:
+    label: "累计个税"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "cumulative_tax(tax_cumulative_part)"
+      depends_on: [tax_cumulative_part]
+    persist: true
+    desc: "按 income_tax_brackets 税率表：应纳税额 = 累计计税部分 × 税率 - 速算扣除数"
+
+  tax_monthly:
+    label: "本月个税"
+    unit: "元"
+    temporal_type: formula
+    source:
+      expression: "max(0, tax_cumulative - prev_tax_cumulative)"
+      depends_on: [tax_cumulative, prev_tax_cumulative]
+    persist: true
+    desc: "max(0, 当期累计个税 - 上期累计个税)"
