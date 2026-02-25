@@ -18,4 +18,4 @@ else
     echo "[entrypoint] 数据库已存在，跳过初始化"
 fi
 
-exec gunicorn -w 2 -b 0.0.0.0:8080 main:app
+exec gunicorn -w 2 -b 0.0.0.0:5000 main:app

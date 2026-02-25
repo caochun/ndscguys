@@ -12,6 +12,6 @@ RUN mkdir -p /app/data
 
 RUN chmod +x /app/docker-entrypoint.sh
 
-EXPOSE 8080
+EXPOSE 5000
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
