@@ -9,9 +9,13 @@ jobs:
   deploy:
     runs-on: self-hosted
 
+    defaults:
+      run:
+        working-directory: /home/chun/Develop/ndscguys
+
     steps:
-      - name: Checkout latest code
-        uses: actions/checkout@v4
+      - name: Pull latest code
+        run: git pull origin main
 
       - name: Stop existing container
         run: docker stop ndscguys || true
