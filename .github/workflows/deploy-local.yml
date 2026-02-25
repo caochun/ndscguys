@@ -1,0 +1,32 @@
+name: Deploy Locally
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout latest code
+        uses: actions/checkout@v4
+
+      - name: Stop existing container
+        run: docker stop ndscguys || true
+
+      - name: Remove existing container
+        run: docker rm ndscguys || true
+
+      - name: Build Docker image
+        run: docker build -t ndscguys:latest .
+
+      - name: Run new container
+        run: |
+          docker run -d \
+            --name ndscguys \
+            --restart unless-stopped \
+            -p 8080:8080 \
+            -v /home/chun/Develop/ndscguys/data:/app/data \
+            ndscguys:latest
