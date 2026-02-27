@@ -153,6 +153,12 @@ def config_page():
     )
 
 
+@web_bp.route("/analytics")
+def analytics():
+    """经营分析页"""
+    return render_template("analytics.html")
+
+
 @web_bp.route("/project-center")
 def project_center():
     """项目管理中心 - 统一管理合同、项目、款项"""

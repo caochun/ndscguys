@@ -11,6 +11,7 @@ from app.routes import web_bp
 from app.twin_api import twin_api_bp
 from app.payroll_api import payroll_api_bp
 from app.config_api import config_api_bp
+from app.analytics_api import analytics_api_bp
 
 
 def create_app(config_name: str = "default") -> Flask:
@@ -27,5 +28,6 @@ def create_app(config_name: str = "default") -> Flask:
     app.register_blueprint(twin_api_bp, url_prefix="/api")
     app.register_blueprint(payroll_api_bp, url_prefix="/api")
     app.register_blueprint(config_api_bp, url_prefix="/api")
-    
+    app.register_blueprint(analytics_api_bp, url_prefix="/api")
+
     return app

@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+
+{% block title %}经营分析 - HRMS{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="mb-6 flex justify-between items-center">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">经营分析</h2>
+            <p class="mt-1 text-sm text-gray-500">合同、款项、客户与项目的收益概览</p>
+        </div>
+        <button onclick="loadAll()" class="text-sm text-indigo-600 hover:text-indigo-800 px-3 py-1.5 border border-indigo-300 rounded-md hover:bg-indigo-50 transition-colors">
+            刷新数据
+        </button>
+    </div>
+
+    <!-- KPI 卡片 -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-lg shadow border border-gray-200 p-4">
+            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">合同总额</p>
+            <p id="kpi-contract" class="mt-1 text-2xl font-bold text-gray-900">—</p>
+            <p class="mt-1 text-xs text-gray-400">所有客户合同签约金额</p>
+        </div>
+        <div class="bg-white rounded-lg shadow border border-gray-200 p-4">
+            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">已收款</p>
+            <p id="kpi-collected" class="mt-1 text-2xl font-bold text-green-600">—</p>
+            <p id="kpi-collected-rate" class="mt-1 text-xs text-gray-400">占款项总额 —%</p>
+        </div>
+        <div class="bg-white rounded-lg shadow border border-gray-200 p-4">
+            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">待收款</p>
+            <p id="kpi-pending" class="mt-1 text-2xl font-bold text-yellow-600">—</p>
+            <p class="mt-1 text-xs text-gray-400">状态为「待付款」的款项</p>
+        </div>
+        <div class="bg-white rounded-lg shadow border border-gray-200 p-4 border-l-4" id="kpi-overdue-card">
+            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">逾期未收</p>
+            <p id="kpi-overdue" class="mt-1 text-2xl font-bold text-red-600">—</p>
+            <p id="kpi-overdue-count" class="mt-1 text-xs text-red-400">— 笔逾期</p>
+        </div>
+    </div>
+
+    <!-- 图表区域 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- 收款趋势 -->
+        <div class="bg-white rounded-lg shadow border border-gray-200 p-4">
+            <h3 class="text-sm font-semibold text-gray-900 mb-3">收款趋势（近12个月）</h3>
+            <div class="relative" style="height: 240px;">
+                <canvas id="trend-chart"></canvas>
+                <div id="trend-empty" class="hidden absolute inset-0 flex items-center justify-center text-sm text-gray-400">暂无数据</div>
+            </div>
+        </div>
+        <!-- 现金流预测 -->
+        <div class="bg-white rounded-lg shadow border border-gray-200 p-4">
+            <h3 class="text-sm font-semibold text-gray-900 mb-3">未来6个月现金流预测</h3>
+            <div class="relative" style="height: 240px;">
+                <canvas id="forecast-chart"></canvas>
+                <div id="forecast-empty" class="hidden absolute inset-0 flex items-center justify-center text-sm text-gray-400">暂无待收款项</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 客户收入集中度 -->
+    <div class="bg-white rounded-lg shadow border border-gray-200 p-4 mb-6">
+        <h3 class="text-sm font-semibold text-gray-900 mb-3">客户收入分析</h3>
+        <div id="clients-table-wrap">
+            <table class="min-w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-200">
+                        <th class="text-left py-2 pr-4 font-medium text-gray-500 w-1/4">客户</th>
+                        <th class="text-right py-2 pr-4 font-medium text-gray-500">合同金额</th>
+                        <th class="text-right py-2 pr-4 font-medium text-gray-500">已收款</th>
+                        <th class="text-right py-2 pr-4 font-medium text-gray-500">待收款</th>
+                        <th class="text-left py-2 font-medium text-gray-500 w-1/4">收款进度</th>
+                    </tr>
+                </thead>
+                <tbody id="clients-table-body">
+                    <tr><td colspan="5" class="text-center py-6 text-gray-400 text-sm">加载中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 项目收益明细 -->
+    <div class="bg-white rounded-lg shadow border border-gray-200 p-4">
+        <h3 class="text-sm font-semibold text-gray-900 mb-3">项目收益明细</h3>
+        <table class="min-w-full text-sm">
+            <thead>
+                <tr class="border-b border-gray-200">
+                    <th class="text-left py-2 pr-4 font-medium text-gray-500">项目名称</th>
+                    <th class="text-left py-2 pr-4 font-medium text-gray-500">状态</th>
+                    <th class="text-left py-2 pr-4 font-medium text-gray-500">项目经理</th>
+                    <th class="text-right py-2 pr-4 font-medium text-gray-500">款项数</th>
+                    <th class="text-right py-2 pr-4 font-medium text-gray-500">总收入</th>
+                    <th class="text-right py-2 pr-4 font-medium text-gray-500">已收款</th>
+                    <th class="text-right py-2 font-medium text-gray-500">待收款</th>
+                </tr>
+            </thead>
+            <tbody id="projects-table-body">
+                <tr><td colspan="7" class="text-center py-6 text-gray-400 text-sm">加载中...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+// ===== 工具函数 =====
+function fmt(n) {
+    if (n === null || n === undefined) return '—';
+    if (n >= 1e8) return '¥' + (n / 1e8).toFixed(2) + '亿';
+    if (n >= 1e4) return '¥' + (n / 1e4).toFixed(1) + '万';
+    return '¥' + n.toLocaleString();
+}
+
+function fmtRate(r) {
+    return (r * 100).toFixed(1) + '%';
+}
+
+function progressBar(rate) {
+    const pct = Math.min(Math.round(rate * 100), 100);
+    const color = pct >= 80 ? 'bg-green-500' : pct >= 40 ? 'bg-yellow-400' : 'bg-red-400';
+    return `<div class="flex items-center gap-2">
+        <div class="flex-1 bg-gray-100 rounded-full h-2">
+            <div class="${color} h-2 rounded-full" style="width:${pct}%"></div>
+        </div>
+        <span class="text-xs text-gray-500 w-9 text-right">${pct}%</span>
+    </div>`;
+}
+
+const statusColors = {
+    '筹备中': 'bg-yellow-100 text-yellow-800',
+    '进行中': 'bg-green-100 text-green-800',
+    '已暂停': 'bg-gray-100 text-gray-600',
+    '已完成': 'bg-blue-100 text-blue-800',
+    '已取消': 'bg-red-100 text-red-700',
+};
+
+let trendChart = null;
+let forecastChart = null;
+
+// ===== KPI 概览 =====
+async function loadOverview() {
+    const res = await fetch('/api/analytics/overview');
+    const { success, data } = await res.json();
+    if (!success) return;
+
+    document.getElementById('kpi-contract').textContent   = fmt(data.total_contract_amount);
+    document.getElementById('kpi-collected').textContent  = fmt(data.collected_amount);
+    document.getElementById('kpi-pending').textContent    = fmt(data.pending_amount);
+    document.getElementById('kpi-overdue').textContent    = fmt(data.overdue_amount);
+    document.getElementById('kpi-overdue-count').textContent = data.overdue_count + ' 笔逾期';
+
+    const total = data.total_payment_amount;
+    const rate  = total > 0 ? fmtRate(data.collected_amount / total) : '0%';
+    document.getElementById('kpi-collected-rate').textContent = `占款项总额 ${rate}`;
+
+    const overdueCard = document.getElementById('kpi-overdue-card');
+    if (data.overdue_count > 0) {
+        overdueCard.classList.add('border-red-400');
+    } else {
+        overdueCard.classList.remove('border-red-400');
+        document.getElementById('kpi-overdue').classList.replace('text-red-600', 'text-gray-900');
+        document.getElementById('kpi-overdue-count').textContent = '无逾期款项';
+        document.getElementById('kpi-overdue-count').classList.replace('text-red-400', 'text-gray-400');
+    }
+}
+
+// ===== 收款趋势图 =====
+async function loadTrend() {
+    const res  = await fetch('/api/analytics/collection-trend?months=12');
+    const { success, data } = await res.json();
+    if (!success) return;
+
+    const hasData = data.collected.some(v => v > 0) || data.planned.some(v => v > 0);
+    if (!hasData) {
+        document.getElementById('trend-empty').classList.remove('hidden');
+        return;
+    }
+
+    if (trendChart) trendChart.destroy();
+    const ctx = document.getElementById('trend-chart').getContext('2d');
+    trendChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.months,
+            datasets: [
+                {
+                    label: '实收',
+                    data: data.collected,
+                    backgroundColor: 'rgba(79,70,229,0.7)',
+                    borderRadius: 3,
+                    order: 1,
+                },
+                {
+                    label: '计划',
+                    data: data.planned,
+                    type: 'line',
+                    borderColor: 'rgba(245,158,11,0.9)',
+                    backgroundColor: 'rgba(245,158,11,0.1)',
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    tension: 0.3,
+                    fill: false,
+                    order: 0,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+            scales: {
+                x: { ticks: { font: { size: 10 } } },
+                y: {
+                    ticks: {
+                        font: { size: 10 },
+                        callback: v => v >= 1e4 ? (v / 1e4).toFixed(0) + '万' : v,
+                    },
+                },
+            },
+        },
+    });
+}
+
+// ===== 现金流预测图 =====
+async function loadForecast() {
+    const res = await fetch('/api/analytics/cashflow-forecast?months=6');
+    const { success, data } = await res.json();
+    if (!success) return;
+
+    const hasData = data.expected.some(v => v > 0);
+    if (!hasData) {
+        document.getElementById('forecast-empty').classList.remove('hidden');
+        return;
+    }
+
+    if (forecastChart) forecastChart.destroy();
+    const ctx = document.getElementById('forecast-chart').getContext('2d');
+    forecastChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.months,
+            datasets: [{
+                label: '预计收款',
+                data: data.expected,
+                backgroundColor: 'rgba(16,185,129,0.7)',
+                borderRadius: 3,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { ticks: { font: { size: 10 } } },
+                y: {
+                    ticks: {
+                        font: { size: 10 },
+                        callback: v => v >= 1e4 ? (v / 1e4).toFixed(0) + '万' : v,
+                    },
+                },
+            },
+        },
+    });
+}
+
+// ===== 客户分析表 =====
+async function loadClients() {
+    const res = await fetch('/api/analytics/clients');
+    const { success, data } = await res.json();
+    const tbody = document.getElementById('clients-table-body');
+
+    if (!success || !data.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-6 text-gray-400">暂无客户数据</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = data.map(c => `
+        <tr class="border-b border-gray-100 hover:bg-gray-50">
+            <td class="py-2 pr-4 font-medium text-gray-900">${c.client_company}</td>
+            <td class="py-2 pr-4 text-right text-gray-700">${fmt(c.contract_amount)}</td>
+            <td class="py-2 pr-4 text-right text-green-700">${fmt(c.collected_amount)}</td>
+            <td class="py-2 pr-4 text-right text-yellow-700">${fmt(c.pending_amount)}</td>
+            <td class="py-2">${progressBar(c.collection_rate)}</td>
+        </tr>
+    `).join('');
+}
+
+// ===== 项目收益表 =====
+async function loadProjects() {
+    const res = await fetch('/api/analytics/projects');
+    const { success, data } = await res.json();
+    const tbody = document.getElementById('projects-table-body');
+
+    if (!success || !data.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-gray-400">暂无项目数据</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = data.map(p => {
+        const sc = statusColors[p.status] || 'bg-gray-100 text-gray-600';
+        const rate = p.total_revenue > 0 ? p.collected_revenue / p.total_revenue : 0;
+        return `
+        <tr class="border-b border-gray-100 hover:bg-gray-50">
+            <td class="py-2 pr-4 font-medium text-gray-900">${p.project_name}</td>
+            <td class="py-2 pr-4">
+                ${p.status ? `<span class="text-xs px-1.5 py-0.5 rounded ${sc}">${p.status}</span>` : '—'}
+            </td>
+            <td class="py-2 pr-4 text-gray-600">${p.project_manager || '—'}</td>
+            <td class="py-2 pr-4 text-right text-gray-600">${p.payment_item_count}</td>
+            <td class="py-2 pr-4 text-right font-medium text-gray-900">${fmt(p.total_revenue)}</td>
+            <td class="py-2 pr-4 text-right text-green-700">${fmt(p.collected_revenue)}</td>
+            <td class="py-2 text-right text-yellow-700">${fmt(p.pending_revenue)}</td>
+        </tr>`;
+    }).join('');
+}
+
+// ===== 加载全部 =====
+async function loadAll() {
+    await Promise.all([
+        loadOverview(),
+        loadTrend(),
+        loadForecast(),
+        loadClients(),
+        loadProjects(),
+    ]);
+}
+
+document.addEventListener('DOMContentLoaded', loadAll);
+</script>
+{% endblock %}
