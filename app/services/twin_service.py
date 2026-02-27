@@ -304,7 +304,17 @@ class TwinService:
         # 返回创建的 Twin 信息
         return self.get_twin(twin_name, twin_id)
     
-    def update_twin(self, twin_name: str, twin_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+    def delete_twin(self, twin_name: str, twin_id: int) -> bool:
+        """
+        删除 Twin 及其所有历史状态
+
+        Returns:
+            True 如果删除成功，False 如果 Twin 不存在
+        """
+        if not self.twin_dao.twin_exists(twin_name, twin_id):
+            return False
+        return self.twin_dao.delete_twin(twin_name, twin_id)
+
         """
         更新 Twin 状态（追加新状态）
         

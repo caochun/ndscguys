@@ -92,7 +92,26 @@ def create_twin(twin_name: str):
         return standard_response(False, error=str(e), status_code=500)
 
 
-@twin_api_bp.route("/twins/<twin_name>/<int:twin_id>", methods=["PUT"])
+@twin_api_bp.route("/twins/<twin_name>/<int:twin_id>", methods=["DELETE"])
+def delete_twin(twin_name: str, twin_id: int):
+    """
+    删除 Twin 及其所有历史状态
+
+    DELETE /api/twins/<twin_name>/<twin_id>
+    """
+    try:
+        service = get_twin_service()
+        deleted = service.delete_twin(twin_name, twin_id)
+
+        if not deleted:
+            return standard_response(False, error=f"{twin_name} not found", status_code=404)
+
+        return standard_response(True, {"id": twin_id, "deleted": True})
+    except ValueError as e:
+        return standard_response(False, error=str(e), status_code=400)
+    except Exception as e:
+        return standard_response(False, error=str(e), status_code=500)
+
 def update_twin(twin_name: str, twin_id: int):
     """
     更新 Twin 状态（追加新状态）

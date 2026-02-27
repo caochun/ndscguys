@@ -107,6 +107,18 @@ class TwinDAO(BaseDAO):
                 )
                 return activity
     
+    def delete_twin(self, twin_name: str, twin_id: int) -> bool:
+        """删除 Twin 及其所有历史状态，返回是否删除成功"""
+        schema = self._get_twin_schema(twin_name)
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            # 先删除历史状态
+            cursor.execute(f"DELETE FROM {schema.state_table} WHERE twin_id = ?", (twin_id,))
+            # 再删除主记录
+            cursor.execute(f"DELETE FROM {schema.table} WHERE id = ?", (twin_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
     def twin_exists(self, twin_name: str, twin_id: int) -> bool:
         """检查 Twin 是否存在"""
         schema = self._get_twin_schema(twin_name)

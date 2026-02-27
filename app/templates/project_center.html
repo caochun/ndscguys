@@ -133,6 +133,95 @@
     </div>
 </div>
 
+<!-- ===== 模态框：人员参与列表 ===== -->
+<div id="ppp-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">参与人员</h3>
+                <p id="ppp-modal-subtitle" class="text-xs text-gray-500 mt-0.5"></p>
+            </div>
+            <button onclick="document.getElementById('ppp-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="mb-3">
+            <button onclick="openPPPEditModal(null)"
+                class="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded transition-colors">
+                + 添加参与人员
+            </button>
+        </div>
+        <div id="ppp-list" class="min-h-[80px]">
+            <p class="text-sm text-gray-400 text-center py-6">加载中...</p>
+        </div>
+    </div>
+</div>
+
+<!-- ===== 模态框：添加/编辑参与记录 ===== -->
+<div id="ppp-edit-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[60]">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 id="ppp-edit-title" class="text-lg font-semibold text-gray-900">添加参与人员</h3>
+            <button onclick="document.getElementById('ppp-edit-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <form id="ppp-edit-form" onsubmit="submitPPPForm(event)">
+            <input type="hidden" id="ppp-edit-id">
+            <input type="hidden" id="ppp-edit-pi-id">
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">人员 <span class="text-red-500">*</span></label>
+                    <select id="ppp-edit-person" required
+                        class="block w-full px-3 py-2 border-2 border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                        <option value="">请选择人员</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">参与类型 <span class="text-red-500">*</span></label>
+                    <select id="ppp-edit-type" required
+                        class="block w-full px-3 py-2 border-2 border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                        <option value="">请选择</option>
+                        <option value="实际参加">实际参加</option>
+                        <option value="名义参加">名义参加</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">开始日期</label>
+                        <input type="date" id="ppp-edit-start"
+                            class="block w-full px-3 py-2 border-2 border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">结束日期</label>
+                        <input type="date" id="ppp-edit-end"
+                            class="block w-full px-3 py-2 border-2 border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">入项进度</label>
+                    <select id="ppp-edit-progress"
+                        class="block w-full px-3 py-2 border-2 border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                        <option value="">—</option>
+                        <option value="材料准备中">材料准备中</option>
+                        <option value="已提交">已提交</option>
+                        <option value="面试中">面试中</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-4 flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('ppp-edit-modal').classList.add('hidden')"
+                    class="px-4 py-2 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">取消</button>
+                <button type="submit" class="px-4 py-2 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- ===== 模态框：关联内部项目 ===== -->
 <div id="associate-project-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
     <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
@@ -310,6 +399,7 @@ function renderPaymentItemsColumn() {
                 <div class="flex flex-col gap-1 ml-2 flex-shrink-0">
                     <button onclick="editPaymentItem(${pi.id})" class="text-xs text-indigo-600 hover:text-indigo-800 px-1.5 py-0.5 rounded hover:bg-indigo-50">编辑</button>
                     <button onclick="associateProjectToPaymentItem(${pi.id})" class="text-xs text-green-600 hover:text-green-800 px-1.5 py-0.5 rounded hover:bg-green-50">关联项目</button>
+                    <button onclick="openPPPModal(${pi.id})" class="text-xs text-purple-600 hover:text-purple-800 px-1.5 py-0.5 rounded hover:bg-purple-50">参与人员</button>
                 </div>
             </div>
         </div>`;
@@ -602,6 +692,159 @@ async function submitAssociateProjectForm(event) {
         document.getElementById('associate-project-modal').classList.add('hidden');
         await loadAllData();
     } catch (err) { alert('关联失败: ' + err.message); }
+}
+
+// ===== 人员参与管理 (PPP = person_payment_participation) =====
+let currentPPPPaymentItemId = null;
+let allPersons = [];
+
+async function loadPersons() {
+    try {
+        const res = await fetch('/api/twins/person');
+        const { success, data } = await res.json();
+        allPersons = success ? data : [];
+    } catch { allPersons = []; }
+}
+
+async function openPPPModal(paymentItemId) {
+    currentPPPPaymentItemId = paymentItemId;
+    if (!allPersons.length) await loadPersons();
+    const pi = allPaymentItems.find(p => p.id == paymentItemId);
+    const cName = pi ? contractName(pi.client_contract_id) : '';
+    const amount = pi && pi.amount ? '¥' + parseFloat(pi.amount).toLocaleString() : '';
+    const piLabel = [pi?.period, amount, cName].filter(Boolean).join(' · ');
+    document.getElementById('ppp-modal-subtitle').textContent = piLabel || `款项 #${paymentItemId}`;
+    document.getElementById('ppp-modal').classList.remove('hidden');
+    await refreshPPPList();
+}
+
+async function refreshPPPList() {
+    const container = document.getElementById('ppp-list');
+    container.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">加载中...</p>';
+    try {
+        const res = await fetch(`/api/twins/person_payment_participation?payment_item_id=${currentPPPPaymentItemId}`);
+        const { success, data } = await res.json();
+        if (!success || !data.length) {
+            container.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">暂无参与记录</p>';
+            return;
+        }
+        const rows = data.map(ppp => {
+            const person = allPersons.find(p => p.id == ppp.person_id);
+            const personName = person ? (person.name || `ID:${ppp.person_id}`) : `ID:${ppp.person_id}`;
+            const period = [ppp.start_date, ppp.end_date].filter(Boolean).join(' ~ ') || '—';
+            return `<tr class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="py-2 px-3 text-sm font-medium">${personName}</td>
+                <td class="py-2 px-3 text-sm">${ppp.participation_type || '—'}</td>
+                <td class="py-2 px-3 text-xs text-gray-500">${period}</td>
+                <td class="py-2 px-3 text-xs">${ppp.entry_progress || '—'}</td>
+                <td class="py-2 px-3 text-right whitespace-nowrap">
+                    <button onclick="openPPPEditModal(${ppp.id})" class="text-xs text-indigo-600 hover:underline mr-2">编辑</button>
+                    <button onclick="deletePPP(${ppp.id})" class="text-xs text-red-500 hover:underline">删除</button>
+                </td>
+            </tr>`;
+        }).join('');
+        container.innerHTML = `
+        <table class="min-w-full">
+            <thead>
+                <tr class="text-xs text-gray-500 bg-gray-50 border-b">
+                    <th class="text-left py-2 px-3 font-medium">人员</th>
+                    <th class="text-left py-2 px-3 font-medium">参与类型</th>
+                    <th class="text-left py-2 px-3 font-medium">时段</th>
+                    <th class="text-left py-2 px-3 font-medium">入项进度</th>
+                    <th class="py-2 px-3"></th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+    } catch (err) {
+        container.innerHTML = `<p class="text-sm text-red-400 text-center py-6">加载失败: ${err.message}</p>`;
+    }
+}
+
+function populatePersonSelect() {
+    const select = document.getElementById('ppp-edit-person');
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">请选择人员</option>';
+    allPersons.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name || `人员 ${p.id}`;
+        if (p.id == currentVal) opt.selected = true;
+        select.appendChild(opt);
+    });
+}
+
+async function openPPPEditModal(pppId) {
+    if (!allPersons.length) await loadPersons();
+    populatePersonSelect();
+    document.getElementById('ppp-edit-id').value = pppId || '';
+    document.getElementById('ppp-edit-pi-id').value = currentPPPPaymentItemId || '';
+    document.getElementById('ppp-edit-title').textContent = pppId ? '编辑参与记录' : '添加参与人员';
+    document.getElementById('ppp-edit-person').value = '';
+    document.getElementById('ppp-edit-type').value = '';
+    document.getElementById('ppp-edit-start').value = '';
+    document.getElementById('ppp-edit-end').value = '';
+    document.getElementById('ppp-edit-progress').value = '';
+
+    if (pppId) {
+        try {
+            const res = await fetch(`/api/twins/person_payment_participation/${pppId}`);
+            const { success, data } = await res.json();
+            if (success && data.current) {
+                const d = data.current;
+                document.getElementById('ppp-edit-person').value = d.person_id || '';
+                document.getElementById('ppp-edit-type').value = d.participation_type || '';
+                document.getElementById('ppp-edit-start').value = d.start_date || '';
+                document.getElementById('ppp-edit-end').value = d.end_date || '';
+                document.getElementById('ppp-edit-progress').value = d.entry_progress || '';
+            }
+        } catch (err) { alert('加载失败: ' + err.message); return; }
+    }
+    document.getElementById('ppp-edit-modal').classList.remove('hidden');
+}
+
+async function submitPPPForm(event) {
+    event.preventDefault();
+    const pppId = document.getElementById('ppp-edit-id').value || null;
+    const piId  = parseInt(document.getElementById('ppp-edit-pi-id').value);
+    const personId = parseInt(document.getElementById('ppp-edit-person').value);
+    const participationType = document.getElementById('ppp-edit-type').value;
+    const startDate    = document.getElementById('ppp-edit-start').value;
+    const endDate      = document.getElementById('ppp-edit-end').value;
+    const entryProgress = document.getElementById('ppp-edit-progress').value;
+
+    if (!personId) { alert('请选择人员'); return; }
+    if (!participationType) { alert('请选择参与类型'); return; }
+
+    const payload = { person_id: personId, payment_item_id: piId, participation_type: participationType };
+    if (startDate)     payload.start_date     = startDate;
+    if (endDate)       payload.end_date        = endDate;
+    if (entryProgress) payload.entry_progress  = entryProgress;
+
+    try {
+        const url = pppId
+            ? `/api/twins/person_payment_participation/${pppId}`
+            : '/api/twins/person_payment_participation';
+        const res = await fetch(url, {
+            method: pppId ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const result = await res.json();
+        if (!result.success) { alert('保存失败: ' + result.error); return; }
+        document.getElementById('ppp-edit-modal').classList.add('hidden');
+        await refreshPPPList();
+    } catch (err) { alert('保存失败: ' + err.message); }
+}
+
+async function deletePPP(pppId) {
+    if (!confirm('确认删除此参与记录？')) return;
+    try {
+        const res = await fetch(`/api/twins/person_payment_participation/${pppId}`, { method: 'DELETE' });
+        const result = await res.json();
+        if (!result.success) { alert('删除失败: ' + result.error); return; }
+        await refreshPPPList();
+    } catch (err) { alert('删除失败: ' + err.message); }
 }
 
 // ===== 初始化 =====
