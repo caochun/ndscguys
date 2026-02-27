@@ -315,6 +315,7 @@ class TwinService:
             return False
         return self.twin_dao.delete_twin(twin_name, twin_id)
 
+    def update_twin(self, twin_name: str, twin_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
         """
         更新 Twin 状态（追加新状态）
         

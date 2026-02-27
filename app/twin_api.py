@@ -112,10 +112,11 @@ def delete_twin(twin_name: str, twin_id: int):
     except Exception as e:
         return standard_response(False, error=str(e), status_code=500)
 
+@twin_api_bp.route("/twins/<twin_name>/<int:twin_id>", methods=["PUT"])
 def update_twin(twin_name: str, twin_id: int):
     """
     更新 Twin 状态（追加新状态）
-    
+
     PUT /api/twins/<twin_name>/<twin_id>
     Body: JSON 对象，包含要更新的字段值
     """

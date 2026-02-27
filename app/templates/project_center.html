@@ -72,7 +72,7 @@
 </div>
 
 <!-- ===== 模态框：通用实体表单（项目/合同） ===== -->
-<div id="form-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+<div id="form-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" style="background-color: rgba(0,0,0,0.5);">
     <div class="relative top-10 mx-auto p-5 border w-full max-w-xl shadow-lg rounded-md bg-white">
         <div class="flex justify-between items-center mb-4">
             <h3 id="form-modal-title" class="text-lg font-semibold text-gray-900"></h3>
@@ -94,7 +94,7 @@
 </div>
 
 <!-- ===== 模态框：新建/编辑款项 ===== -->
-<div id="payment-item-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+<div id="payment-item-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" style="background-color: rgba(0,0,0,0.5);">
     <div class="relative top-10 mx-auto p-5 border w-full max-w-xl shadow-lg rounded-md bg-white">
         <div class="flex justify-between items-center mb-4">
             <h3 id="payment-item-modal-title" class="text-lg font-semibold text-gray-900">新建款项</h3>
@@ -134,11 +134,11 @@
 </div>
 
 <!-- ===== 模态框：人员参与列表 ===== -->
-<div id="ppp-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+<div id="ppp-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" style="background-color: rgba(0,0,0,0.5);">
     <div class="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
         <div class="flex justify-between items-center mb-4">
             <div>
-                <h3 class="text-lg font-semibold text-gray-900">参与人员</h3>
+                <h3 id="ppp-modal-title" class="text-lg font-semibold text-gray-900">参与人员</h3>
                 <p id="ppp-modal-subtitle" class="text-xs text-gray-500 mt-0.5"></p>
             </div>
             <button onclick="document.getElementById('ppp-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
@@ -147,7 +147,7 @@
                 </svg>
             </button>
         </div>
-        <div class="mb-3">
+        <div id="ppp-add-btn" class="mb-3">
             <button onclick="openPPPEditModal(null)"
                 class="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded transition-colors">
                 + 添加参与人员
@@ -160,7 +160,7 @@
 </div>
 
 <!-- ===== 模态框：添加/编辑参与记录 ===== -->
-<div id="ppp-edit-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[60]">
+<div id="ppp-edit-modal" class="hidden fixed inset-0 z-[60] overflow-y-auto" style="background-color: rgba(0,0,0,0.5);">
     <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
         <div class="flex justify-between items-center mb-4">
             <h3 id="ppp-edit-title" class="text-lg font-semibold text-gray-900">添加参与人员</h3>
@@ -223,7 +223,7 @@
 </div>
 
 <!-- ===== 模态框：关联内部项目 ===== -->
-<div id="associate-project-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+<div id="associate-project-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" style="background-color: rgba(0,0,0,0.5);">
     <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-semibold text-gray-900">关联内部项目</h3>
@@ -362,6 +362,7 @@ function renderProjectsColumn() {
                 </div>
                 <div class="flex gap-1 ml-2 flex-shrink-0">
                     <button onclick="editProject(${p.id})" class="text-xs text-indigo-600 hover:text-indigo-800 px-1.5 py-0.5 rounded hover:bg-indigo-50">编辑</button>
+                    <button onclick="openProjectPersonnelModal(${p.id})" class="text-xs text-purple-600 hover:text-purple-800 px-1.5 py-0.5 rounded hover:bg-purple-50">人员</button>
                 </div>
             </div>
         </div>`;
@@ -444,6 +445,7 @@ function renderContractsColumn() {
                 <div class="flex flex-col gap-1 ml-2 flex-shrink-0">
                     <button onclick="editContract(${c.id})" class="text-xs text-indigo-600 hover:text-indigo-800 px-1.5 py-0.5 rounded hover:bg-indigo-50">编辑</button>
                     <button onclick="createPaymentItem(${c.id})" class="text-xs text-green-600 hover:text-green-800 px-1.5 py-0.5 rounded hover:bg-green-50">新建款项</button>
+                    <button onclick="openContractPersonnelModal(${c.id})" class="text-xs text-purple-600 hover:text-purple-800 px-1.5 py-0.5 rounded hover:bg-purple-50">人员</button>
                 </div>
             </div>
         </div>`;
@@ -695,7 +697,9 @@ async function submitAssociateProjectForm(event) {
 }
 
 // ===== 人员参与管理 (PPP = person_payment_participation) =====
-let currentPPPPaymentItemId = null;
+let currentPPPPaymentItemId = null; // 当前款项 ID（payment_item 模式下使用）
+let pppMode = 'payment_item';       // 'payment_item' | 'project' | 'contract'
+let pppPaymentItemIds = [];         // 当前模态框涉及的所有款项 ID
 let allPersons = [];
 
 async function loadPersons() {
@@ -706,48 +710,110 @@ async function loadPersons() {
     } catch { allPersons = []; }
 }
 
+// --- 按款项查看参与人员 ---
 async function openPPPModal(paymentItemId) {
+    pppMode = 'payment_item';
+    pppPaymentItemIds = [paymentItemId];
     currentPPPPaymentItemId = paymentItemId;
     if (!allPersons.length) await loadPersons();
+
     const pi = allPaymentItems.find(p => p.id == paymentItemId);
     const cName = pi ? contractName(pi.client_contract_id) : '';
     const amount = pi && pi.amount ? '¥' + parseFloat(pi.amount).toLocaleString() : '';
     const piLabel = [pi?.period, amount, cName].filter(Boolean).join(' · ');
+    document.getElementById('ppp-modal-title').textContent = '参与人员';
     document.getElementById('ppp-modal-subtitle').textContent = piLabel || `款项 #${paymentItemId}`;
+    document.getElementById('ppp-add-btn').classList.remove('hidden');
     document.getElementById('ppp-modal').classList.remove('hidden');
     await refreshPPPList();
 }
 
+// --- 按内部项目查看所有参与人员 ---
+async function openProjectPersonnelModal(projectId) {
+    pppMode = 'project';
+    const project = allProjects.find(p => p.id == projectId);
+    const pis = projectPaymentItems(projectId);
+    pppPaymentItemIds = pis.map(pi => pi.id);
+    if (!allPersons.length) await loadPersons();
+
+    document.getElementById('ppp-modal-title').textContent = '项目人员分布';
+    document.getElementById('ppp-modal-subtitle').textContent =
+        (project?.name || `项目 #${projectId}`) + ` · ${pis.length} 笔关联款项`;
+    document.getElementById('ppp-add-btn').classList.add('hidden');
+    document.getElementById('ppp-modal').classList.remove('hidden');
+    await refreshPPPList();
+}
+
+// --- 按客户合同查看所有参与人员 ---
+async function openContractPersonnelModal(contractId) {
+    pppMode = 'contract';
+    const contract = allContracts.find(c => c.id == contractId);
+    const pis = allPaymentItems.filter(pi => pi.client_contract_id == contractId);
+    pppPaymentItemIds = pis.map(pi => pi.id);
+    if (!allPersons.length) await loadPersons();
+
+    document.getElementById('ppp-modal-title').textContent = '合同人员分布';
+    document.getElementById('ppp-modal-subtitle').textContent =
+        (contract?.contract_name || `合同 #${contractId}`) + ` · ${pis.length} 笔款项`;
+    document.getElementById('ppp-add-btn').classList.add('hidden');
+    document.getElementById('ppp-modal').classList.remove('hidden');
+    await refreshPPPList();
+}
+
+// --- 刷新参与人员列表（支持单款项和多款项聚合） ---
 async function refreshPPPList() {
     const container = document.getElementById('ppp-list');
     container.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">加载中...</p>';
+    if (!pppPaymentItemIds.length) {
+        container.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">暂无关联款项</p>';
+        return;
+    }
     try {
-        const res = await fetch(`/api/twins/person_payment_participation?payment_item_id=${currentPPPPaymentItemId}`);
-        const { success, data } = await res.json();
-        if (!success || !data.length) {
+        const responses = await Promise.all(
+            pppPaymentItemIds.map(piId =>
+                fetch(`/api/twins/person_payment_participation?payment_item_id=${piId}`)
+                    .then(r => r.json())
+                    .then(json => json.success ? json.data.map(ppp => ({ ...ppp, _piId: piId })) : [])
+            )
+        );
+        const data = responses.flat();
+        if (!data.length) {
             container.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">暂无参与记录</p>';
             return;
         }
+        const showPiColumn = pppMode !== 'payment_item';
         const rows = data.map(ppp => {
             const person = allPersons.find(p => p.id == ppp.person_id);
             const personName = person ? (person.name || `ID:${ppp.person_id}`) : `ID:${ppp.person_id}`;
             const period = [ppp.start_date, ppp.end_date].filter(Boolean).join(' ~ ') || '—';
+            let piCell = '';
+            if (showPiColumn) {
+                const pi = allPaymentItems.find(p => p.id == ppp._piId);
+                const piLabel = pi
+                    ? [pi.period, pi.amount ? '¥' + parseFloat(pi.amount).toLocaleString() : ''].filter(Boolean).join(' ')
+                    : `款项 #${ppp._piId}`;
+                piCell = `<td class="py-2 px-3 text-xs text-gray-500 whitespace-nowrap">${piLabel}</td>`;
+            }
+            const actionBtns = pppMode === 'payment_item'
+                ? `<button onclick="openPPPEditModal(${ppp.id})" class="text-xs text-indigo-600 hover:underline mr-2">编辑</button>
+                   <button onclick="deletePPP(${ppp.id})" class="text-xs text-red-500 hover:underline">删除</button>`
+                : `<button onclick="switchToPaymentItemPPP(${ppp._piId})" class="text-xs text-indigo-600 hover:underline">查看款项</button>`;
             return `<tr class="border-b border-gray-100 hover:bg-gray-50">
                 <td class="py-2 px-3 text-sm font-medium">${personName}</td>
+                ${piCell}
                 <td class="py-2 px-3 text-sm">${ppp.participation_type || '—'}</td>
                 <td class="py-2 px-3 text-xs text-gray-500">${period}</td>
                 <td class="py-2 px-3 text-xs">${ppp.entry_progress || '—'}</td>
-                <td class="py-2 px-3 text-right whitespace-nowrap">
-                    <button onclick="openPPPEditModal(${ppp.id})" class="text-xs text-indigo-600 hover:underline mr-2">编辑</button>
-                    <button onclick="deletePPP(${ppp.id})" class="text-xs text-red-500 hover:underline">删除</button>
-                </td>
+                <td class="py-2 px-3 text-right whitespace-nowrap">${actionBtns}</td>
             </tr>`;
         }).join('');
+        const piHeader = showPiColumn ? '<th class="text-left py-2 px-3 font-medium">款项</th>' : '';
         container.innerHTML = `
         <table class="min-w-full">
             <thead>
                 <tr class="text-xs text-gray-500 bg-gray-50 border-b">
                     <th class="text-left py-2 px-3 font-medium">人员</th>
+                    ${piHeader}
                     <th class="text-left py-2 px-3 font-medium">参与类型</th>
                     <th class="text-left py-2 px-3 font-medium">时段</th>
                     <th class="text-left py-2 px-3 font-medium">入项进度</th>
@@ -759,6 +825,12 @@ async function refreshPPPList() {
     } catch (err) {
         container.innerHTML = `<p class="text-sm text-red-400 text-center py-6">加载失败: ${err.message}</p>`;
     }
+}
+
+// 从聚合视图跳转回该款项的参与人员视图
+function switchToPaymentItemPPP(piId) {
+    document.getElementById('ppp-modal').classList.add('hidden');
+    openPPPModal(piId);
 }
 
 function populatePersonSelect() {
