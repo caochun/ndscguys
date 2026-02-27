@@ -999,13 +999,6 @@ twins:
         ui:
           component: number_input
       
-      MONTHLY_WORK_DAYS:
-        type: decimal
-        required: false
-        label: "月计薪天数"
-        ui:
-          component: number_input
-      
       personal_leave_days:
         type: decimal
         required: false
@@ -1128,23 +1121,6 @@ twins:
           component: number_input
           suffix: "元"
       
-      gross_perf_discount:
-        type: decimal
-        required: false
-        label: "折算后绩效薪资"
-        description: "第2步：按员工类别折算后的绩效薪资"
-        ui:
-          component: number_input
-          suffix: "元"
-      
-      gross_coef:
-        type: decimal
-        required: false
-        label: "绩效系数"
-        description: "第3步：考核等级对应的绩效系数"
-        ui:
-          component: number_input
-      
       gross_perf_actual:
         type: decimal
         required: false
@@ -1172,24 +1148,6 @@ twins:
           component: number_input
           suffix: "元"
       
-      gross_attendance_deduction:
-        type: decimal
-        required: false
-        label: "考勤扣减合计"
-        description: "第4步：事假扣减 + 病假扣减"
-        ui:
-          component: number_input
-          suffix: "元"
-      
-      gross_reward_punishment:
-        type: decimal
-        required: false
-        label: "奖惩金额"
-        description: "第5步：考勤中的奖惩金额"
-        ui:
-          component: number_input
-          suffix: "元"
-      
       base_amount:
         type: decimal
         required: true
@@ -1207,24 +1165,6 @@ twins:
         required: false
         label: "社保三险个人合计"
         description: "第1步：社保基数×(养老+失业+医疗个人比例)"
-        ui:
-          component: number_input
-          suffix: "元"
-      
-      social_serious_illness:
-        type: decimal
-        required: false
-        label: "大病个人缴费金额"
-        description: "第2步：从社保公积金配置中取出的大病个人缴费金额"
-        ui:
-          component: number_input
-          suffix: "元"
-      
-      social_deduction:
-        type: decimal
-        required: false
-        label: "社保个人扣除"
-        description: "第3步：三险个人 + 大病个人"
         ui:
           component: number_input
           suffix: "元"
@@ -1248,15 +1188,6 @@ twins:
           suffix: "元"
       
       # ===== 个税计算中间结果与本月个税（output_key: tax_*） =====
-      tax_special_cumulative:
-        type: decimal
-        required: false
-        label: "专项累计扣除"
-        description: "社保个人扣除+公积金个人扣除（专项累计扣除）"
-        ui:
-          component: number_input
-          suffix: "元"
-      
       tax_additional_total:
         type: decimal
         required: false
@@ -1288,15 +1219,6 @@ twins:
         required: false
         label: "减除费用"
         description: "在岗月数×5000"
-        ui:
-          component: number_input
-          suffix: "元"
-      
-      tax_taxable_income:
-        type: decimal
-        required: false
-        label: "应税收入"
-        description: "应发-专项累计扣除"
         ui:
           component: number_input
           suffix: "元"

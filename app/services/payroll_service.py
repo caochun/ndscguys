@@ -163,11 +163,6 @@ class PayrollService:
                 if val is not None:
                     data[key] = round(float(val), 2) if isinstance(val, (int, float)) else val
 
-        # 保留旧 schema 字段别名（兼容已有工资单记录）
-        data["gross_coef"] = round(float(resolved.get("assessment_coefficient", 0)), 2)
-        data["social_serious_illness"] = round(float(resolved.get("serious_illness_amount", 0)), 2)
-        data["gross_reward_punishment"] = round(float(resolved.get("reward_punishment_amount", 0)), 2)
-
         # 关键汇总字段（确保覆盖）
         data["base_amount"] = round(float(resolved.get("base_amount", 0)), 2)
         data["social_deduction_total"] = round(float(resolved.get("social_deduction_total", 0)), 2)

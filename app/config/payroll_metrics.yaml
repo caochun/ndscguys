@@ -21,12 +21,10 @@ sections:
       - gross_base_part
       - gross_perf_part
       - gross_base_discount
-      - gross_perf_discount
       - assessment_coefficient
       - gross_perf_actual
       - gross_personal_leave
       - gross_sick_leave
-      - gross_attendance_deduction
       - reward_punishment_amount
       - base_amount
 
@@ -35,19 +33,16 @@ sections:
     display_order:
       - social_three_insurance
       - serious_illness_amount
-      - social_deduction
       - social_housing_deduction
       - social_deduction_total
 
   tax:
     label: "个税计算"
     display_order:
-      - tax_special_cumulative
       - tax_additional_total
       - tax_deduction_total
       - tax_cumulative_income
       - tax_standard_deduction
-      - tax_taxable_income
       - tax_cumulative_part
       - tax_cumulative
       - tax_monthly
@@ -61,7 +56,7 @@ metrics:
     period_basis: none
     source:
       value: 21.75
-    persist: true
+    persist: false
 
   # ── point_in_time / salary_period ─────────────────────────────────────────
   employment_salary:
@@ -332,13 +327,13 @@ metrics:
       from_metric: base_amount
     persist: false
 
-  ytd_tax_special_cumulative:
-    label: "当年至上期专项累计扣除合计"
+  ytd_social_deduction_total:
+    label: "当年至上期社保公积金扣除合计"
     unit: "元"
     temporal_type: ytd_sum
     period_basis: deduction_tax
     source:
-      from_metric: tax_special_cumulative
+      from_metric: social_deduction_total
     persist: false
 
   # ── prev_value ─────────────────────────────────────────────────────────────
@@ -389,7 +384,7 @@ metrics:
     source:
       expression: "gross_perf_part * employee_discount"
       depends_on: [gross_perf_part, employee_discount]
-    persist: true
+    persist: false
     desc: "绩效薪资部分 × 员工类别折算系数"
 
   gross_perf_actual:
@@ -429,7 +424,7 @@ metrics:
     source:
       expression: "gross_personal_leave + gross_sick_leave"
       depends_on: [gross_personal_leave, gross_sick_leave]
-    persist: true
+    persist: false
     desc: "事假扣减 + 病假扣减"
 
   base_amount:
@@ -460,7 +455,7 @@ metrics:
     source:
       expression: "social_three_insurance + serious_illness_amount"
       depends_on: [social_three_insurance, serious_illness_amount]
-    persist: true
+    persist: false
     desc: "社保三险个人合计 + 大病个人缴费金额"
 
   social_housing_deduction:
@@ -491,7 +486,7 @@ metrics:
     source:
       expression: "social_deduction + social_housing_deduction"
       depends_on: [social_deduction, social_housing_deduction]
-    persist: true
+    persist: false
     desc: "当期社保个人扣除 + 公积金个人扣除"
 
   tax_additional_total:
@@ -515,10 +510,10 @@ metrics:
     unit: "元"
     temporal_type: formula
     source:
-      expression: "ytd_tax_special_cumulative + tax_special_cumulative + tax_additional_total"
-      depends_on: [ytd_tax_special_cumulative, tax_special_cumulative, tax_additional_total]
+      expression: "ytd_social_deduction_total + social_deduction_total + tax_additional_total"
+      depends_on: [ytd_social_deduction_total, social_deduction_total, tax_additional_total]
     persist: true
-    desc: "当年至上期专项累计扣除合计 + 当期专项累计扣除 + 当年专项附加扣除合计"
+    desc: "当年至上期社保公积金扣除合计 + 当期社保公积金扣除合计 + 当年专项附加扣除合计"
 
   tax_cumulative_income:
     label: "累计收入"
@@ -547,7 +542,7 @@ metrics:
     source:
       expression: "base_amount - tax_special_cumulative"
       depends_on: [base_amount, tax_special_cumulative]
-    persist: true
+    persist: false
     desc: "当期应发金额 - 当期专项累计扣除"
 
   tax_cumulative_part:
