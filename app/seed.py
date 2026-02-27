@@ -286,11 +286,90 @@ def generate_project_data(db_path: Optional[str] = None):
     link(p_solar, pi4_3, "Q3运维服务")
     link(p_solar, pi4_4, "Q4运维服务")
 
+    # ── 人员与雇佣记录 ─────────────────────────────────────────
+    # 创建公司和员工用于人力成本估算
+    print("\n创建项目人员...")
+
+    company_id = twin_dao.create_entity_twin("company")
+    state_dao.append("company", company_id, {"name": "江苏尚诚能源科技有限公司"})
+
+    def make_person_with_salary(name, salary, position, dept):
+        pid = twin_dao.create_entity_twin("person")
+        state_dao.append("person", pid, {"name": name})
+        emp_id = twin_dao.create_activity_twin(
+            "person_company_employment",
+            {"person_id": pid, "company_id": company_id},
+        )
+        state_dao.append("person_company_employment", emp_id, {
+            "person_id": pid, "company_id": company_id,
+            "position": position, "department": dept,
+            "salary": salary, "salary_type": "月薪",
+            "employee_type": "正式", "change_type": "入职",
+            "change_date": "2022-06-01", "effective_date": "2022-06-01",
+        })
+        print(f"  人员: {name} [{position}] 月薪 ¥{salary:,} (ID: {pid})")
+        return pid
+
+    zhang_wei  = make_person_with_salary("张伟", 25_000, "项目经理", "技术部")
+    li_na      = make_person_with_salary("李娜", 20_000, "产品经理", "产品部")
+    wang_fang  = make_person_with_salary("王芳", 22_000, "技术主管", "技术部")
+    zhao_qiang = make_person_with_salary("赵强", 18_000, "技术工程师", "产品部")
+    chen_jing  = make_person_with_salary("陈静", 16_000, "开发工程师", "技术部")
+
+    # ── 人员 → 款项参与（person_payment_participation）────────
+    # 人力成本通过 start_date/end_date × 月薪 估算
+    print("\n创建人员款项参与记录...")
+
+    def participate(person_id, pi_id, start, end, ptype="实际参加"):
+        act_id = twin_dao.create_activity_twin(
+            "person_payment_participation",
+            {"person_id": person_id, "payment_item_id": pi_id},
+        )
+        state_dao.append("person_payment_participation", act_id, {
+            "person_id": person_id, "payment_item_id": pi_id,
+            "participation_type": ptype,
+            "start_date": start, "end_date": end,
+        })
+
+    # 智慧能源AI平台（张伟主导 + 陈静支持）
+    # pi1_1: 首付款 2024-03-05 → 张伟/陈静各参与6个月
+    participate(zhang_wei, pi1_1, "2024-01-01", "2024-06-30")
+    participate(chen_jing, pi1_1, "2024-01-01", "2024-06-30")
+    # pi1_2: 中期款 2024-09-10
+    participate(zhang_wei, pi1_2, "2024-07-01", "2024-12-31")
+    participate(chen_jing, pi1_2, "2024-07-01", "2024-12-31")
+    # pi1_3: 尾款（待收）
+    participate(zhang_wei, pi1_3, "2025-01-01", "2026-06-30")
+    # pi5_2: 合同5尾款（顾问收入，1个月）
+    participate(zhang_wei, pi5_2, "2023-11-01", "2023-12-31")
+
+    # 碳排放监测系统（李娜主导 + 陈静支持）
+    participate(li_na,    pi2_1, "2024-03-01", "2024-06-30")
+    participate(chen_jing, pi2_1, "2024-03-01", "2024-05-31")
+    participate(li_na,    pi2_2, "2024-07-01", "2025-03-31")
+    participate(li_na,    pi2_3, "2025-04-01", "2026-08-31")
+
+    # 微电网优化项目（王芳主导）
+    participate(wang_fang, pi3_1, "2023-02-01", "2023-06-30")
+    participate(wang_fang, pi3_2, "2023-07-01", "2023-12-31")
+    participate(wang_fang, pi3_3, "2024-01-01", "2024-04-30")
+    participate(wang_fang, pi5_1, "2023-05-01", "2023-06-30")
+
+    # 光伏运维数字化（赵强主导）
+    participate(zhao_qiang, pi4_1, "2024-01-01", "2024-06-30")
+    participate(zhao_qiang, pi4_2, "2024-07-01", "2025-09-30")
+    participate(zhao_qiang, pi4_3, "2025-10-01", "2026-06-30")
+    participate(zhao_qiang, pi4_4, "2026-07-01", "2026-12-31")
+
+    print(f"  已创建 {5} 名人员，{19} 条参与记录")
+
     print("\n项目管理测试数据生成完成！")
     print(f"  内部项目: 4 个")
     print(f"  客户合同: 5 个（总额 ¥8,940,000）")
     print(f"  款项:    14 笔（已收 8 笔，待收 6 笔，其中 2 笔逾期）")
     print(f"  项目-款项关联: 14 条")
+    print(f"  人员:     5 名（含月薪）")
+    print(f"  人员参与记录: 19 条（含 start_date/end_date，用于人力成本估算）")
 
 
 if __name__ == "__main__":

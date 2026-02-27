@@ -244,6 +244,115 @@ def clients():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# ---- 辅助 CTE：人员最新雇佣月薪 ----
+_LATEST_EMP_SALARY = """
+WITH latest_emp AS (
+    SELECT emp.person_id,
+           CAST(json_extract(h.data, '$.salary') AS REAL) AS monthly_salary
+    FROM person_company_employment_activities emp
+    JOIN person_company_employment_history h ON h.twin_id = emp.id
+    WHERE h.version = (
+        SELECT MAX(v.version) FROM person_company_employment_history v WHERE v.twin_id = emp.id
+    )
+)
+"""
+
+_LATEST_PPP = """
+WITH latest_ppp AS (
+    SELECT ppp.id,
+           ppp.person_id,
+           ppp.payment_item_id,
+           json_extract(h.data, '$.start_date') AS start_date,
+           json_extract(h.data, '$.end_date')   AS end_date
+    FROM person_payment_participation_activities ppp
+    JOIN person_payment_participation_history h ON h.twin_id = ppp.id
+    WHERE h.version = (
+        SELECT MAX(v.version) FROM person_payment_participation_history v WHERE v.twin_id = ppp.id
+    )
+)
+"""
+
+
+@analytics_api_bp.route("/analytics/project-profitability")
+def project_profitability():
+    """项目收益与估算人力成本对比
+    人力成本 = SUM(月薪 × 参与月数)，参与月数由 start_date/end_date 计算
+    """
+    try:
+        conn = _get_conn()
+        cur = conn.cursor()
+
+        cur.execute(f"""
+            {_LATEST_PROJECTS},
+            {_LATEST_PAYMENT_ITEMS.replace('WITH ', '')},
+            {_LATEST_EMP_SALARY.replace('WITH ', '')},
+            {_LATEST_PPP.replace('WITH ', '')},
+            project_revenue AS (
+                SELECT ipa.internal_project_id,
+                       COALESCE(SUM(pi.amount), 0)                                              AS total_revenue,
+                       COALESCE(SUM(CASE WHEN pi.status='已付款' THEN pi.amount ELSE 0 END), 0) AS collected_revenue
+                FROM internal_project_payment_activities ipa
+                JOIN latest_pi pi ON pi.id = ipa.payment_item_id
+                GROUP BY ipa.internal_project_id
+            ),
+            project_labor AS (
+                SELECT ipa.internal_project_id,
+                       COUNT(DISTINCT ppp.person_id)  AS head_count,
+                       COALESCE(SUM(
+                           emp.monthly_salary *
+                           MAX(1.0, ROUND(
+                               (julianday(ppp.end_date) - julianday(ppp.start_date)) / 30.0, 1
+                           ))
+                       ), 0) AS labor_cost
+                FROM internal_project_payment_activities ipa
+                JOIN latest_ppp ppp ON ppp.payment_item_id = ipa.payment_item_id
+                JOIN latest_emp emp ON emp.person_id = ppp.person_id
+                WHERE ppp.start_date IS NOT NULL AND ppp.end_date IS NOT NULL
+                GROUP BY ipa.internal_project_id
+            )
+            SELECT
+                ip.id,
+                ip.name,
+                ip.status,
+                ip.project_manager,
+                COALESCE(pr.total_revenue, 0)     AS total_revenue,
+                COALESCE(pr.collected_revenue, 0)  AS collected_revenue,
+                COALESCE(pl.labor_cost, 0)         AS labor_cost,
+                COALESCE(pl.head_count, 0)         AS head_count,
+                COALESCE(pr.total_revenue, 0) - COALESCE(pl.labor_cost, 0) AS gross_profit
+            FROM latest_ip ip
+            LEFT JOIN project_revenue pr ON pr.internal_project_id = ip.id
+            LEFT JOIN project_labor   pl ON pl.internal_project_id = ip.id
+            WHERE COALESCE(pr.total_revenue, 0) > 0
+            ORDER BY total_revenue DESC
+        """)
+        rows = cur.fetchall()
+        conn.close()
+
+        data = []
+        for r in rows:
+            total_revenue = round(r[4], 2)
+            labor_cost    = round(r[6], 2)
+            gross_profit  = round(r[8], 2)
+            margin        = round(gross_profit / total_revenue, 4) if total_revenue > 0 else 0
+            data.append({
+                "project_id":        r[0],
+                "project_name":      r[1] or f"项目 {r[0]}",
+                "status":            r[2],
+                "project_manager":   r[3],
+                "total_revenue":     total_revenue,
+                "collected_revenue": round(r[5], 2),
+                "labor_cost":        labor_cost,
+                "head_count":        r[7],
+                "gross_profit":      gross_profit,
+                "gross_margin":      margin,
+            })
+
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @analytics_api_bp.route("/analytics/projects")
 def projects():
     """项目维度收入分析"""

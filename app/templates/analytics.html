@@ -84,7 +84,7 @@
     </div>
 
     <!-- 项目收益明细 -->
-    <div class="bg-white rounded-lg shadow border border-gray-200 p-4">
+    <div class="bg-white rounded-lg shadow border border-gray-200 p-4 mb-6">
         <h3 class="text-sm font-semibold text-gray-900 mb-3">项目收益明细</h3>
         <table class="min-w-full text-sm">
             <thead>
@@ -99,6 +99,32 @@
                 </tr>
             </thead>
             <tbody id="projects-table-body">
+                <tr><td colspan="7" class="text-center py-6 text-gray-400 text-sm">加载中...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 项目收益 vs 人力成本对比 -->
+    <div class="bg-white rounded-lg shadow border border-gray-200 p-4 mb-6">
+        <h3 class="text-sm font-semibold text-gray-900 mb-1">项目收益 vs 人力成本</h3>
+        <p class="text-xs text-gray-400 mb-3">人力成本 = Σ（月薪 × 参与月数），基于人员款项参与记录估算</p>
+        <div class="relative mb-4" style="height: 260px;">
+            <canvas id="profitability-chart"></canvas>
+            <div id="profitability-empty" class="hidden absolute inset-0 flex items-center justify-center text-sm text-gray-400">暂无参与记录数据</div>
+        </div>
+        <table class="min-w-full text-sm">
+            <thead>
+                <tr class="border-b border-gray-200">
+                    <th class="text-left py-2 pr-4 font-medium text-gray-500">项目名称</th>
+                    <th class="text-left py-2 pr-4 font-medium text-gray-500">状态</th>
+                    <th class="text-right py-2 pr-4 font-medium text-gray-500">人力投入</th>
+                    <th class="text-right py-2 pr-4 font-medium text-gray-500">合同收入</th>
+                    <th class="text-right py-2 pr-4 font-medium text-gray-500">估算人力成本</th>
+                    <th class="text-right py-2 pr-4 font-medium text-gray-500">毛利润</th>
+                    <th class="text-left py-2 font-medium text-gray-500 w-1/5">毛利率</th>
+                </tr>
+            </thead>
+            <tbody id="profitability-table-body">
                 <tr><td colspan="7" class="text-center py-6 text-gray-400 text-sm">加载中...</td></tr>
             </tbody>
         </table>
@@ -317,6 +343,108 @@ async function loadProjects() {
     }).join('');
 }
 
+// ===== 项目收益 vs 人力成本 =====
+let profitabilityChart = null;
+
+async function loadProfitability() {
+    const res = await fetch('/api/analytics/project-profitability');
+    const { success, data } = await res.json();
+
+    if (!success || !data.length) {
+        document.getElementById('profitability-empty').classList.remove('hidden');
+        document.getElementById('profitability-table-body').innerHTML =
+            '<tr><td colspan="7" class="text-center py-6 text-gray-400">暂无参与记录（需录入人员款项参与数据）</td></tr>';
+        return;
+    }
+
+    // 图表
+    if (profitabilityChart) profitabilityChart.destroy();
+    const ctx = document.getElementById('profitability-chart').getContext('2d');
+    profitabilityChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.map(p => p.project_name),
+            datasets: [
+                {
+                    label: '合同收入',
+                    data: data.map(p => p.total_revenue),
+                    backgroundColor: 'rgba(79,70,229,0.7)',
+                    borderRadius: 3,
+                    order: 1,
+                },
+                {
+                    label: '估算人力成本',
+                    data: data.map(p => p.labor_cost),
+                    backgroundColor: 'rgba(239,68,68,0.6)',
+                    borderRadius: 3,
+                    order: 1,
+                },
+                {
+                    label: '毛利润',
+                    data: data.map(p => p.gross_profit),
+                    type: 'line',
+                    borderColor: 'rgba(16,185,129,0.9)',
+                    backgroundColor: 'rgba(16,185,129,0.1)',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    tension: 0.2,
+                    fill: false,
+                    order: 0,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => `${ctx.dataset.label}: ${fmt(ctx.raw)}`,
+                    },
+                },
+            },
+            scales: {
+                x: { ticks: { font: { size: 11 } } },
+                y: {
+                    ticks: {
+                        font: { size: 10 },
+                        callback: v => v >= 1e4 ? (v / 1e4).toFixed(0) + '万' : v,
+                    },
+                },
+            },
+        },
+    });
+
+    // 表格
+    const tbody = document.getElementById('profitability-table-body');
+    tbody.innerHTML = data.map(p => {
+        const sc = statusColors[p.status] || 'bg-gray-100 text-gray-600';
+        const marginPct = Math.round(p.gross_margin * 100);
+        const barColor = marginPct >= 50 ? 'bg-green-500' : marginPct >= 20 ? 'bg-yellow-400' : 'bg-red-400';
+        const profitColor = p.gross_profit >= 0 ? 'text-green-700' : 'text-red-600';
+        return `
+        <tr class="border-b border-gray-100 hover:bg-gray-50">
+            <td class="py-2 pr-4 font-medium text-gray-900">${p.project_name}</td>
+            <td class="py-2 pr-4">
+                ${p.status ? `<span class="text-xs px-1.5 py-0.5 rounded ${sc}">${p.status}</span>` : '—'}
+            </td>
+            <td class="py-2 pr-4 text-right text-gray-600">${p.head_count} 人</td>
+            <td class="py-2 pr-4 text-right font-medium text-gray-900">${fmt(p.total_revenue)}</td>
+            <td class="py-2 pr-4 text-right text-red-600">${fmt(p.labor_cost)}</td>
+            <td class="py-2 pr-4 text-right font-semibold ${profitColor}">${fmt(p.gross_profit)}</td>
+            <td class="py-2">
+                <div class="flex items-center gap-2">
+                    <div class="flex-1 bg-gray-100 rounded-full h-2">
+                        <div class="${barColor} h-2 rounded-full" style="width:${Math.min(marginPct, 100)}%"></div>
+                    </div>
+                    <span class="text-xs text-gray-500 w-9 text-right">${marginPct}%</span>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
 // ===== 加载全部 =====
 async function loadAll() {
     await Promise.all([
@@ -325,6 +453,7 @@ async function loadAll() {
         loadForecast(),
         loadClients(),
         loadProjects(),
+        loadProfitability(),
     ]);
 }
 
