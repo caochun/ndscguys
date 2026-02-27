@@ -184,9 +184,7 @@ def generate_test_data(db_path: Optional[str] = None):
 
     # 4. 考核：2025年12月评定为 C
     print("\n创建考核记录...")
-    assessment_id = twin_dao.create_activity_twin(
-        "person_assessment", {"person_id": person_id}
-    )
+    assessment_id = twin_dao.create_activity_twin("person_assessment", {"person_id": person_id})
     state_dao.append("person_assessment", assessment_id, {
         "person_id": person_id,
         "assessment_period": "2025年12月",
@@ -297,10 +295,10 @@ def generate_project_data(db_path: Optional[str] = None):
         print(f"  项目: {name} [{status}] (ID: {pid})")
         return pid
 
-    p_ai = make_project("智慧能源AI平台", "进行中", "张伟", "技术部")
+    p_ai     = make_project("智慧能源AI平台", "进行中", "张伟", "技术部")
     p_carbon = make_project("碳排放监测系统", "进行中", "李娜", "产品部")
-    p_micro = make_project("微电网优化项目", "已完成", "王芳", "技术部")
-    p_solar = make_project("光伏运维数字化", "筹备中", "赵强", "产品部")
+    p_micro  = make_project("微电网优化项目", "已完成", "王芳", "技术部")
+    p_solar  = make_project("光伏运维数字化", "筹备中", "赵强", "产品部")
 
     # ── 客户合同 ──────────────────────────────────────────────
     print("\n创建客户合同...")
@@ -316,29 +314,18 @@ def generate_project_data(db_path: Optional[str] = None):
         print(f"  合同: {cname} / {company} ¥{amount:,.0f} (ID: {cid})")
         return cid
 
-    c1 = make_contract(
-        "智慧能源平台建设合同", "南京电网集团", 3_200_000, "专项", "执行中", "HT-2024-001",
-    )
-    c2 = make_contract(
-        "碳排放监测系统合同", "江苏环保科技", 1_500_000, "专项", "执行中", "HT-2024-002",
-    )
-    c3 = make_contract(
-        "微电网优化服务合同", "苏州工业园能源", 2_800_000, "专项", "已完成", "HT-2023-008",
-    )
-    c4 = make_contract(
-        "光伏运维年度服务合同", "无锡新能源", 960_000, "劳务", "已签订", "HT-2024-003",
-    )
-    c5 = make_contract(
-        "能源咨询顾问合同", "南京电网集团", 480_000, "专项", "已完成", "HT-2023-012",
-    )
+    c1 = make_contract("智慧能源平台建设合同",  "南京电网集团",    3_200_000, "专项", "执行中",  "HT-2024-001")
+    c2 = make_contract("碳排放监测系统合同",    "江苏环保科技",    1_500_000, "专项", "执行中",  "HT-2024-002")
+    c3 = make_contract("微电网优化服务合同",    "苏州工业园能源",  2_800_000, "专项", "已完成",  "HT-2023-008")
+    c4 = make_contract("光伏运维年度服务合同",  "无锡新能源",       960_000, "劳务", "已签订",  "HT-2024-003")
+    c5 = make_contract("能源咨询顾问合同",      "南京电网集团",     480_000, "专项", "已完成",  "HT-2023-012")
 
     # ── 款项 ──────────────────────────────────────────────────
     # 字段：client_contract_id, period, amount, status,
     #       planned_payment_date, actual_payment_date, description
     print("\n创建款项...")
 
-    def make_pi(contract_id, period, amount, status, planned,
-                actual=None, desc=""):
+    def make_pi(contract_id, period, amount, status, planned, actual=None, desc=""):
         pi_id = twin_dao.create_entity_twin("payment_item")
         data = {
             "client_contract_id": contract_id,
@@ -349,13 +336,8 @@ def generate_project_data(db_path: Optional[str] = None):
         if actual:
             data["actual_payment_date"] = actual
         state_dao.append("payment_item", pi_id, data)
-        mark = "✓" if status == "已付款" else (
-            "!" if planned < "2026-02-27" else "…"
-        )
-        print(
-            f"  款项 {mark} {period} ¥{amount:>12,.0f}"
-            f"  [{status}]  合同ID={contract_id}"
-        )
+        mark = "✓" if status == "已付款" else ("!" if planned < "2026-02-27" else "…")
+        print(f"  款项 {mark} {period} ¥{amount:>12,.0f}  [{status}]  合同ID={contract_id}")
         return pi_id
 
     # 合同1 — 智慧能源平台（3 期，已收2期）
@@ -447,11 +429,11 @@ def generate_project_data(db_path: Optional[str] = None):
         print(f"  人员: {name} [{position}] 月薪 ¥{salary:,} (ID: {pid})")
         return pid
 
-    zhang_wei = make_person_with_salary("张伟", 25_000, "项目经理", "技术部")
-    li_na = make_person_with_salary("李娜", 20_000, "产品经理", "产品部")
-    wang_fang = make_person_with_salary("王芳", 22_000, "技术主管", "技术部")
+    zhang_wei  = make_person_with_salary("张伟", 25_000, "项目经理", "技术部")
+    li_na      = make_person_with_salary("李娜", 20_000, "产品经理", "产品部")
+    wang_fang  = make_person_with_salary("王芳", 22_000, "技术主管", "技术部")
     zhao_qiang = make_person_with_salary("赵强", 18_000, "技术工程师", "产品部")
-    chen_jing = make_person_with_salary("陈静", 16_000, "开发工程师", "技术部")
+    chen_jing  = make_person_with_salary("陈静", 16_000, "开发工程师", "技术部")
 
     # ── 人员 → 款项参与（person_payment_participation）────────
     # 人力成本通过 start_date/end_date × 月薪 估算
@@ -498,7 +480,7 @@ def generate_project_data(db_path: Optional[str] = None):
     participate(zhao_qiang, pi4_3, "2025-10-01", "2026-06-30")
     participate(zhao_qiang, pi4_4, "2026-07-01", "2026-12-31")
 
-    print("  已创建 5 名人员，19 条参与记录")
+    print(f"  已创建 {5} 名人员，{19} 条参与记录")
 
     print("\n项目管理测试数据生成完成！")
     print("  内部项目: 4 个")
