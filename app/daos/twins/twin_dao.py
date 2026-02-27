@@ -40,24 +40,37 @@ class TwinDAO(BaseDAO):
         schema = self._get_twin_schema(twin_name)
         if schema.type != "activity":
             raise ValueError(f"Expected activity twin, got {schema.type}")
-        
+
         if not schema.related_entities:
             raise ValueError(f"Activity twin {twin_name} has no related entities")
-        
-        # 验证所有必需的关联实体
+
+        # 验证所有必需的关联实体（字段存在性）
         for rel_entity in schema.related_entities:
             if rel_entity.required:
                 key = rel_entity.key
                 if key not in related_entity_ids:
                     raise ValueError(f"Missing required entity: {key}")
-        
+
         # 构建插入语句
         columns = [rel.key for rel in schema.related_entities]
         placeholders = ", ".join(["?" for _ in columns])
         values = [related_entity_ids[rel.key] for rel in schema.related_entities]
-        
+
         with self.get_connection() as conn:
             cursor = conn.cursor()
+            # 在同一连接内验证关联实体实际存在
+            for rel_entity in schema.related_entities:
+                key = rel_entity.key
+                if key in related_entity_ids:
+                    entity_schema = self._get_twin_schema(rel_entity.entity)
+                    cursor.execute(
+                        f"SELECT 1 FROM {entity_schema.table} WHERE id = ?",
+                        (related_entity_ids[key],)
+                    )
+                    if cursor.fetchone() is None:
+                        raise ValueError(
+                            f"Referenced {rel_entity.entity} not found: {key}={related_entity_ids[key]}"
+                        )
             cursor.execute(
                 f"INSERT INTO {schema.table} ({', '.join(columns)}) VALUES ({placeholders})",
                 values
@@ -127,3 +140,35 @@ class TwinDAO(BaseDAO):
             cursor.execute(f"SELECT 1 FROM {schema.table} WHERE id = ?", (twin_id,))
             exists = cursor.fetchone() is not None
         return exists
+
+    def get_all_related_entity_ids(
+        self, twin_name: str, twin_ids: List[int]
+    ) -> Dict[int, Dict[str, int]]:
+        """
+        批量获取 Activity Twin 的关联实体 ID，避免 N+1 查询。
+
+        Returns:
+            {twin_id: {key: entity_id, ...}, ...}
+        """
+        schema = self._get_twin_schema(twin_name)
+        if schema.type != "activity" or not schema.related_entities or not twin_ids:
+            return {}
+
+        related_keys = [rel.key for rel in schema.related_entities]
+        columns = ["id"] + related_keys
+        placeholders = ",".join(["?" for _ in twin_ids])
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                f"SELECT {', '.join(columns)} FROM {schema.table} WHERE id IN ({placeholders})",
+                twin_ids,
+            )
+            rows = cursor.fetchall()
+
+        result: Dict[int, Dict[str, int]] = {}
+        for row in rows:
+            row_dict = dict(row)
+            tid = row_dict["id"]
+            result[tid] = {key: row_dict[key] for key in related_keys}
+        return result

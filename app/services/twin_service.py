@@ -104,24 +104,23 @@ class TwinService:
         
         # 普通查询（不使用 enrich）
         latest_states = self.state_dao.query_latest_states(twin_name, filters=filters)
-        
+
+        # 若是 Activity Twin，批量获取所有关联实体 ID（一次查询，消除 N+1）
+        related_ids_map: Dict[int, Dict[str, int]] = {}
+        if self._is_activity_twin(twin_name) and latest_states:
+            twin_ids = [s.twin_id for s in latest_states]
+            related_ids_map = self.twin_dao.get_all_related_entity_ids(twin_name, twin_ids)
+
         twins = []
         for state in latest_states:
             twin_info = {
                 "id": state.twin_id,
                 **state.data  # 展开状态数据
             }
-            
-            # 如果是 Activity Twin，添加关联实体ID
-            if self._is_activity_twin(twin_name):
-                activity = self.twin_dao.get_twin(twin_name, state.twin_id)
-                if activity and isinstance(activity, ActivityTwin):
-                    # 添加关联实体ID到结果中
-                    for key, value in activity.related_entity_ids.items():
-                        twin_info[key] = value
-            
+            if state.twin_id in related_ids_map:
+                twin_info.update(related_ids_map[state.twin_id])
             twins.append(twin_info)
-        
+
         return twins
     
     def get_twin(self, twin_name: str, twin_id: int, enrich: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -222,23 +221,23 @@ class TwinService:
             Twin 列表
         """
         states = self.state_dao.query_states(twin_name, filters=filters, order_by=order_by, limit=limit)
-        
+
+        # 若是 Activity Twin，批量获取所有关联实体 ID（一次查询，消除 N+1）
+        related_ids_map: Dict[int, Dict[str, int]] = {}
+        if self._is_activity_twin(twin_name) and states:
+            twin_ids = [s.twin_id for s in states]
+            related_ids_map = self.twin_dao.get_all_related_entity_ids(twin_name, twin_ids)
+
         twins = []
         for state in states:
             twin_info = {
                 "id": state.twin_id,
                 **state.data
             }
-            
-            # 如果是 Activity Twin，添加关联实体ID
-            if self._is_activity_twin(twin_name):
-                activity = self.twin_dao.get_twin(twin_name, state.twin_id)
-                if activity and isinstance(activity, ActivityTwin):
-                    for key, value in activity.related_entity_ids.items():
-                        twin_info[key] = value
-            
+            if state.twin_id in related_ids_map:
+                twin_info.update(related_ids_map[state.twin_id])
             twins.append(twin_info)
-        
+
         return twins
     
     def create_twin(self, twin_name: str, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -298,9 +297,13 @@ class TwinService:
                         time_key = data.get(key)
                         break
         
-        # 添加初始状态
-        self.state_dao.append(twin_name, twin_id, data, time_key=time_key)
-        
+        # 添加初始状态；若失败则删除刚创建的 Twin（补偿事务）
+        try:
+            self.state_dao.append(twin_name, twin_id, data, time_key=time_key)
+        except Exception:
+            self.twin_dao.delete_twin(twin_name, twin_id)
+            raise
+
         # 返回创建的 Twin 信息
         return self.get_twin(twin_name, twin_id)
     

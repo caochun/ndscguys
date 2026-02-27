@@ -16,9 +16,25 @@ from app.schema.models import TwinSchema, FieldDefinition
 
 class TwinStateDAO(BaseDAO):
     """Twin 状态流 DAO"""
-    
+
+    # order_by 白名单：只允许已知列名和排序方向，防止 SQL 注入
+    _ALLOWED_SORT_FIELDS = {"version", "time_key", "ts"}
+    _ALLOWED_SORT_DIRECTIONS = {"ASC", "DESC"}
+
+    @classmethod
+    def _validate_order_by(cls, order_by: str) -> str:
+        """校验并标准化 order_by 字符串，不合法时抛出 ValueError"""
+        parts = order_by.strip().split()
+        field = parts[0]
+        direction = parts[1].upper() if len(parts) > 1 else "ASC"
+        if field not in cls._ALLOWED_SORT_FIELDS:
+            raise ValueError(f"Invalid sort field: {field!r}. Allowed: {cls._ALLOWED_SORT_FIELDS}")
+        if direction not in cls._ALLOWED_SORT_DIRECTIONS:
+            raise ValueError(f"Invalid sort direction: {direction!r}. Allowed: {cls._ALLOWED_SORT_DIRECTIONS}")
+        return f"{field} {direction}"
+
     # 注意：_get_twin_schema 方法已从 BaseDAO 继承，无需重复定义
-    
+
     def _get_next_version(self, twin_name: str, twin_id: int) -> int:
         """获取下一个版本号（版本化状态流）"""
         schema = self._get_twin_schema(twin_name)
@@ -296,16 +312,17 @@ class TwinStateDAO(BaseDAO):
             # 构建 ORDER BY 子句
             order_clause = ""
             if order_by:
-                order_clause = f"ORDER BY {order_by}"
+                safe_order = self._validate_order_by(order_by)
+                order_clause = f"ORDER BY {safe_order}"
             elif schema.mode == "versioned":
                 order_clause = "ORDER BY version DESC"
             else:  # time_series
                 order_clause = "ORDER BY time_key DESC"
-            
+
             # 构建 LIMIT 子句
             limit_clause = ""
             if limit:
-                limit_clause = f"LIMIT {limit}"
+                limit_clause = f"LIMIT {int(limit)}"
             
             # 执行查询
             query = f"""
