@@ -67,7 +67,26 @@ class TwinService:
             # 未来可以扩展其他类型，如 uuid、increment 等
         
         return result
-    
+
+    def _enrich_entity_fields(
+        self,
+        result: Dict[str, Any],
+        current: Dict[str, Any],
+        entity_name: str,
+        entity_id: int,
+    ) -> None:
+        """
+        查询关联实体的最新状态，将所有非空字段以 {entity_name}_{field} 为键
+        写入 result 和 current，与 query_latest_states_with_enrich 的 SQL 路径保持一致。
+        """
+        entity_state = self.state_dao.get_latest(entity_name, entity_id)
+        if entity_state and entity_state.data:
+            for field_name, field_value in entity_state.data.items():
+                if field_value is not None:
+                    enrich_key = f"{entity_name}_{field_name}"
+                    result[enrich_key] = field_value
+                    current[enrich_key] = field_value
+
     def list_twins(
         self, 
         twin_name: str, 
@@ -169,35 +188,19 @@ class TwinService:
                 for key, value in activity.related_entity_ids.items():
                     result[key] = value
                 
-                # 若请求了 enrich，则根据 related_entities 查询关联实体的最新状态并填充名称等
+                # 若请求了 enrich，查询各关联实体的最新状态并填充所有字段
                 if enrich:
                     schema = self.schema_loader.get_twin_schema(twin_name)
                     if schema and schema.get("related_entities"):
-                        entities_to_enrich = [e.strip() for e in enrich.split(",") if e.strip()]
+                        entities_to_enrich = {e.strip() for e in enrich.split(",") if e.strip()}
                         for rel_entity in schema.get("related_entities", []):
                             entity_name = rel_entity.get("entity")
                             if entity_name not in entities_to_enrich:
                                 continue
-                            key = rel_entity.get("key")  # e.g. person_id, company_id
-                            entity_id = activity.related_entity_ids.get(key)
+                            entity_id = activity.related_entity_ids.get(rel_entity.get("key"))
                             if entity_id is None:
                                 continue
-                            entity_state = self.state_dao.get_latest(entity_name, entity_id)
-                            if entity_state and entity_state.data:
-                                prefix = entity_name
-                                for field_name, field_value in entity_state.data.items():
-                                    if field_name in ("name", "label", "title"):
-                                        enrich_key = f"{prefix}_{field_name}"
-                                        result[enrich_key] = field_value
-                                        result["current"][enrich_key] = field_value
-                                        break
-                                else:
-                                    # 若没有 name/label/title，取第一个非 id 字段作为展示名
-                                    for field_name, field_value in entity_state.data.items():
-                                        if field_name != "id" and field_value is not None:
-                                            result[f"{prefix}_{field_name}"] = field_value
-                                            result["current"][f"{prefix}_{field_name}"] = field_value
-                                            break
+                            self._enrich_entity_fields(result, result["current"], entity_name, entity_id)
         
         return result
     
