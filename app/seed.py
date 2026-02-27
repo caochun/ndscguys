@@ -61,11 +61,132 @@ def generate_test_data(db_path: Optional[str] = None):
         "change_date": "2022-08-01",
         "effective_date": "2022-08-01",
     })
-    print(f"  聘用: 戴森 2022-08-01 入职 江苏尚诚能源科技有限公司，月薪 10000 元")
+    state_dao.append("person_company_employment", employment_id, {
+        "person_id": person_id,
+        "company_id": company_id,
+        "position": "高级工程师",
+        "department": "技术部",
+        "employee_number": "SC001",
+        "employee_type": "正式",
+        "position_category": "普通员工",
+        "job_level": "高级",
+        "salary_type": "月薪",
+        "salary": 14000.0,
+        "change_type": "转岗",
+        "change_date": "2023-03-01",
+        "effective_date": "2023-03-01",
+    })
+    state_dao.append("person_company_employment", employment_id, {
+        "person_id": person_id,
+        "company_id": company_id,
+        "position": "高级工程师",
+        "department": "研发中心",
+        "employee_number": "SC001",
+        "employee_type": "正式",
+        "position_category": "普通员工",
+        "job_level": "高级",
+        "salary_type": "月薪",
+        "salary": 14000.0,
+        "change_type": "调部门",
+        "change_date": "2024-01-15",
+        "effective_date": "2024-01-15",
+    })
+    state_dao.append("person_company_employment", employment_id, {
+        "person_id": person_id,
+        "company_id": company_id,
+        "position": "高级工程师",
+        "department": "研发中心",
+        "employee_number": "SC001",
+        "employee_type": "正式",
+        "position_category": "普通员工",
+        "job_level": "高级",
+        "salary_type": "月薪",
+        "salary": 14000.0,
+        "change_type": "离职",
+        "change_date": "2024-09-30",
+        "effective_date": "2024-09-30",
+    })
+    print("  聘用: 戴森 2022-08-01 入职 江苏尚诚能源科技有限公司，月薪 10000 元")
+    print("        2023-03-01 转岗→高级工程师 月薪14000，"
+          "2024-01-15 调部门→研发中心，2024-09-30 离职")
+
+    # 3a. 前一家公司：南京创新科技有限公司（2020—2021）
+    company_nj_id = twin_dao.create_entity_twin("company")
+    state_dao.append("company", company_nj_id, {
+        "name": "南京创新科技有限公司",
+        "registration_number": "91320100MA12340001",
+    })
+    employment_nj_id = twin_dao.create_activity_twin(
+        "person_company_employment",
+        {"person_id": person_id, "company_id": company_nj_id},
+    )
+    state_dao.append("person_company_employment", employment_nj_id, {
+        "person_id": person_id,
+        "company_id": company_nj_id,
+        "position": "开发工程师",
+        "department": "研发部",
+        "employee_number": "NJ001",
+        "employee_type": "正式",
+        "position_category": "普通员工",
+        "job_level": "中级",
+        "salary_type": "月薪",
+        "salary": 8000.0,
+        "change_type": "入职",
+        "change_date": "2020-01-06",
+        "effective_date": "2020-01-06",
+    })
+    state_dao.append("person_company_employment", employment_nj_id, {
+        "person_id": person_id,
+        "company_id": company_nj_id,
+        "position": "开发工程师",
+        "department": "研发部",
+        "employee_number": "NJ001",
+        "employee_type": "正式",
+        "position_category": "普通员工",
+        "job_level": "中级",
+        "salary_type": "月薪",
+        "salary": 8000.0,
+        "change_type": "离职",
+        "change_date": "2021-06-30",
+        "effective_date": "2021-06-30",
+    })
+    print(
+        f"  聘用: 戴森 2020-01-06 入职 南京创新科技有限公司"
+        f" (ID: {company_nj_id})，2021-06-30 离职"
+    )
+
+    # 3b. 当前公司：上海智联咨询有限公司（2024—至今）
+    company_sh_id = twin_dao.create_entity_twin("company")
+    state_dao.append("company", company_sh_id, {
+        "name": "上海智联咨询有限公司",
+        "registration_number": "91310000MA12350002",
+    })
+    employment_sh_id = twin_dao.create_activity_twin(
+        "person_company_employment",
+        {"person_id": person_id, "company_id": company_sh_id},
+    )
+    state_dao.append("person_company_employment", employment_sh_id, {
+        "person_id": person_id,
+        "company_id": company_sh_id,
+        "position": "技术顾问",
+        "department": "咨询部",
+        "employee_number": "SH001",
+        "employee_type": "正式",
+        "position_category": "部门负责人",
+        "job_level": "高级",
+        "salary_type": "月薪",
+        "salary": 22000.0,
+        "change_type": "入职",
+        "change_date": "2024-10-08",
+        "effective_date": "2024-10-08",
+    })
+    print(f"  聘用: 戴森 2024-10-08 入职 上海智联咨询有限公司 (ID: {company_sh_id})，当前在职")
 
     # 4. 考核：2025年12月评定为 C
     print("\n创建考核记录...")
-    assessment_id = twin_dao.create_activity_twin("person_assessment", {"person_id": person_id})
+    assessment_id = twin_dao.create_activity_twin(
+        "person_assessment", {"person_id": person_id}
+    )
     state_dao.append("person_assessment", assessment_id, {
         "person_id": person_id,
         "assessment_period": "2025年12月",
@@ -73,7 +194,7 @@ def generate_test_data(db_path: Optional[str] = None):
         "grade": "C",
         "comments": "工作表现符合要求，基本完成任务。",
     })
-    print(f"  考核: 2025年12月 等级 C")
+    print("  考核: 2025年12月 等级 C")
 
     # 5. 考勤：2025年12月，出勤21.75天（满勤），事假0、病假0、奖惩0
     print("\n创建考勤记录...")
@@ -94,7 +215,7 @@ def generate_test_data(db_path: Optional[str] = None):
         },
         time_key="2025-12",
     )
-    print(f"  考勤: 2025-12 事假0 病假0 奖惩0（满勤）")
+    print("  考勤: 2025-12 事假0 病假0 奖惩0（满勤）")
 
     # 6. 社保基数：10000，生效期 2025-01-01
     print("\n创建社保基数记录...")
@@ -108,7 +229,7 @@ def generate_test_data(db_path: Optional[str] = None):
         "base_amount": 10000.0,
         "effective_date": "2025-01-01",
     })
-    print(f"  社保基数: 10000 元，生效 2025-01-01")
+    print("  社保基数: 10000 元，生效 2025-01-01")
 
     # 7. 公积金基数：10000，生效期 2025-01-01
     print("\n创建公积金基数记录...")
@@ -122,7 +243,7 @@ def generate_test_data(db_path: Optional[str] = None):
         "base_amount": 10000.0,
         "effective_date": "2025-01-01",
     })
-    print(f"  公积金基数: 10000 元，生效 2025-01-01")
+    print("  公积金基数: 10000 元，生效 2025-01-01")
 
     # 8. 专项附加扣除年度累计：2025-12、2026-01、2026-02 三期，六项均为 0
     print("\n创建专项附加扣除年度累计记录...")
@@ -146,12 +267,12 @@ def generate_test_data(db_path: Optional[str] = None):
             },
             time_key=period,
         )
-    print(f"  专项附加扣除: 2025-12、2026-01、2026-02 三期，六项累计均为 0")
+    print("  专项附加扣除: 2025-12、2026-01、2026-02 三期，六项累计均为 0")
 
     print("\n测试数据生成完成！")
     print(f"  人员: 戴森 (ID: {person_id})")
     print(f"  公司: 江苏尚诚能源科技有限公司 (ID: {company_id})")
-    print(f"  聘用/考核/考勤/社保基数/公积金基数/专项附加扣除 已创建")
+    print("  聘用/考核/考勤/社保基数/公积金基数/专项附加扣除 已创建")
 
 
 def generate_project_data(db_path: Optional[str] = None):
@@ -176,10 +297,10 @@ def generate_project_data(db_path: Optional[str] = None):
         print(f"  项目: {name} [{status}] (ID: {pid})")
         return pid
 
-    p_ai     = make_project("智慧能源AI平台", "进行中", "张伟", "技术部")
+    p_ai = make_project("智慧能源AI平台", "进行中", "张伟", "技术部")
     p_carbon = make_project("碳排放监测系统", "进行中", "李娜", "产品部")
-    p_micro  = make_project("微电网优化项目", "已完成", "王芳", "技术部")
-    p_solar  = make_project("光伏运维数字化", "筹备中", "赵强", "产品部")
+    p_micro = make_project("微电网优化项目", "已完成", "王芳", "技术部")
+    p_solar = make_project("光伏运维数字化", "筹备中", "赵强", "产品部")
 
     # ── 客户合同 ──────────────────────────────────────────────
     print("\n创建客户合同...")
@@ -195,18 +316,29 @@ def generate_project_data(db_path: Optional[str] = None):
         print(f"  合同: {cname} / {company} ¥{amount:,.0f} (ID: {cid})")
         return cid
 
-    c1 = make_contract("智慧能源平台建设合同",  "南京电网集团",    3_200_000, "专项", "执行中",  "HT-2024-001")
-    c2 = make_contract("碳排放监测系统合同",    "江苏环保科技",    1_500_000, "专项", "执行中",  "HT-2024-002")
-    c3 = make_contract("微电网优化服务合同",    "苏州工业园能源",  2_800_000, "专项", "已完成",  "HT-2023-008")
-    c4 = make_contract("光伏运维年度服务合同",  "无锡新能源",       960_000, "劳务", "已签订",  "HT-2024-003")
-    c5 = make_contract("能源咨询顾问合同",      "南京电网集团",     480_000, "专项", "已完成",  "HT-2023-012")
+    c1 = make_contract(
+        "智慧能源平台建设合同", "南京电网集团", 3_200_000, "专项", "执行中", "HT-2024-001",
+    )
+    c2 = make_contract(
+        "碳排放监测系统合同", "江苏环保科技", 1_500_000, "专项", "执行中", "HT-2024-002",
+    )
+    c3 = make_contract(
+        "微电网优化服务合同", "苏州工业园能源", 2_800_000, "专项", "已完成", "HT-2023-008",
+    )
+    c4 = make_contract(
+        "光伏运维年度服务合同", "无锡新能源", 960_000, "劳务", "已签订", "HT-2024-003",
+    )
+    c5 = make_contract(
+        "能源咨询顾问合同", "南京电网集团", 480_000, "专项", "已完成", "HT-2023-012",
+    )
 
     # ── 款项 ──────────────────────────────────────────────────
     # 字段：client_contract_id, period, amount, status,
     #       planned_payment_date, actual_payment_date, description
     print("\n创建款项...")
 
-    def make_pi(contract_id, period, amount, status, planned, actual=None, desc=""):
+    def make_pi(contract_id, period, amount, status, planned,
+                actual=None, desc=""):
         pi_id = twin_dao.create_entity_twin("payment_item")
         data = {
             "client_contract_id": contract_id,
@@ -217,8 +349,13 @@ def generate_project_data(db_path: Optional[str] = None):
         if actual:
             data["actual_payment_date"] = actual
         state_dao.append("payment_item", pi_id, data)
-        mark = "✓" if status == "已付款" else ("!" if planned < "2026-02-27" else "…")
-        print(f"  款项 {mark} {period} ¥{amount:>12,.0f}  [{status}]  合同ID={contract_id}")
+        mark = "✓" if status == "已付款" else (
+            "!" if planned < "2026-02-27" else "…"
+        )
+        print(
+            f"  款项 {mark} {period} ¥{amount:>12,.0f}"
+            f"  [{status}]  合同ID={contract_id}"
+        )
         return pi_id
 
     # 合同1 — 智慧能源平台（3 期，已收2期）
@@ -310,11 +447,11 @@ def generate_project_data(db_path: Optional[str] = None):
         print(f"  人员: {name} [{position}] 月薪 ¥{salary:,} (ID: {pid})")
         return pid
 
-    zhang_wei  = make_person_with_salary("张伟", 25_000, "项目经理", "技术部")
-    li_na      = make_person_with_salary("李娜", 20_000, "产品经理", "产品部")
-    wang_fang  = make_person_with_salary("王芳", 22_000, "技术主管", "技术部")
+    zhang_wei = make_person_with_salary("张伟", 25_000, "项目经理", "技术部")
+    li_na = make_person_with_salary("李娜", 20_000, "产品经理", "产品部")
+    wang_fang = make_person_with_salary("王芳", 22_000, "技术主管", "技术部")
     zhao_qiang = make_person_with_salary("赵强", 18_000, "技术工程师", "产品部")
-    chen_jing  = make_person_with_salary("陈静", 16_000, "开发工程师", "技术部")
+    chen_jing = make_person_with_salary("陈静", 16_000, "开发工程师", "技术部")
 
     # ── 人员 → 款项参与（person_payment_participation）────────
     # 人力成本通过 start_date/end_date × 月薪 估算
@@ -361,15 +498,15 @@ def generate_project_data(db_path: Optional[str] = None):
     participate(zhao_qiang, pi4_3, "2025-10-01", "2026-06-30")
     participate(zhao_qiang, pi4_4, "2026-07-01", "2026-12-31")
 
-    print(f"  已创建 {5} 名人员，{19} 条参与记录")
+    print("  已创建 5 名人员，19 条参与记录")
 
     print("\n项目管理测试数据生成完成！")
-    print(f"  内部项目: 4 个")
-    print(f"  客户合同: 5 个（总额 ¥8,940,000）")
-    print(f"  款项:    14 笔（已收 8 笔，待收 6 笔，其中 2 笔逾期）")
-    print(f"  项目-款项关联: 14 条")
-    print(f"  人员:     5 名（含月薪）")
-    print(f"  人员参与记录: 19 条（含 start_date/end_date，用于人力成本估算）")
+    print("  内部项目: 4 个")
+    print("  客户合同: 5 个（总额 ¥8,940,000）")
+    print("  款项:    14 笔（已收 8 笔，待收 6 笔，其中 2 笔逾期）")
+    print("  项目-款项关联: 14 条")
+    print("  人员:     5 名（含月薪）")
+    print("  人员参与记录: 19 条（含 start_date/end_date，用于人力成本估算）")
 
 
 if __name__ == "__main__":
