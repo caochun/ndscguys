@@ -159,8 +159,8 @@ def analytics():
     return render_template("analytics.html")
 
 
-@web_bp.route("/project-management")
-def project_management():
+@web_bp.route("/project")
+def project():
     """项目管理 - 统一管理合同、项目、款项"""
     payment_item_schema = build_schema_dict("payment_item", "款项")
     contract_schema = build_schema_dict("client_contract", "客户合同")
@@ -170,7 +170,7 @@ def project_management():
         "person_payment_participation", "人员-款项参与"
     )
     return render_template(
-        "project_management.html",
+        "project.html",
         payment_item_schema=payment_item_schema,
         contract_schema=contract_schema,
         project_schema=project_schema,
