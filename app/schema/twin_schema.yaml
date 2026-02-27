@@ -100,7 +100,7 @@ twins:
   internal_project:
     type: entity
     label: "内部项目"
-    description: "公司内部立项形成的项目"
+    description: "公司内部立项形成的项目，收入来自关联的客户合同款项"
     table: "internal_projects"
     state_table: "internal_project_history"
     mode: versioned
@@ -160,7 +160,7 @@ twins:
   client_contract:
     type: entity
     label: "客户合同"
-    description: "公司与客户签订的合同"
+    description: "公司与客户签订的合同，可拆分为多个款项"
     table: "client_contracts"
     state_table: "client_contract_history"
     mode: versioned
@@ -242,77 +242,70 @@ twins:
         ui:
           component: textarea
       
-  order:
+  payment_item:
     type: entity
-    label: "订单"
-    description: "客户合同逻辑拆分出的订单"
-    table: "orders"
-    state_table: "order_history"
+    label: "款项"
+    description: "客户合同的付款拆分项，代表一笔具体的合同收款"
+    table: "payment_items"
+    state_table: "payment_item_history"
     mode: versioned
-    unique_key: [order_id, version]
-    
+    unique_key: [payment_item_id, version]
+
     fields:
-      order_number:
-        type: string
+      client_contract_id:
+        type: integer
         required: true
-        label: "订单编号"
+        label: "所属合同"
+        ui:
+          component: entity_select
+          entity: client_contract
+
+      period:
+        type: string
+        required: false
+        label: "期次"
+        description: "如：第一期、Q1 等"
         ui:
           component: text_input
-      
-      order_type:
-        type: enum
-        required: true
-        label: "订单类型"
-        options: ["劳务", "专项"]
-        ui:
-          component: select
-      
+
       amount:
         type: decimal
         required: false
-        label: "订单金额"
+        label: "款项金额"
         validation:
           min: 0
         ui:
           component: number_input
           suffix: "元"
-      
+
       status:
         type: enum
         required: false
-        label: "订单状态"
-        options: ["待确认", "已确认", "执行中", "已完成", "已取消"]
+        label: "状态"
+        options: ["待付款", "已付款"]
         ui:
           component: select
-      
-      execution_start_date:
+
+      planned_payment_date:
         type: date
         required: false
-        label: "执行开始时间"
-        description: "订单开始执行的日期"
+        label: "预计付款日期"
         ui:
           component: date_picker
-      
+
+      actual_payment_date:
+        type: date
+        required: false
+        label: "实际付款日期"
+        ui:
+          component: date_picker
+
       description:
         type: string
         required: false
-        label: "订单描述"
+        label: "备注"
         ui:
           component: textarea
-      
-      expected_delivery_date:
-        type: date
-        required: false
-        label: "预期交付日期"
-        ui:
-          component: date_picker
-      
-      actual_delivery_date:
-        type: date
-        required: false
-        label: "实际交付日期"
-        ui:
-          component: date_picker
 
   # ========== Activity Twins ==========
   person_company_employment:
@@ -580,146 +573,88 @@ twins:
         ui:
           component: textarea
 
-  client_contract_order:
+  internal_project_payment:
     type: activity
-    label: "客户合同-订单关联"
-    description: "记录订单从客户合同拆分出来的关系"
-    table: "client_contract_order_activities"
-    
-    related_entities:
-      - entity: client_contract
-        role: contract
-        key: client_contract_id
-        required: true
-      - entity: order
-        role: order
-        key: order_id
-        required: true
-    
-    state_table: "client_contract_order_history"
-    mode: versioned
-    unique_key: [activity_id, version]
-    
-    fields:
-      client_contract_id:
-        type: reference
-        reference_entity: client_contract
-        required: true
-        storage: foreign_key
-      
-      order_id:
-        type: reference
-        reference_entity: order
-        required: true
-        storage: foreign_key
-      
-      split_date:
-        type: date
-        required: false
-        label: "拆分日期"
-        description: "订单从合同拆分出来的日期"
-        ui:
-          component: date_picker
-      
-      split_reason:
-        type: string
-        required: false
-        label: "拆分原因"
-        description: "订单拆分的原因说明"
-        ui:
-          component: textarea
-      
-      split_by:
-        type: string
-        required: false
-        label: "拆分人"
-        description: "执行拆分操作的人员"
-        ui:
-          component: text_input
+    label: "内部项目-款项关联"
+    description: "记录内部项目与款项的关联关系（项目收入来源）"
+    table: "internal_project_payment_activities"
 
-  internal_project_order:
-    type: activity
-    label: "内部项目-订单关联"
-    description: "记录内部项目与订单的关联关系"
-    table: "internal_project_order_activities"
-    
     related_entities:
       - entity: internal_project
         role: project
         key: internal_project_id
         required: true
-      - entity: order
-        role: order
-        key: order_id
+      - entity: payment_item
+        role: payment
+        key: payment_item_id
         required: true
-    
-    state_table: "internal_project_order_history"
+
+    state_table: "internal_project_payment_history"
     mode: versioned
     unique_key: [activity_id, version]
-    
+
     fields:
       internal_project_id:
         type: reference
         reference_entity: internal_project
         required: true
         storage: foreign_key
-      
-      order_id:
+
+      payment_item_id:
         type: reference
-        reference_entity: order
+        reference_entity: payment_item
         required: true
         storage: foreign_key
-      
+
       association_date:
         type: date
         required: false
         label: "关联日期"
-        description: "内部项目与订单关联的日期"
+        description: "内部项目与款项关联的日期"
         auto: date
         ui:
           component: date_picker
-      
-      association_reason:
+
+      notes:
         type: string
         required: false
-        label: "关联原因"
-        description: "内部项目与订单关联的原因说明"
+        label: "备注"
         ui:
           component: textarea
 
-  person_order_participation:
+  person_payment_participation:
     type: activity
-    label: "人员-订单参与活动"
-    description: "记录人员参与订单的情况，包括参与类型、劳务订单的打卡方式和入项进度"
-    table: "person_order_participation_activities"
-    
+    label: "人员-款项参与活动"
+    description: "记录人员参与款项的情况，包括参与类型、打卡方式和入项进度"
+    table: "person_payment_participation_activities"
+
     related_entities:
       - entity: person
         role: participant
         key: person_id
         required: true
-      - entity: order
-        role: order
-        key: order_id
+      - entity: payment_item
+        role: payment
+        key: payment_item_id
         required: true
-    
-    state_table: "person_order_participation_history"
+
+    state_table: "person_payment_participation_history"
     mode: versioned
     unique_key: [activity_id, version]
-    
+
     fields:
       person_id:
         type: reference
         reference_entity: person
         required: true
         storage: foreign_key
-      
-      order_id:
+
+      payment_item_id:
         type: reference
-        reference_entity: order
+        reference_entity: payment_item
         required: true
         storage: foreign_key
-      
+
       participation_type:
         type: enum
         required: true
@@ -727,37 +662,33 @@ twins:
         options: ["实际参加", "名义参加"]
         ui:
           component: select
-      
+
       start_date:
         type: date
         required: false
         label: "开始时间"
-        description: "劳务订单的开始时间（仅劳务订单需要）"
         ui:
           component: date_picker
-      
+
       end_date:
         type: date
         required: false
         label: "结束时间"
-        description: "劳务订单的结束时间（仅劳务订单需要）"
         ui:
           component: date_picker
-      
+
       attendance_method:
         type: enum
         required: false
         label: "打卡方式"
-        description: "劳务订单的打卡方式（仅劳务订单需要）"
         options: ["现场打卡", "线上打卡"]
         ui:
           component: select
-      
+
       entry_progress:
         type: enum
         required: false
         label: "入项进度"
-        description: "劳务订单的入项进度（仅劳务订单需要）"
         options: ["材料准备中", "已提交", "面试中"]
         ui:
           component: select
