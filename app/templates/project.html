@@ -148,7 +148,7 @@
             </button>
         </div>
         <div id="ppp-add-btn" class="mb-3">
-            <button onclick="openPPPEditModal(null)"
+            <button onclick="openPPPBulkModal()"
                 class="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded transition-colors">
                 + 添加参与人员
             </button>
@@ -219,6 +219,96 @@
                 <button type="submit" class="px-4 py-2 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700">保存</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- ===== 模态框：批量添加参与人员 ===== -->
+<div id="ppp-bulk-modal" class="hidden fixed inset-0 z-[60] overflow-y-auto" style="background-color: rgba(0,0,0,0.5);">
+    <div class="relative top-6 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center mb-3">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">批量添加参与人员</h3>
+                <p id="ppp-bulk-subtitle" class="text-xs text-gray-500 mt-0.5"></p>
+            </div>
+            <button onclick="document.getElementById('ppp-bulk-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- 筛选区 -->
+        <div class="flex gap-2 mb-3">
+            <select id="bulk-filter-company" onchange="onBulkFilterChange()"
+                class="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-purple-500">
+                <option value="">全部公司</option>
+            </select>
+            <select id="bulk-filter-dept" onchange="onBulkFilterChange()"
+                class="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-purple-500">
+                <option value="">全部部门</option>
+            </select>
+            <button onclick="clearBulkFilters()"
+                class="px-2 py-1.5 text-xs text-gray-500 border border-gray-300 rounded hover:bg-gray-50">清除</button>
+        </div>
+
+        <!-- 全选行 -->
+        <div class="flex items-center justify-between px-2 py-1.5 bg-gray-50 border border-gray-200 rounded mb-1">
+            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700 select-none">
+                <input type="checkbox" id="bulk-select-all" onchange="toggleBulkSelectAll(this.checked)"
+                    class="rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                全选
+            </label>
+            <span class="text-xs text-gray-500">已选 <span id="bulk-selected-count" class="font-medium text-purple-600">0</span> 人</span>
+        </div>
+
+        <!-- 人员列表 -->
+        <div id="bulk-person-list" class="max-h-[260px] overflow-y-auto border border-gray-200 rounded mb-4">
+            <p class="text-sm text-gray-400 text-center py-6">加载中...</p>
+        </div>
+
+        <!-- 公共参数 -->
+        <div class="border-t border-gray-100 pt-3 space-y-2">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">参与类型 <span class="text-red-500">*</span></label>
+                    <select id="bulk-participation-type"
+                        class="block w-full px-2 py-1.5 border-2 border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                        <option value="">请选择</option>
+                        <option value="实际参加">实际参加</option>
+                        <option value="名义参加">名义参加</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">入项进度</label>
+                    <select id="bulk-entry-progress"
+                        class="block w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-purple-500">
+                        <option value="">—</option>
+                        <option value="材料准备中">材料准备中</option>
+                        <option value="已提交">已提交</option>
+                        <option value="面试中">面试中</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">开始日期</label>
+                    <input type="date" id="bulk-start-date"
+                        class="block w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-purple-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">结束日期</label>
+                    <input type="date" id="bulk-end-date"
+                        class="block w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-purple-500">
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 flex justify-end gap-3">
+            <button type="button" onclick="document.getElementById('ppp-bulk-modal').classList.add('hidden')"
+                class="px-4 py-2 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">取消</button>
+            <button type="button" onclick="submitBulkPPP()"
+                class="px-4 py-2 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700">批量添加</button>
+        </div>
     </div>
 </div>
 
@@ -701,6 +791,9 @@ let currentPPPPaymentItemId = null; // 当前款项 ID（payment_item 模式下�
 let pppMode = 'payment_item';       // 'payment_item' | 'project' | 'contract'
 let pppPaymentItemIds = [];         // 当前模态框涉及的所有款项 ID
 let allPersons = [];
+let allEmployments = [];            // person_company_employment (enrich) 缓存
+let bulkModalPiId = null;           // 批量模态框当前款项 ID
+let bulkExistingPersonIds = new Set(); // 当前款项已有参与人员 ID
 
 async function loadPersons() {
     try {
@@ -708,6 +801,201 @@ async function loadPersons() {
         const { success, data } = await res.json();
         allPersons = success ? data : [];
     } catch { allPersons = []; }
+}
+
+async function loadEmployments() {
+    if (allEmployments.length) return;
+    try {
+        const res = await fetch('/api/twins/person_company_employment?enrich=person,company');
+        const { success, data } = await res.json();
+        allEmployments = success ? data : [];
+    } catch { allEmployments = []; }
+}
+
+// ===== 批量添加参与人员 =====
+
+async function openPPPBulkModal() {
+    bulkModalPiId = currentPPPPaymentItemId;
+    const pi = allPaymentItems.find(p => p.id == bulkModalPiId);
+    const cName = pi ? contractName(pi.client_contract_id) : '';
+    const amount = pi && pi.amount ? '¥' + parseFloat(pi.amount).toLocaleString() : '';
+    const piLabel = [pi?.period, amount, cName].filter(Boolean).join(' · ');
+    document.getElementById('ppp-bulk-subtitle').textContent = piLabel || `款项 #${bulkModalPiId}`;
+
+    // 重置表单
+    document.getElementById('bulk-participation-type').value = '';
+    document.getElementById('bulk-entry-progress').value = '';
+    document.getElementById('bulk-start-date').value = '';
+    document.getElementById('bulk-end-date').value = '';
+    document.getElementById('bulk-select-all').checked = false;
+    document.getElementById('bulk-person-list').innerHTML = '<p class="text-sm text-gray-400 text-center py-6">加载中...</p>';
+    document.getElementById('ppp-bulk-modal').classList.remove('hidden');
+
+    // 并行加载
+    await Promise.all([loadPersons(), loadEmployments()]);
+
+    // 已有参与人员
+    try {
+        const res = await fetch(`/api/twins/person_payment_participation?payment_item_id=${bulkModalPiId}`);
+        const { success, data } = await res.json();
+        bulkExistingPersonIds = new Set(success ? data.map(d => d.person_id) : []);
+    } catch { bulkExistingPersonIds = new Set(); }
+
+    // 填充筛选下拉
+    populateBulkFilters();
+    renderBulkPersonList();
+}
+
+function populateBulkFilters() {
+    // 公司
+    const companySelect = document.getElementById('bulk-filter-company');
+    companySelect.innerHTML = '<option value="">全部公司</option>';
+    const companies = new Map();
+    allEmployments.forEach(e => {
+        if (e.company_id && !companies.has(e.company_id)) {
+            companies.set(e.company_id, e.company_name || `公司 ${e.company_id}`);
+        }
+    });
+    companies.forEach((name, id) => {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = name;
+        companySelect.appendChild(opt);
+    });
+
+    // 部门
+    const deptSelect = document.getElementById('bulk-filter-dept');
+    deptSelect.innerHTML = '<option value="">全部部门</option>';
+    const depts = new Set(allEmployments.map(e => e.department).filter(Boolean));
+    depts.forEach(dept => {
+        const opt = document.createElement('option');
+        opt.value = dept;
+        opt.textContent = dept;
+        deptSelect.appendChild(opt);
+    });
+}
+
+function renderBulkPersonList() {
+    const companyId = document.getElementById('bulk-filter-company').value;
+    const dept = document.getElementById('bulk-filter-dept').value;
+    const container = document.getElementById('bulk-person-list');
+
+    // 筛选出符合条件的 person_id 集合
+    let eligiblePersonIds = null;
+    if (companyId || dept) {
+        eligiblePersonIds = new Set(
+            allEmployments
+                .filter(e => (!companyId || String(e.company_id) === String(companyId))
+                          && (!dept || e.department === dept))
+                .map(e => e.person_id)
+        );
+    }
+
+    const persons = eligiblePersonIds
+        ? allPersons.filter(p => eligiblePersonIds.has(p.id))
+        : allPersons;
+
+    if (!persons.length) {
+        container.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">暂无符合条件的人员</p>';
+        document.getElementById('bulk-selected-count').textContent = '0';
+        document.getElementById('bulk-select-all').checked = false;
+        return;
+    }
+
+    // 构建每人的公司/部门信息（取最近一条 employment）
+    const personEmpMap = new Map();
+    allEmployments.forEach(e => {
+        if (!personEmpMap.has(e.person_id)) {
+            personEmpMap.set(e.person_id, []);
+        }
+        personEmpMap.get(e.person_id).push(e);
+    });
+
+    container.innerHTML = persons.map(p => {
+        const emps = personEmpMap.get(p.id) || [];
+        const companyNames = [...new Set(emps.map(e => e.company_name).filter(Boolean))].join('、') || '—';
+        const deptNames = [...new Set(emps.map(e => e.department).filter(Boolean))].join('、') || '—';
+        const isExisting = bulkExistingPersonIds.has(p.id);
+        const rowClass = isExisting ? 'bg-gray-50 text-gray-400' : 'hover:bg-purple-50';
+        return `<label class="flex items-center gap-3 px-3 py-2 border-b border-gray-100 cursor-pointer ${rowClass} ${isExisting ? 'cursor-not-allowed' : ''}">
+            <input type="checkbox" class="bulk-person-cb rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                value="${p.id}" ${isExisting ? 'disabled' : ''} onchange="updateBulkSelectedCount()">
+            <span class="flex-1 min-w-0">
+                <span class="text-sm font-medium ${isExisting ? 'text-gray-400' : 'text-gray-800'}">${p.name || `ID:${p.id}`}</span>
+                ${isExisting ? '<span class="ml-2 text-xs text-gray-400 bg-gray-100 px-1 rounded">已添加</span>' : ''}
+            </span>
+            <span class="text-xs text-gray-400 truncate max-w-[120px]" title="${companyNames}">${companyNames}</span>
+            <span class="text-xs text-gray-400 truncate max-w-[80px]" title="${deptNames}">${deptNames}</span>
+        </label>`;
+    }).join('');
+
+    updateBulkSelectedCount();
+}
+
+function onBulkFilterChange() {
+    document.getElementById('bulk-select-all').checked = false;
+    renderBulkPersonList();
+}
+
+function clearBulkFilters() {
+    document.getElementById('bulk-filter-company').value = '';
+    document.getElementById('bulk-filter-dept').value = '';
+    document.getElementById('bulk-select-all').checked = false;
+    renderBulkPersonList();
+}
+
+function toggleBulkSelectAll(checked) {
+    document.querySelectorAll('.bulk-person-cb:not(:disabled)').forEach(cb => {
+        cb.checked = checked;
+    });
+    updateBulkSelectedCount();
+}
+
+function updateBulkSelectedCount() {
+    const count = document.querySelectorAll('.bulk-person-cb:checked').length;
+    document.getElementById('bulk-selected-count').textContent = count;
+    const total = document.querySelectorAll('.bulk-person-cb:not(:disabled)').length;
+    document.getElementById('bulk-select-all').checked = total > 0 && count === total;
+    document.getElementById('bulk-select-all').indeterminate = count > 0 && count < total;
+}
+
+async function submitBulkPPP() {
+    const selectedPersonIds = [...document.querySelectorAll('.bulk-person-cb:checked')].map(cb => parseInt(cb.value));
+    if (!selectedPersonIds.length) { alert('请至少选择一名人员'); return; }
+
+    const participationType = document.getElementById('bulk-participation-type').value;
+    if (!participationType) { alert('请选择参与类型'); return; }
+
+    const startDate     = document.getElementById('bulk-start-date').value;
+    const endDate       = document.getElementById('bulk-end-date').value;
+    const entryProgress = document.getElementById('bulk-entry-progress').value;
+
+    const results = await Promise.all(selectedPersonIds.map(personId => {
+        const payload = {
+            person_id: personId,
+            payment_item_id: bulkModalPiId,
+            participation_type: participationType,
+        };
+        if (startDate)     payload.start_date     = startDate;
+        if (endDate)       payload.end_date        = endDate;
+        if (entryProgress) payload.entry_progress  = entryProgress;
+        return fetch('/api/twins/person_payment_participation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        }).then(r => r.json()).catch(() => ({ success: false, error: '网络错误' }));
+    }));
+
+    const ok = results.filter(r => r.success).length;
+    const fail = results.length - ok;
+    const msg = fail > 0 ? `成功添加 ${ok} 人，${fail} 人失败` : `成功添加 ${ok} 人`;
+    alert(msg);
+
+    document.getElementById('ppp-bulk-modal').classList.add('hidden');
+    // 刷新已有参与人员列表
+    bulkExistingPersonIds = new Set();
+    allEmployments = []; // 重置缓存，触发下次重新加载
+    await refreshPPPList();
 }
 
 // --- 按款项查看参与人员 ---
