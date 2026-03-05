@@ -152,13 +152,11 @@
                     </button>
                 </div>
                 
-                <form id="split-order-form" class="space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
-                        <div class="md:col-span-1">
-                            <label for="split-contract-id" class="block text-sm font-medium text-gray-700 pt-2 text-right">客户合同 <span class="text-red-500">*</span></label>
+                <form id="split-order-form" class="grid grid-cols-2 gap-3">
+                    <div>
+                                                    <label for="split-contract-id" class="block text-xs font-medium text-gray-700 mb-1">客户合同 <span class="text-red-500">*</span></label>
                         </div>
-                        <div class="md:col-span-2">
-                            <select id="split-contract-id" name="client_contract_id" required class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                                    <select id="split-contract-id" name="client_contract_id" required class="block w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
                                 <option value="">请选择合同</option>
                             </select>
                         </div>
@@ -168,12 +166,10 @@
                         <!-- 动态生成订单表单字段 -->
                     </div>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
-                        <div class="md:col-span-1">
-                            <label for="split-reason" class="block text-sm font-medium text-gray-700 pt-2 text-right">拆分原因</label>
+                    <div>
+                                                    <label for="split-reason" class="block text-xs font-medium text-gray-700 mb-1">拆分原因</label>
                         </div>
-                        <div class="md:col-span-2">
-                            <textarea id="split-reason" name="split_reason" rows="3" class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="请输入拆分原因"></textarea>
+                                                    <textarea id="split-reason" name="split_reason" rows="3" class="block w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500" placeholder="请输入拆分原因"></textarea>
                         </div>
                     </div>
                     
@@ -203,27 +199,23 @@
                     </button>
                 </div>
                 
-                <form id="associate-person-form" class="space-y-4">
+                <form id="associate-person-form" class="grid grid-cols-2 gap-3">
                     <input type="hidden" id="associate-person-order-id" name="order_id">
                     <input type="hidden" id="associate-person-activity-id" name="activity_id">
                     
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
-                        <div class="md:col-span-1">
-                            <label for="associate-person-person-id" class="block text-sm font-medium text-gray-700 pt-2 text-right">人员 <span class="text-red-500">*</span></label>
+                    <div>
+                                                    <label for="associate-person-person-id" class="block text-xs font-medium text-gray-700 mb-1">人员 <span class="text-red-500">*</span></label>
                         </div>
-                        <div class="md:col-span-2">
-                            <select id="associate-person-person-id" name="person_id" required class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                                    <select id="associate-person-person-id" name="person_id" required class="block w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
                                 <option value="">请选择人员</option>
                             </select>
                         </div>
                     </div>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
-                        <div class="md:col-span-1">
-                            <label for="associate-person-participation-type" class="block text-sm font-medium text-gray-700 pt-2 text-right">参与类型 <span class="text-red-500">*</span></label>
+                    <div>
+                                                    <label for="associate-person-participation-type" class="block text-xs font-medium text-gray-700 mb-1">参与类型 <span class="text-red-500">*</span></label>
                         </div>
-                        <div class="md:col-span-2">
-                            <select id="associate-person-participation-type" name="participation_type" required class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                                    <select id="associate-person-participation-type" name="participation_type" required class="block w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
                                 <option value="">请选择</option>
                                 <option value="实际参加">实际参加</option>
                                 <option value="名义参加">名义参加</option>
@@ -232,31 +224,25 @@
                     </div>
                     
                     <!-- 劳务订单相关字段（根据订单类型和参与类型动态显示） -->
-                    <div id="labor-order-fields" class="hidden space-y-4">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
-                            <div class="md:col-span-1">
-                                <label for="associate-person-start-date" class="block text-sm font-medium text-gray-700 pt-2 text-right">开始时间</label>
+                    <div id="labor-order-fields" class="hidden contents">
+                        <div>
+                                                            <label for="associate-person-start-date" class="block text-xs font-medium text-gray-700 mb-1">开始时间</label>
                             </div>
-                            <div class="md:col-span-2">
-                                <input type="date" id="associate-person-start-date" name="start_date" class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                                            <input type="date" id="associate-person-start-date" name="start_date" class="block w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
                             </div>
                         </div>
                         
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
-                            <div class="md:col-span-1">
-                                <label for="associate-person-end-date" class="block text-sm font-medium text-gray-700 pt-2 text-right">结束时间</label>
+                        <div>
+                                                            <label for="associate-person-end-date" class="block text-xs font-medium text-gray-700 mb-1">结束时间</label>
                             </div>
-                            <div class="md:col-span-2">
-                                <input type="date" id="associate-person-end-date" name="end_date" class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                                            <input type="date" id="associate-person-end-date" name="end_date" class="block w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
                             </div>
                         </div>
                         
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
-                            <div class="md:col-span-1">
-                                <label for="associate-person-attendance-method" class="block text-sm font-medium text-gray-700 pt-2 text-right">打卡方式</label>
+                        <div>
+                                                            <label for="associate-person-attendance-method" class="block text-xs font-medium text-gray-700 mb-1">打卡方式</label>
                             </div>
-                            <div class="md:col-span-2">
-                                <select id="associate-person-attendance-method" name="attendance_method" class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                                            <select id="associate-person-attendance-method" name="attendance_method" class="block w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
                                     <option value="">请选择</option>
                                     <option value="现场打卡">现场打卡</option>
                                     <option value="线上打卡">线上打卡</option>
@@ -264,12 +250,10 @@
                             </div>
                         </div>
                         
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
-                            <div class="md:col-span-1">
-                                <label for="associate-person-entry-progress" class="block text-sm font-medium text-gray-700 pt-2 text-right">入项进度</label>
+                        <div>
+                                                            <label for="associate-person-entry-progress" class="block text-xs font-medium text-gray-700 mb-1">入项进度</label>
                             </div>
-                            <div class="md:col-span-2">
-                                <select id="associate-person-entry-progress" name="entry_progress" class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                                            <select id="associate-person-entry-progress" name="entry_progress" class="block w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
                                     <option value="">请选择</option>
                                     <option value="材料准备中">材料准备中</option>
                                     <option value="已提交">已提交</option>
@@ -305,26 +289,22 @@
                     </button>
                 </div>
                 
-                <form id="associate-project-form" class="space-y-4">
+                <form id="associate-project-form" class="grid grid-cols-2 gap-3">
                     <input type="hidden" id="associate-order-id" name="order_id">
                     
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
-                        <div class="md:col-span-1">
-                            <label for="associate-project-id" class="block text-sm font-medium text-gray-700 pt-2 text-right">内部项目 <span class="text-red-500">*</span></label>
+                    <div>
+                                                    <label for="associate-project-id" class="block text-xs font-medium text-gray-700 mb-1">内部项目 <span class="text-red-500">*</span></label>
                         </div>
-                        <div class="md:col-span-2">
-                            <select id="associate-project-id" name="internal_project_id" required class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                                    <select id="associate-project-id" name="internal_project_id" required class="block w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
                                 <option value="">请选择项目</option>
                             </select>
                         </div>
                     </div>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">
-                        <div class="md:col-span-1">
-                            <label for="associate-reason" class="block text-sm font-medium text-gray-700 pt-2 text-right">关联原因</label>
+                    <div>
+                                                    <label for="associate-reason" class="block text-xs font-medium text-gray-700 mb-1">关联原因</label>
                         </div>
-                        <div class="md:col-span-2">
-                            <textarea id="associate-reason" name="association_reason" rows="3" class="block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="请输入关联原因"></textarea>
+                                                    <textarea id="associate-reason" name="association_reason" rows="3" class="block w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500" placeholder="请输入关联原因"></textarea>
                         </div>
                     </div>
                     
@@ -738,13 +718,12 @@ function renderOrderFormFields(containerId, data = {}) {
         const fieldType = fieldDef.type || 'string';
         const uiComponent = fieldDef.ui?.component || 'text_input';
         
-        let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
-        fieldHtml += `<div class="md:col-span-1">
-            <label for="order-${fieldName}" class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>
+        let fieldHtml = '<div>';
+        fieldHtml += `            <label for="order-${fieldName}" class="block text-xs font-medium text-gray-700 mb-1">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>
         </div>`;
-        fieldHtml += '<div class="md:col-span-2">';
+        fieldHtml += '';
         
-        const inputBaseClasses = "block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors";
+        const inputBaseClasses = "block w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500";
         
         if (uiComponent === 'textarea') {
             fieldHtml += `<textarea id="order-${fieldName}" name="${fieldName}" rows="3" class="${inputBaseClasses}" ${required ? 'required' : ''}>${value}</textarea>`;

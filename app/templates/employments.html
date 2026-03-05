@@ -111,7 +111,7 @@
                     </button>
                 </div>
                 <form id="employment-form" class="space-y-4">
-                    <div id="employment-form-fields">
+                    <div id="employment-form-fields" class="grid grid-cols-2 gap-3">
                         <!-- 动态生成：人员、公司、职位、部门等 -->
                     </div>
                     <div class="flex justify-end gap-3 pt-4 border-t">
@@ -406,8 +406,8 @@ document.getElementById('close-modal').onclick = () => {
 function buildEmploymentFormHtml(persons, companies, initialData) {
     const fields = schema.fields || {};
     let html = '';
-    html += '<div><label class="block text-sm font-medium text-gray-700 mb-1">人员 <span class="text-red-500">*</span></label>';
-    html += '<select name="person_id" required class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:ring-indigo-500 focus:border-indigo-500">';
+    html += '<div><label class="block text-xs font-medium text-gray-700 mb-1">人员 <span class="text-red-500">*</span></label>';
+    html += '<select name="person_id" required class="block w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">';
     html += '<option value="">请选择人员</option>';
     const selPersonId = initialData && initialData.person_id != null ? String(initialData.person_id) : '';
     persons.forEach(p => {
@@ -416,8 +416,8 @@ function buildEmploymentFormHtml(persons, companies, initialData) {
         html += `<option value="${p.id}"${sel}>${name}</option>`;
     });
     html += '</select></div>';
-    html += '<div><label class="block text-sm font-medium text-gray-700 mb-1">公司 <span class="text-red-500">*</span></label>';
-    html += '<select name="company_id" required class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:ring-indigo-500 focus:border-indigo-500">';
+    html += '<div><label class="block text-xs font-medium text-gray-700 mb-1">公司 <span class="text-red-500">*</span></label>';
+    html += '<select name="company_id" required class="block w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">';
     html += '<option value="">请选择公司</option>';
     const selCompanyId = initialData && initialData.company_id != null ? String(initialData.company_id) : '';
     companies.forEach(c => {
@@ -435,25 +435,25 @@ function buildEmploymentFormHtml(persons, companies, initialData) {
         if (!fd) continue;
         const label = fd.label || key;
         const required = fd.required ? ' <span class="text-red-500">*</span>' : '';
-        const baseClass = 'block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:ring-indigo-500 focus:border-indigo-500';
+        const baseClass = 'block w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500';
         const val = initialData && key in initialData ? initialData[key] : '';
         const esc = (v) => (v == null ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'));
         if (fd.type === 'enum' && fd.options) {
-            html += `<div><label class="block text-sm font-medium text-gray-700 mb-1">${label}${required}</label>`;
+            html += `<div><label class="block text-xs font-medium text-gray-700 mb-1">${label}${required}</label>`;
             html += `<select name="${key}" ${fd.required ? 'required' : ''} class="${baseClass}">`;
             html += '<option value="">请选择</option>';
             fd.options.forEach(opt => { html += `<option value="${opt}"${val === opt ? ' selected' : ''}>${opt}</option>`; });
             html += '</select></div>';
         } else if (fd.type === 'date') {
-            html += `<div><label class="block text-sm font-medium text-gray-700 mb-1">${label}${required}</label>`;
+            html += `<div><label class="block text-xs font-medium text-gray-700 mb-1">${label}${required}</label>`;
             html += `<input type="date" name="${key}" ${fd.required ? 'required' : ''} value="${esc(val)}" class="${baseClass}">`;
             html += '</div>';
         } else if (fd.type === 'decimal' || fd.type === 'number') {
-            html += `<div><label class="block text-sm font-medium text-gray-700 mb-1">${label}${required}</label>`;
+            html += `<div><label class="block text-xs font-medium text-gray-700 mb-1">${label}${required}</label>`;
             html += `<input type="number" step="any" name="${key}" ${fd.required ? 'required' : ''} value="${esc(val)}" class="${baseClass}" placeholder="${fd.suffix || ''}">`;
             html += '</div>';
         } else {
-            html += `<div><label class="block text-sm font-medium text-gray-700 mb-1">${label}${required}</label>`;
+            html += `<div><label class="block text-xs font-medium text-gray-700 mb-1">${label}${required}</label>`;
             html += `<input type="text" name="${key}" ${fd.required ? 'required' : ''} value="${esc(val)}" class="${baseClass}">`;
             html += '</div>';
         }

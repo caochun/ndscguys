@@ -105,7 +105,7 @@
                 </div>
                 
                 <form id="person-form" class="space-y-4">
-                    <div id="form-fields">
+                    <div id="form-fields" class="grid grid-cols-2 gap-3">
                         <!-- 动态生成表单字段 -->
 </div>
 
@@ -357,32 +357,26 @@ function renderFormFields(data = {}) {
         const uiComponent = fieldDef.ui?.component || 'text_input';
         
         // 两栏布局：标签在左，输入框在右
-        let fieldHtml = '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start py-2">';
-        
-        // 左侧：标签（右对齐）
-        fieldHtml += `<div class="md:col-span-1">
-            <label for="${fieldName}" class="block text-sm font-medium text-gray-700 pt-2 text-right">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>`;
-        
-        // 添加验证提示（在标签下方，右对齐）
+        const isFullWidth = uiComponent === 'textarea';
+        let fieldHtml = `<div${isFullWidth ? ' class="col-span-2"' : ''}>`;
+
+        fieldHtml += `
+            <label for="${fieldName}" class="block text-xs font-medium text-gray-700 mb-1">${label}${required ? ' <span class="text-red-500">*</span>' : ''}</label>`;
+
         if (fieldDef.validation) {
             const validation = fieldDef.validation;
             if (validation.pattern) {
-                fieldHtml += `<p class="text-xs text-gray-500 mt-1 text-right">格式: ${validation.pattern}</p>`;
+                fieldHtml += `<p class="text-xs text-gray-500 mt-1">格式: ${validation.pattern}</p>`;
             }
             if (validation.min_length || validation.max_length) {
                 const min = validation.min_length || 0;
                 const max = validation.max_length || '';
-                fieldHtml += `<p class="text-xs text-gray-500 mt-1 text-right">长度: ${min}${max ? '-' + max : '+'} 字符</p>`;
+                fieldHtml += `<p class="text-xs text-gray-500 mt-1">长度: ${min}${max ? '-' + max : '+'} 字符</p>`;
             }
         }
-        fieldHtml += '</div>';
-        
-        // 右侧：输入框
-        fieldHtml += '<div class="md:col-span-2">';
-        
-        // 统一的输入框样式：白色背景、更明显的边框、内边距、阴影、hover 效果
-        const inputBaseClasses = "block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 hover:border-gray-400 transition-colors";
-        
+
+        const inputBaseClasses = "block w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500";
+
         if (uiComponent === 'textarea') {
             fieldHtml += `<textarea id="${fieldName}" name="${fieldName}" rows="3" class="${inputBaseClasses}" ${required ? 'required' : ''}>${value}</textarea>`;
         } else if (fieldType === 'enum' && fieldDef.options) {
@@ -401,15 +395,12 @@ function renderFormFields(data = {}) {
         } else if (fieldType === 'decimal' || fieldType === 'number') {
             fieldHtml += `<input type="number" id="${fieldName}" name="${fieldName}" value="${value}" step="${fieldType === 'decimal' ? '0.01' : '1'}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
         } else {
-            // 默认文本输入
             fieldHtml += `<input type="text" id="${fieldName}" name="${fieldName}" value="${value}" placeholder="请输入${label}" class="${inputBaseClasses}" ${required ? 'required' : ''}>`;
         }
-        
-        // 错误提示
-        fieldHtml += `<div id="${fieldName}-error" class="text-sm text-red-600 mt-1 hidden"></div>`;
+
+        fieldHtml += `<div id="${fieldName}-error" class="text-xs text-red-600 mt-1 hidden"></div>`;
         fieldHtml += '</div>';
-        fieldHtml += '</div>';
-        
+
         formFields.innerHTML += fieldHtml;
     }
 }
